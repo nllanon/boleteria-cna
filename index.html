@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boletería CNA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/recharts@2.10.0"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        const { useState, useEffect } = React;
+        const { createClient } = window.supabase;
+
+        // CONFIGURACIÓN - EDITAR ESTOS VALORES CON TUS CREDENCIALES DE SUPABASE
+        const SUPABASE_URL = 'https://YOUR_SUPABASE_URL.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        // Inicializar Supabase
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ====== COMPONENTES ======
+
+        function LoginPage({ onLogin }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setError(null);
+                setLoading(true);
+
+                try {
+                    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+                        email,
+                        password,
+                    });
+
+                    if (signInError) {
+                        setError(signInError.message);
+                    } else {
+                        onLogin(data.user);
+                    }
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+                    <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+                        <h1 className="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>
+                        <p className="text-center text-gray-500 text-sm mb-6">Centro Nacional de las Artes</p>
+
+                        <form onSubmit={handleLogin}>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="tu@email.com"
+                                />
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="••••••••"
+                                />
+                            </div>
+
+                            {error && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{error}</p>}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                            >
+                                {loading ? 'Iniciando sesión...' : 'Ingresar'}
+                            </button>
+                        </form>
+
+                        <p className="text-xs text-gray-500 mt-6 text-center">
+                            Para pruebas: test@test.com / test123456
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        function DashboardPage({ user, onLogout }) {
+            const [obras, setObras] = useState([]);
+            const [funciones, setFunciones] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [activePage, setActivePage] = useState('dashboard');
+            const [ventaForm, setVentaForm] = useState({ funcion_id: '', boletas: 0 });
+
+            useEffect(() => {
+                cargarDatos();
+            }, []);
+
+            const cargarDatos = async () => {
+                try {
+                    const { data: obrasData } = await supabase
+                        .from('obras')
+                        .select('*, salas(nombre)');
+
+                    const { data: funcionesData } = await supabase
+                        .from('funciones')
+                        .select('*, obras(nombre)');
+
+                    setObras(obrasData || []);
+                    setFunciones(funcionesData || []);
+                } catch (err) {
+                    console.error('Error cargando datos:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleRegistrarVenta = async (e) => {
+                e.preventDefault();
+                try {
+                    await supabase.from('ventas_diarias').insert({
+                        funcion_id: ventaForm.funcion_id,
+                        boletas_vendidas: parseInt(ventaForm.boletas),
+                        fecha_registro: new Date().toISOString().split('T')[0],
+                    });
+                    setVentaForm({ funcion_id: '', boletas: 0 });
+                    cargarDatos();
+                } catch (err) {
+                    console.error('Error:', err);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="bg-white shadow">
+                        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                            <h1 className="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-gray-600">{user?.email}</span>
+                                <button
+                                    onClick={onLogout}
+                                    className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition"
+                                >
+                                    Salir
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Navegación */}
+                    <div className="bg-white border-b">
+                        <div className="max-w-7xl mx-auto px-4 flex gap-4 py-4">
+                            <button
+                                onClick={() => setActivePage('dashboard')}
+                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                📊 Dashboard
+                            </button>
+                            <button
+                                onClick={() => setActivePage('ventas')}
+                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'ventas' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                💰 Registrar Venta
+                            </button>
+                            <button
+                                onClick={() => setActivePage('funciones')}
+                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'funciones' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                📅 Funciones
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Contenido */}
+                    <main className="max-w-7xl mx-auto px-4 py-8">
+                        {loading ? (
+                            <p className="text-center text-gray-500">Cargando...</p>
+                        ) : activePage === 'dashboard' ? (
+                            <div>
+                                <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {obras.map((obra) => (
+                                        <div key={obra.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition">
+                                            <h3 className="font-bold text-lg text-gray-800">{obra.nombre}</h3>
+                                            <p className="text-sm text-gray-600 mt-1">{obra.artista}</p>
+                                            <p className="text-xs text-gray-500 mt-2">📍 {obra.salas?.nombre}</p>
+                                            <p className="text-xs text-gray-500">👥 Aforo: {obra.aforo}</p>
+                                            <div className="mt-4 pt-4 border-t">
+                                                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
+                                                    Estado: {obra.estado}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : activePage === 'ventas' ? (
+                            <div>
+                                <h2 className="text-2xl font-bold mb-6">Registrar Venta</h2>
+                                <form onSubmit={handleRegistrarVenta} className="bg-white p-6 rounded-lg shadow-md max-w-md">
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Función</label>
+                                        <select
+                                            value={ventaForm.funcion_id}
+                                            onChange={(e) => setVentaForm({ ...ventaForm, funcion_id: e.target.value })}
+                                            required
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">Seleccionar función...</option>
+                                            {funciones.map((f) => (
+                                                <option key={f.id} value={f.id}>
+                                                    {f.obras?.nombre} - {f.fecha}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Boletas Vendidas</label>
+                                        <input
+                                            type="number"
+                                            value={ventaForm.boletas}
+                                            onChange={(e) => setVentaForm({ ...ventaForm, boletas: e.target.value })}
+                                            required
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition"
+                                    >
+                                        Registrar Venta
+                                    </button>
+                                </form>
+                            </div>
+                        ) : (
+                            <div>
+                                <h2 className="text-2xl font-bold mb-6">Funciones Programadas</h2>
+                                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-100 border-b">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Obra</th>
+                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Fecha</th>
+                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Hora</th>
+                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {funciones.map((f) => (
+                                                <tr key={f.id} className="border-b hover:bg-gray-50">
+                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.obras?.nombre}</td>
+                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.fecha}</td>
+                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.hora}</td>
+                                                    <td className="px-6 py-3 text-sm">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${f.estado === 'programada' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                                            {f.estado}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    setUser(session?.user || null);
+                    setLoading(false);
+                });
+
+                const { data: { subscription } } = supabase.auth.onAuthStateChange(
+                    (event, session) => {
+                        setUser(session?.user || null);
+                    }
+                );
+
+                return () => subscription?.unsubscribe();
+            }, []);
+
+            if (loading) {
+                return <div className="flex items-center justify-center h-screen"><p>Cargando...</p></div>;
+            }
+
+            if (!user) {
+                return <LoginPage onLogin={setUser} />;
+            }
+
+            return <DashboardPage user={user} onLogout={() => supabase.auth.signOut()} />;
+        }
+
+        // Renderizar
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
