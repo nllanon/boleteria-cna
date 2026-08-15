@@ -5,324 +5,435 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Boletería CNA</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="https://unpkg.com/recharts@2.10.0"></script>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="app"></div>
 
     <script>
-        const { useState, useEffect } = React;
-        const { createClient } = window.supabase;
+        // ====== ESTADO GLOBAL ======
+        let appState = {
+            user: null,
+            obras: [],
+            funciones: [],
+            ventas: [],
+            currentPage: 'dashboard'
+        };
 
-        // CONFIGURACIÓN - EDITAR ESTOS VALORES CON TUS CREDENCIALES DE SUPABASE
-        const SUPABASE_URL = 'https://YOUR_SUPABASE_URL.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        // ====== INICIALIZAR DATOS ======
+        function initData() {
+            const saved = localStorage.getItem('boleteria-data');
+            if (saved) {
+                const data = JSON.parse(saved);
+                appState.obras = data.obras || [];
+                appState.funciones = data.funciones || [];
+                appState.ventas = data.ventas || [];
+            } else {
+                // Datos iniciales de prueba
+                appState.obras = [
+                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', sala: 'Sala Fanny Mikey', aforo: 222, cortesias: 10 },
+                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', sala: 'Teatro Colón', aforo: 720, cortesias: 50 },
+                    { id: '3', nombre: 'Viseira – Davi Fonseca', artista: 'Danza Contemporánea', sala: 'Sala Delia Zapata Olivella', aforo: 300, cortesias: 20 }
+                ];
 
-        // Inicializar Supabase
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                appState.funciones = [
+                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada' },
+                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada' },
+                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada' }
+                ];
 
-        // ====== COMPONENTES ======
+                saveData();
+            }
+        }
 
-        function LoginPage({ onLogin }) {
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
+        // ====== GUARDAR DATOS ======
+        function saveData() {
+            localStorage.setItem('boleteria-data', JSON.stringify({
+                obras: appState.obras,
+                funciones: appState.funciones,
+                ventas: appState.ventas
+            }));
+            render();
+        }
 
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setError(null);
-                setLoading(true);
+        // ====== LOGIN ======
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-                try {
-                    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-                        email,
-                        password,
-                    });
+            if (email === 'test@test.com' && password === 'test123456') {
+                appState.user = { email };
+                localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
+                render();
+            } else {
+                alert('Email o contraseña incorrectos.\n\nPrueba: test@test.com / test123456');
+            }
+        }
 
-                    if (signInError) {
-                        setError(signInError.message);
-                    } else {
-                        onLogin(data.user);
-                    }
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
+        function handleLogout() {
+            appState.user = null;
+            localStorage.removeItem('boleteria-user');
+            appState.currentPage = 'dashboard';
+            render();
+        }
+
+        // ====== REGISTRAR VENTA ======
+        function handleRegistrarVenta(e) {
+            e.preventDefault();
+            const funcionId = document.getElementById('funcionSelect').value;
+            const boletas = parseInt(document.getElementById('boletas').value);
+
+            if (!funcionId || boletas <= 0) {
+                alert('Completa todos los campos');
+                return;
+            }
+
+            const venta = {
+                id: Date.now().toString(),
+                funcionId,
+                boletas,
+                fecha: new Date().toISOString().split('T')[0]
             };
 
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
-                    <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-                        <h1 className="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>
-                        <p className="text-center text-gray-500 text-sm mb-6">Centro Nacional de las Artes</p>
+            appState.ventas.push(venta);
+            saveData();
 
-                        <form onSubmit={handleLogin}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            document.getElementById('ventaForm').reset();
+            alert('✅ Venta registrada');
+        }
+
+        // ====== CALCULAR OCUPACIÓN ======
+        function calcularOcupacion(funcionId) {
+            const funcion = appState.funciones.find(f => f.id === funcionId);
+            const obra = appState.obras.find(o => o.id === funcion.obraId);
+            const ventasTotal = appState.ventas
+                .filter(v => v.funcionId === funcionId)
+                .reduce((sum, v) => sum + v.boletas, 0);
+
+            const ocupacion = ((ventasTotal + obra.cortesias) / obra.aforo) * 100;
+            return Math.min(100, Math.round(ocupacion));
+        }
+
+        // ====== RENDERIZAR LOGIN ======
+        function renderLogin() {
+            return `
+                <div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+                    <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+                        <h1 class="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>
+                        <p class="text-center text-gray-500 text-sm mb-6">Centro Nacional de las Artes</p>
+
+                        <form onsubmit="handleLogin(event)">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                                 <input
                                     type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    id="email"
                                     required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="tu@email.com"
                                 />
                             </div>
 
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
                                 <input
                                     type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    id="password"
                                     required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="••••••••"
                                 />
                             </div>
 
-                            {error && <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded">{error}</p>}
-
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                                class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition"
                             >
-                                {loading ? 'Iniciando sesión...' : 'Ingresar'}
+                                Ingresar
                             </button>
                         </form>
 
-                        <p className="text-xs text-gray-500 mt-6 text-center">
+                        <p class="text-xs text-gray-500 mt-6 text-center">
                             Para pruebas: test@test.com / test123456
                         </p>
                     </div>
                 </div>
-            );
+            `;
         }
 
-        function DashboardPage({ user, onLogout }) {
-            const [obras, setObras] = useState([]);
-            const [funciones, setFunciones] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [activePage, setActivePage] = useState('dashboard');
-            const [ventaForm, setVentaForm] = useState({ funcion_id: '', boletas: 0 });
+        // ====== RENDERIZAR DASHBOARD ======
+        function renderDashboard() {
+            const ventasHoy = appState.ventas.filter(v => v.fecha === new Date().toISOString().split('T')[0]).length;
+            const totalObras = appState.obras.length;
 
-            useEffect(() => {
-                cargarDatos();
-            }, []);
+            return `
+                <div class="min-h-screen bg-gray-50">
+                    ${renderHeader()}
+                    ${renderNav()}
 
-            const cargarDatos = async () => {
-                try {
-                    const { data: obrasData } = await supabase
-                        .from('obras')
-                        .select('*, salas(nombre)');
+                    <main class="max-w-7xl mx-auto px-4 py-8">
+                        <h2 class="text-2xl font-bold mb-6">📊 Dashboard</h2>
 
-                    const { data: funcionesData } = await supabase
-                        .from('funciones')
-                        .select('*, obras(nombre)');
-
-                    setObras(obrasData || []);
-                    setFunciones(funcionesData || []);
-                } catch (err) {
-                    console.error('Error cargando datos:', err);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleRegistrarVenta = async (e) => {
-                e.preventDefault();
-                try {
-                    await supabase.from('ventas_diarias').insert({
-                        funcion_id: ventaForm.funcion_id,
-                        boletas_vendidas: parseInt(ventaForm.boletas),
-                        fecha_registro: new Date().toISOString().split('T')[0],
-                    });
-                    setVentaForm({ funcion_id: '', boletas: 0 });
-                    cargarDatos();
-                } catch (err) {
-                    console.error('Error:', err);
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-gray-50">
-                    {/* Header */}
-                    <header className="bg-white shadow">
-                        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-                            <h1 className="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm text-gray-600">{user?.email}</span>
-                                <button
-                                    onClick={onLogout}
-                                    className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition"
-                                >
-                                    Salir
-                                </button>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <p class="text-gray-500 text-sm">Total Obras</p>
+                                <p class="text-3xl font-bold text-blue-600">${totalObras}</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <p class="text-gray-500 text-sm">Ventas Hoy</p>
+                                <p class="text-3xl font-bold text-green-600">${ventasHoy}</p>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <p class="text-gray-500 text-sm">Total Ventas</p>
+                                <p class="text-3xl font-bold text-purple-600">${appState.ventas.length}</p>
                             </div>
                         </div>
-                    </header>
 
-                    {/* Navegación */}
-                    <div className="bg-white border-b">
-                        <div className="max-w-7xl mx-auto px-4 flex gap-4 py-4">
+                        <h3 class="text-xl font-bold mb-4">Obras Activas</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${appState.obras.map(obra => {
+                                const funcione = appState.funciones.find(f => f.obraId === obra.id);
+                                const ocupacion = funcione ? calcularOcupacion(funcione.id) : 0;
+                                const color = ocupacion > 70 ? 'bg-green-100' : ocupacion > 50 ? 'bg-yellow-100' : 'bg-red-100';
+
+                                return `
+                                    <div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
+                                        <h4 class="font-bold text-lg text-gray-800">${obra.nombre}</h4>
+                                        <p class="text-sm text-gray-600">${obra.artista}</p>
+                                        <p class="text-xs text-gray-500 mt-2">📍 ${obra.sala}</p>
+                                        <p class="text-xs text-gray-500">👥 Aforo: ${obra.aforo}</p>
+                                        
+                                        <div class="mt-4">
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>Ocupación</span>
+                                                <span class="font-bold">${ocupacion}%</span>
+                                            </div>
+                                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                <div class="h-full ${color}" style="width: ${ocupacion}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        // ====== RENDERIZAR VENTAS ======
+        function renderVentas() {
+            return `
+                <div class="min-h-screen bg-gray-50">
+                    ${renderHeader()}
+                    ${renderNav()}
+
+                    <main class="max-w-7xl mx-auto px-4 py-8">
+                        <h2 class="text-2xl font-bold mb-6">💰 Registrar Venta</h2>
+
+                        <form id="ventaForm" onsubmit="handleRegistrarVenta(event)" class="bg-white p-6 rounded-lg shadow-md max-w-md">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Función</label>
+                                <select
+                                    id="funcionSelect"
+                                    required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Seleccionar función...</option>
+                                    ${appState.funciones.map(f => {
+                                        const obra = appState.obras.find(o => o.id === f.obraId);
+                                        return `<option value="${f.id}">${obra.nombre} - ${f.fecha} ${f.hora}</option>`;
+                                    }).join('')}
+                                </select>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Boletas Vendidas</label>
+                                <input
+                                    type="number"
+                                    id="boletas"
+                                    required
+                                    min="1"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0"
+                                />
+                            </div>
+
                             <button
-                                onClick={() => setActivePage('dashboard')}
-                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                                type="submit"
+                                class="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition"
                             >
-                                📊 Dashboard
+                                Registrar Venta
                             </button>
+                        </form>
+
+                        <div class="mt-8">
+                            <h3 class="text-xl font-bold mb-4">Últimas Ventas</h3>
+                            <div class="bg-white rounded-lg shadow overflow-hidden">
+                                <table class="w-full">
+                                    <thead class="bg-gray-100 border-b">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Función</th>
+                                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Boletas</th>
+                                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${appState.ventas.slice().reverse().slice(0, 10).map(venta => {
+                                            const funcion = appState.funciones.find(f => f.id === venta.funcionId);
+                                            const obra = appState.obras.find(o => o.id === funcion.obraId);
+                                            return `
+                                                <tr class="border-b hover:bg-gray-50">
+                                                    <td class="px-6 py-3 text-sm text-gray-700">${obra.nombre}</td>
+                                                    <td class="px-6 py-3 text-sm text-gray-700">${venta.boletas}</td>
+                                                    <td class="px-6 py-3 text-sm text-gray-700">${venta.fecha}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        // ====== RENDERIZAR FUNCIONES ======
+        function renderFunciones() {
+            return `
+                <div class="min-h-screen bg-gray-50">
+                    ${renderHeader()}
+                    ${renderNav()}
+
+                    <main class="max-w-7xl mx-auto px-4 py-8">
+                        <h2 class="text-2xl font-bold mb-6">📅 Funciones Programadas</h2>
+
+                        <div class="bg-white rounded-lg shadow overflow-hidden">
+                            <table class="w-full">
+                                <thead class="bg-gray-100 border-b">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Obra</th>
+                                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Fecha</th>
+                                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Hora</th>
+                                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Ocupación</th>
+                                        <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${appState.funciones.map(funcion => {
+                                        const obra = appState.obras.find(o => o.id === funcion.obraId);
+                                        const ocupacion = calcularOcupacion(funcion.id);
+                                        return `
+                                            <tr class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-3 text-sm text-gray-700">${obra.nombre}</td>
+                                                <td class="px-6 py-3 text-sm text-gray-700">${funcion.fecha}</td>
+                                                <td class="px-6 py-3 text-sm text-gray-700">${funcion.hora}</td>
+                                                <td class="px-6 py-3 text-sm">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                            <div class="h-full bg-blue-600" style="width: ${ocupacion}%"></div>
+                                                        </div>
+                                                        <span class="text-xs font-bold">${ocupacion}%</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-3 text-sm">
+                                                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                        ${funcion.estado}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        // ====== HEADER ======
+        function renderHeader() {
+            return `
+                <header class="bg-white shadow">
+                    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                        <h1 class="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm text-gray-600">${appState.user.email}</span>
                             <button
-                                onClick={() => setActivePage('ventas')}
-                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'ventas' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                                onclick="handleLogout()"
+                                class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition"
                             >
-                                💰 Registrar Venta
-                            </button>
-                            <button
-                                onClick={() => setActivePage('funciones')}
-                                className={`px-4 py-2 rounded-lg font-medium transition ${activePage === 'funciones' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-                            >
-                                📅 Funciones
+                                Salir
                             </button>
                         </div>
                     </div>
+                </header>
+            `;
+        }
 
-                    {/* Contenido */}
-                    <main className="max-w-7xl mx-auto px-4 py-8">
-                        {loading ? (
-                            <p className="text-center text-gray-500">Cargando...</p>
-                        ) : activePage === 'dashboard' ? (
-                            <div>
-                                <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {obras.map((obra) => (
-                                        <div key={obra.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition">
-                                            <h3 className="font-bold text-lg text-gray-800">{obra.nombre}</h3>
-                                            <p className="text-sm text-gray-600 mt-1">{obra.artista}</p>
-                                            <p className="text-xs text-gray-500 mt-2">📍 {obra.salas?.nombre}</p>
-                                            <p className="text-xs text-gray-500">👥 Aforo: {obra.aforo}</p>
-                                            <div className="mt-4 pt-4 border-t">
-                                                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
-                                                    Estado: {obra.estado}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : activePage === 'ventas' ? (
-                            <div>
-                                <h2 className="text-2xl font-bold mb-6">Registrar Venta</h2>
-                                <form onSubmit={handleRegistrarVenta} className="bg-white p-6 rounded-lg shadow-md max-w-md">
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Función</label>
-                                        <select
-                                            value={ventaForm.funcion_id}
-                                            onChange={(e) => setVentaForm({ ...ventaForm, funcion_id: e.target.value })}
-                                            required
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="">Seleccionar función...</option>
-                                            {funciones.map((f) => (
-                                                <option key={f.id} value={f.id}>
-                                                    {f.obras?.nombre} - {f.fecha}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Boletas Vendidas</label>
-                                        <input
-                                            type="number"
-                                            value={ventaForm.boletas}
-                                            onChange={(e) => setVentaForm({ ...ventaForm, boletas: e.target.value })}
-                                            required
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            min="0"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 transition"
-                                    >
-                                        Registrar Venta
-                                    </button>
-                                </form>
-                            </div>
-                        ) : (
-                            <div>
-                                <h2 className="text-2xl font-bold mb-6">Funciones Programadas</h2>
-                                <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-100 border-b">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Obra</th>
-                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Fecha</th>
-                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Hora</th>
-                                                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Estado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {funciones.map((f) => (
-                                                <tr key={f.id} className="border-b hover:bg-gray-50">
-                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.obras?.nombre}</td>
-                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.fecha}</td>
-                                                    <td className="px-6 py-3 text-sm text-gray-700">{f.hora}</td>
-                                                    <td className="px-6 py-3 text-sm">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${f.estado === 'programada' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                                                            {f.estado}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </main>
+        // ====== NAVEGACIÓN ======
+        function renderNav() {
+            const pages = [
+                { id: 'dashboard', label: '📊 Dashboard' },
+                { id: 'ventas', label: '💰 Registrar Venta' },
+                { id: 'funciones', label: '📅 Funciones' }
+            ];
+
+            return `
+                <div class="bg-white border-b">
+                    <div class="max-w-7xl mx-auto px-4 flex gap-4 py-4">
+                        ${pages.map(page => `
+                            <button
+                                onclick="changePage('${page.id}')"
+                                class="px-4 py-2 rounded-lg font-medium transition ${appState.currentPage === page.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}"
+                            >
+                                ${page.label}
+                            </button>
+                        `).join('')}
+                    </div>
                 </div>
-            );
+            `;
         }
 
-        function App() {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
-
-            useEffect(() => {
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    setUser(session?.user || null);
-                    setLoading(false);
-                });
-
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(
-                    (event, session) => {
-                        setUser(session?.user || null);
-                    }
-                );
-
-                return () => subscription?.unsubscribe();
-            }, []);
-
-            if (loading) {
-                return <div className="flex items-center justify-center h-screen"><p>Cargando...</p></div>;
-            }
-
-            if (!user) {
-                return <LoginPage onLogin={setUser} />;
-            }
-
-            return <DashboardPage user={user} onLogout={() => supabase.auth.signOut()} />;
+        // ====== CAMBIAR PÁGINA ======
+        function changePage(page) {
+            appState.currentPage = page;
+            render();
         }
 
-        // Renderizar
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // ====== RENDER PRINCIPAL ======
+        function render() {
+            const app = document.getElementById('app');
+
+            if (!appState.user) {
+                app.innerHTML = renderLogin();
+            } else {
+                switch (appState.currentPage) {
+                    case 'ventas':
+                        app.innerHTML = renderVentas();
+                        break;
+                    case 'funciones':
+                        app.innerHTML = renderFunciones();
+                        break;
+                    default:
+                        app.innerHTML = renderDashboard();
+                }
+            }
+        }
+
+        // ====== INICIALIZAR ======
+        window.addEventListener('DOMContentLoaded', () => {
+            initData();
+
+            const savedUser = localStorage.getItem('boleteria-user');
+            if (savedUser) {
+                appState.user = JSON.parse(savedUser);
+            }
+
+            render();
+        });
     </script>
 </body>
 </html>
