@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boletería CNA - Con Roles</title>
+    <title>Boletería CNA - Sistema Completo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
@@ -17,10 +17,13 @@
             funciones: [],
             ventas: [],
             entrada_libre: [],
-            cierres: [],
-            notas: [],
+            salas: [],
+            acciones: [],
+            historial: [],
             currentPage: 'dashboard',
-            editingObra: null
+            editingObra: null,
+            editingFuncion: null,
+            chartInstance: null
         };
 
         const USUARIOS = {
@@ -36,16 +39,25 @@
                 const data = JSON.parse(saved);
                 Object.assign(appState, data);
             } else {
-                appState.obras = [
-                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', sala: 'Sala Fanny Mikey', aforo: 222, cortesias: 10, tipo: 'boleteria' },
-                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', sala: 'Teatro Colón', aforo: 720, cortesias: 50, tipo: 'boleteria' },
-                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', sala: 'Sala Delia Zapata', aforo: 300, cortesias: 0, tipo: 'entrada_libre' }
+                appState.salas = [
+                    { id: '1', nombre: 'Sala Fanny Mikey', aforo: 222 },
+                    { id: '2', nombre: 'Teatro Colón', aforo: 720 },
+                    { id: '3', nombre: 'Sala Delia Zapata Olivella', aforo: 300 },
+                    { id: '4', nombre: 'Auditorio Principal', aforo: 450 }
                 ];
+
+                appState.obras = [
+                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', tipo: 'boleteria', cortesias: 10, diasVenta: 14, diasRedes: 10, diasPauta: 7, piezasDesarrolladas: true, videoDisponible: true },
+                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', tipo: 'boleteria', cortesias: 50, diasVenta: 21, diasRedes: 14, diasPauta: 10, piezasDesarrolladas: true, videoDisponible: false },
+                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', tipo: 'entrada_libre', cortesias: 0, diasVenta: 7, diasRedes: 7, diasPauta: 0, piezasDesarrolladas: false, videoDisponible: false }
+                ];
+
                 appState.funciones = [
                     { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada' },
                     { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada' },
                     { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada' }
                 ];
+
                 saveData();
             }
         }
@@ -56,8 +68,9 @@
                 funciones: appState.funciones,
                 ventas: appState.ventas,
                 entrada_libre: appState.entrada_libre,
-                cierres: appState.cierres,
-                notas: appState.notas
+                salas: appState.salas,
+                acciones: appState.acciones,
+                historial: appState.historial
             }));
         }
 
@@ -65,14 +78,13 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-
             const usuario = USUARIOS[email];
             if (usuario && usuario.password === password) {
                 appState.user = { email, ...usuario };
                 localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
                 render();
             } else {
-                alert('Credenciales inválidas.\n\nPrueba:\nadmin@test.com / admin123\nregistrador.boleto@test.com / 123456\nregistrador.entrada@test.com / 123456\nvisualizador@test.com / 123456');
+                alert('Credenciales inválidas.\n\nadmin@test.com / admin123\nregistrador.boleto@test.com / 123456\nregistrador.entrada@test.com / 123456\nvisualizador@test.com / 123456');
             }
         }
 
@@ -86,19 +98,34 @@
         function tienePermiso(accion) {
             const rol = appState.user?.rol;
             const permisos = {
-                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'generar_reportes', 'ver_acciones', 'crear_acciones'],
-                'registrador_boleto': ['ver_obras_boleto', 'registrar_venta', 'ver_acciones', 'crear_acciones', 'generar_reportes'],
-                'registrador_entrada': ['ver_obras_entrada', 'registrar_entrada', 'ver_acciones', 'crear_acciones', 'generar_reportes'],
+                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'generar_reportes', 'crear_acciones', 'ver_calendar', 'editar_salas'],
+                'registrador_boleto': ['ver_obras_boleto', 'registrar_venta', 'crear_acciones', 'generar_reportes'],
+                'registrador_entrada': ['ver_obras_entrada', 'registrar_entrada', 'crear_acciones', 'generar_reportes'],
                 'visualizador': ['ver_todo']
             };
             return permisos[rol]?.includes(accion) || false;
+        }
+
+        function getSala(salaId) {
+            return appState.salas.find(s => s.id === salaId);
+        }
+
+        function addHistorial(tipo, obraId, descripcion) {
+            appState.historial.push({
+                id: Date.now().toString(),
+                tipo,
+                obraId,
+                descripcion,
+                usuario: appState.user.email,
+                fecha: new Date().toLocaleString()
+            });
         }
 
         function renderLogin() {
             let html = '<div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">';
             html += '<div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">';
             html += '<h1 class="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>';
-            html += '<p class="text-center text-gray-500 text-sm mb-6">Con Control de Roles</p>';
+            html += '<p class="text-center text-gray-500 text-sm mb-6">Sistema Integral de Monitoreo</p>';
             html += '<form onsubmit="handleLogin(event)">';
             html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">Email</label>';
             html += '<input type="email" id="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com" /></div>';
@@ -106,70 +133,63 @@
             html += '<input type="password" id="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" /></div>';
             html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
             html += '</form>';
-            html += '<div class="mt-6 p-4 bg-gray-100 rounded-lg text-xs text-gray-700">';
-            html += '<strong>Usuarios de prueba:</strong><br/>';
-            html += 'Admin: admin@test.com / admin123<br/>';
-            html += 'Reg. Boleto: registrador.boleto@test.com / 123456<br/>';
-            html += 'Reg. Entrada: registrador.entrada@test.com / 123456<br/>';
-            html += 'Visualizador: visualizador@test.com / 123456';
+            html += '<div class="mt-6 p-3 bg-gray-100 rounded-lg text-xs text-gray-700">';
+            html += '<strong>Usuarios:</strong><br/>👑 admin@test.com / admin123<br/>🎟️ registrador.boleto@test.com / 123456<br/>🚪 registrador.entrada@test.com / 123456<br/>👁️ visualizador@test.com / 123456';
             html += '</div>';
             html += '</div></div>';
             return html;
         }
 
         function renderHeader() {
-            let rolTexto = '';
-            if (appState.user.rol === 'admin') rolTexto = '👑 Administrador';
-            else if (appState.user.rol === 'registrador_boleto') rolTexto = '🎟️ Registrador Boletería';
-            else if (appState.user.rol === 'registrador_entrada') rolTexto = '🚪 Registrador Entrada Libre';
-            else rolTexto = '👁️ Visualizador';
-
-            let html = '<header class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">';
-            html += '<div><h1 class="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>';
+            let rolTexto = { admin: '👑 Admin', registrador_boleto: '🎟️ Reg.Boleto', registrador_entrada: '🚪 Reg.Entrada', visualizador: '👁️ Visualizador' }[appState.user.rol];
+            let html = '<header class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">';
+            html += '<div><h1 class="text-xl font-bold text-gray-800">🎭 Boletería CNA</h1>';
             html += '<p class="text-xs text-gray-500">' + rolTexto + '</p></div>';
-            html += '<div class="flex items-center gap-4">';
-            html += '<span class="text-sm text-gray-600">' + appState.user.email + '</span>';
-            html += '<button onclick="handleLogout()" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition">Salir</button>';
-            html += '</div></div></header>';
+            html += '<div class="flex items-center gap-3"><span class="text-xs text-gray-600">' + appState.user.email + '</span>';
+            html += '<button onclick="handleLogout()" class="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600">Salir</button></div></div></header>';
             return html;
         }
 
         function renderNav() {
             let items = [];
-
             if (tienePermiso('ver_todo')) {
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Obras' },
+                    { id: 'salas', label: '🏛️ Salas' },
                     { id: 'ventas', label: '💰 Ventas' },
-                    { id: 'entrada', label: '🚪 Entrada Libre' },
-                    { id: 'reportes', label: '📈 Reportes' }
+                    { id: 'entrada', label: '🚪 Entrada' },
+                    { id: 'calendario', label: '📅 Calendario' },
+                    { id: 'reportes', label: '📈 Reportes' },
+                    { id: 'historial', label: '📝 Historial' }
                 ];
             } else if (tienePermiso('registrar_venta')) {
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Obras' },
-                    { id: 'ventas', label: '💰 Registrar Venta' },
+                    { id: 'ventas', label: '💰 Ventas' },
+                    { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' }
                 ];
             } else if (tienePermiso('registrar_entrada')) {
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Obras' },
-                    { id: 'entrada', label: '🚪 Registrar Entrada' },
+                    { id: 'entrada', label: '🚪 Entrada' },
+                    { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' }
                 ];
             } else {
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'obras', label: '📚 Obras' }
+                    { id: 'obras', label: '📚 Obras' },
+                    { id: 'calendario', label: '📅 Calendario' }
                 ];
             }
-
-            let html = '<div class="bg-white border-b"><div class="max-w-7xl mx-auto px-4 flex gap-4 py-4 overflow-x-auto">';
+            let html = '<div class="bg-white border-b"><div class="max-w-7xl mx-auto px-4 flex gap-2 py-3 overflow-x-auto">';
             items.forEach(page => {
                 const active = appState.currentPage === page.id;
-                html += '<button onclick="changePage(\'' + page.id + '\')" class="px-4 py-2 rounded-lg font-medium transition whitespace-nowrap ' + (active ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100') + '">' + page.label + '</button>';
+                html += '<button onclick="changePage(\'' + page.id + '\')" class="px-3 py-2 rounded text-sm font-medium whitespace-nowrap transition ' + (active ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100') + '">' + page.label + '</button>';
             });
             html += '</div></div>';
             return html;
@@ -177,7 +197,7 @@
 
         function renderDashboard() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📊 Dashboard</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📊 Dashboard</h2>';
 
             let obrasFiltradas = appState.obras;
             if (appState.user.rol === 'registrador_boleto') {
@@ -186,24 +206,46 @@
                 obrasFiltradas = obrasFiltradas.filter(o => o.tipo === 'entrada_libre');
             }
 
-            html += '<div class="grid grid-cols-3 gap-4 mb-8">';
-            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
-            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Total Ventas</p><p class="text-2xl font-bold text-green-600">' + appState.ventas.length + '</p></div>';
-            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Entrada Libre</p><p class="text-2xl font-bold text-purple-600">' + appState.entrada_libre.length + '</p></div>';
+            html += '<div class="grid grid-cols-4 gap-2 mb-6">';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Ventas Registradas</p><p class="text-2xl font-bold text-green-600">' + appState.ventas.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Entrada Libre</p><p class="text-2xl font-bold text-purple-600">' + appState.entrada_libre.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
             html += '</div>';
 
-            html += '<h3 class="text-lg font-bold mb-4">Obras ' + (appState.user.rol === 'registrador_boleto' ? 'con Boletería' : appState.user.rol === 'registrador_entrada' ? 'con Entrada Libre' : '') + '</h3>';
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+            const obrasBoleto = obrasFiltradas.filter(o => o.tipo === 'boleteria');
+            const obrasEntrada = obrasFiltradas.filter(o => o.tipo === 'entrada_libre');
 
-            obrasFiltradas.forEach(obra => {
-                html += '<div class="bg-white p-4 rounded-lg shadow">';
-                html += '<h4 class="font-bold text-gray-800">' + obra.nombre + '</h4>';
-                html += '<p class="text-xs text-gray-600">' + obra.artista + '</p>';
-                html += '<p class="text-xs text-gray-500 mt-2">' + obra.sala + '</p>';
-                html += '<p class="text-xs mt-2"><strong>Tipo:</strong> ' + (obra.tipo === 'boleteria' ? '🎟️ Boletería' : '🚪 Entrada Libre') + '</p>';
-                html += '<p class="text-xs"><strong>Aforo:</strong> ' + obra.aforo + '</p>';
-                html += '</div>';
-            });
+            html += '<div class="grid grid-cols-2 gap-6">';
+
+            if (obrasBoleto.length > 0) {
+                html += '<div><h3 class="text-lg font-bold mb-3">🎟️ Obras con Boletería</h3>';
+                html += '<div class="grid grid-cols-1 gap-3">';
+                obrasBoleto.forEach(obra => {
+                    const sala = getSala(obra.salaId);
+                    html += '<div class="bg-white p-4 rounded shadow">';
+                    html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
+                    html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
+                    html += '<div class="mt-2 grid grid-cols-3 gap-2 text-xs"><div><strong>Días venta:</strong> ' + obra.diasVenta + '</div><div><strong>Redes:</strong> ' + obra.diasRedes + '</div><div><strong>Pauta:</strong> ' + obra.diasPauta + '</div></div>';
+                    html += '<div class="mt-2 text-xs"><strong>Piezas:</strong> ' + (obra.piezasDesarrolladas ? '✅' : '❌') + ' | <strong>Video:</strong> ' + (obra.videoDisponible ? '✅' : '❌') + '</div>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
+
+            if (obrasEntrada.length > 0) {
+                html += '<div><h3 class="text-lg font-bold mb-3">🚪 Obras con Entrada Libre</h3>';
+                html += '<div class="grid grid-cols-1 gap-3">';
+                obrasEntrada.forEach(obra => {
+                    const sala = getSala(obra.salaId);
+                    html += '<div class="bg-white p-4 rounded shadow">';
+                    html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
+                    html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
+                    html += '<div class="mt-2 text-xs"><strong>Aforo:</strong> ' + sala?.aforo + ' | <strong>Días en venta:</strong> ' + obra.diasVenta + '</div>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
 
             html += '</div></main></div>';
             return html;
@@ -211,36 +253,27 @@
 
         function renderObras() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📚 Gestión de Obras</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6">';
 
             if (tienePermiso('crear_obra')) {
-                html += '<button onclick="openCrearObra()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mb-4">+ Nueva Obra</button>';
+                html += '<button onclick="openCrearObra()" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 mb-4">+ Nueva Obra</button>';
             }
 
-            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100 border-b"><tr>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Obra</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Tipo</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Sala</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Aforo</th>';
-
-            if (tienePermiso('crear_obra')) {
-                html += '<th class="px-6 py-3 text-left text-sm font-medium">Acciones</th>';
-            }
-
+            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Aforo</th><th class="px-4 py-2 text-left">Días Venta</th><th class="px-4 py-2 text-left">Piezas</th><th class="px-4 py-2 text-left">Video</th>';
+            if (tienePermiso('crear_obra')) html += '<th class="px-4 py-2">Acciones</th>';
             html += '</tr></thead><tbody>';
 
             appState.obras.forEach(obra => {
-                html += '<tr class="border-b hover:bg-gray-50">';
-                html += '<td class="px-6 py-3 text-sm">' + obra.nombre + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + obra.sala + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + obra.aforo + '</td>';
-
-                if (tienePermiso('crear_obra')) {
-                    html += '<td class="px-6 py-3 text-sm"><button onclick="openEditarObra(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800">Editar</button></td>';
-                }
-
+                const sala = getSala(obra.salaId);
+                html += '<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2">' + obra.nombre + '</td>';
+                html += '<td class="px-4 py-2">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td>';
+                html += '<td class="px-4 py-2">' + sala?.nombre + '</td>';
+                html += '<td class="px-4 py-2">' + sala?.aforo + '</td>';
+                html += '<td class="px-4 py-2">' + obra.diasVenta + '</td>';
+                html += '<td class="px-4 py-2">' + (obra.piezasDesarrolladas ? '✅' : '❌') + '</td>';
+                html += '<td class="px-4 py-2">' + (obra.videoDisponible ? '✅' : '❌') + '</td>';
+                if (tienePermiso('crear_obra')) html += '<td class="px-4 py-2"><button onclick="openEditarObra(\'' + obra.id + '\')" class="text-blue-600 text-xs">Editar</button></td>';
                 html += '</tr>';
             });
 
@@ -261,35 +294,51 @@
         }
 
         function renderCrearObra() {
-            const obra = appState.editingObra || { nombre: '', artista: '', sala: '', aforo: '', tipo: 'boleteria' };
+            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, diasVenta: 0, diasRedes: 0, diasPauta: 0, piezasDesarrolladas: false, videoDisponible: false };
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
-            html += '<main class="max-w-2xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
-            html += '<form onsubmit="handleGuardarObra(event)" class="bg-white p-6 rounded-lg shadow">';
+            html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
+            html += '<form onsubmit="handleGuardarObra(event)" class="bg-white p-6 rounded shadow">';
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
-            html += '<div><label class="block text-sm font-medium mb-2">Nombre</label><input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Artista</label><input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Sala</label><input type="text" id="obraSala" value="' + obra.sala + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Aforo</label><input type="number" id="obraAforo" value="' + obra.aforo + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Tipo</label><select id="obraTipo" class="w-full px-4 py-2 border rounded-lg"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>🎟️ Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🚪 Entrada Libre</option></select></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Nombre</label><input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Artista</label><input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Sala</label><select id="obraSala" required class="w-full px-3 py-2 border rounded text-sm">';
+            appState.salas.forEach(s => html += '<option value="' + s.id + '" ' + (obra.salaId === s.id ? 'selected' : '') + '>' + s.nombre + ' (Aforo: ' + s.aforo + ')</option>');
+            html += '</select></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>🎟️ Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🚪 Entrada Libre</option></select></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Días en Venta</label><input type="number" id="obraDiasVenta" value="' + obra.diasVenta + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Días en Redes</label><input type="number" id="obraDiasRedes" value="' + obra.diasRedes + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Días con Pauta Digital</label><input type="number" id="obraDiasPauta" value="' + obra.diasPauta + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' class="mr-2" /> Piezas Desarrolladas</label></div>';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' class="mr-2" /> Video para Pauta</label></div>';
             html += '</div>';
-            html += '<button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 mr-2">Guardar</button>';
-            html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-6 py-2 rounded-lg">Cancelar</button>';
+            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
+            html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
             html += '</form></main></div>';
             return html;
         }
 
         function handleGuardarObra(e) {
             e.preventDefault();
-            const nombre = document.getElementById('obraNombre').value;
-            const artista = document.getElementById('obraArtista').value;
-            const sala = document.getElementById('obraSala').value;
-            const aforo = parseInt(document.getElementById('obraAforo').value);
-            const tipo = document.getElementById('obraTipo').value;
+            const data = {
+                nombre: document.getElementById('obraNombre').value,
+                artista: document.getElementById('obraArtista').value,
+                salaId: document.getElementById('obraSala').value,
+                tipo: document.getElementById('obraTipo').value,
+                cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
+                diasVenta: parseInt(document.getElementById('obraDiasVenta').value) || 0,
+                diasRedes: parseInt(document.getElementById('obraDiasRedes').value) || 0,
+                diasPauta: parseInt(document.getElementById('obraDiasPauta').value) || 0,
+                piezasDesarrolladas: document.getElementById('obraPiezas').checked,
+                videoDisponible: document.getElementById('obraVideo').checked
+            };
 
             if (appState.editingObra) {
-                Object.assign(appState.editingObra, { nombre, artista, sala, aforo, tipo });
+                Object.assign(appState.editingObra, data);
+                addHistorial('editar', appState.editingObra.id, 'Obra actualizada');
             } else {
-                appState.obras.push({ id: Date.now().toString(), nombre, artista, sala, aforo, tipo });
+                appState.obras.push({ id: Date.now().toString(), ...data });
+                addHistorial('crear', appState.obras[appState.obras.length - 1].id, 'Obra creada');
             }
 
             saveData();
@@ -300,37 +349,31 @@
 
         function renderVentas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">💰 Registrar Venta del Día</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💰 Registrar Venta del Día - ' + new Date().toLocaleDateString() + '</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'boleteria');
             const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
 
-            html += '<form onsubmit="handleRegistrarVenta(event)" class="bg-white p-6 rounded-lg shadow max-w-md mb-8">';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Función</label>';
-            html += '<select id="funcionSelect" required class="w-full px-4 py-2 border rounded-lg">';
-            html += '<option value="">Seleccionar...</option>';
-
+            html += '<form onsubmit="handleRegistrarVenta(event)" class="bg-white p-4 rounded shadow max-w-md mb-6">';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Función</label>';
+            html += '<select id="funcionSelect" required class="w-full px-3 py-2 border rounded text-sm"><option value="">Seleccionar...</option>';
             funciones.forEach(f => {
                 const obra = appState.obras.find(o => o.id === f.obraId);
-                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + '</option>';
+                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + ' ' + f.hora + '</option>';
             });
-
             html += '</select></div>';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Boletas Vendidas</label>';
-            html += '<input type="number" id="boletas" required min="0" class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">Registrar</button>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Boletas Vendidas</label><input type="number" id="boletas" required min="0" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<button type="submit" class="w-full bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700">Registrar</button>';
             html += '</form>';
 
-            html += '<h3 class="text-lg font-bold mb-4">Últimos Registros</h3>';
-            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100"><tr><th class="px-6 py-3 text-left text-sm">Obra</th><th class="px-6 py-3 text-left text-sm">Boletas</th><th class="px-6 py-3 text-left text-sm">Fecha</th></tr></thead><tbody>';
-
+            html += '<h3 class="text-lg font-bold mb-3">Últimos Registros</h3>';
+            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Boletas</th><th class="px-4 py-2 text-left">Fecha</th></tr></thead><tbody>';
             appState.ventas.slice().reverse().slice(0, 10).forEach(v => {
                 const f = appState.funciones.find(x => x.id === v.funcionId);
                 const o = appState.obras.find(x => x.id === f?.obraId);
-                html += '<tr class="border-b"><td class="px-6 py-3 text-sm">' + o?.nombre + '</td><td class="px-6 py-3 text-sm">' + v.boletas + '</td><td class="px-6 py-3 text-sm">' + v.fecha + '</td></tr>';
+                html += '<tr class="border-b"><td class="px-4 py-2">' + o?.nombre + '</td><td class="px-4 py-2">' + v.boletas + '</td><td class="px-4 py-2">' + v.fecha + '</td></tr>';
             });
-
             html += '</tbody></table></div></main></div>';
             return html;
         }
@@ -339,14 +382,7 @@
             e.preventDefault();
             const funcionId = document.getElementById('funcionSelect').value;
             const boletas = parseInt(document.getElementById('boletas').value);
-
-            appState.ventas.push({
-                id: Date.now().toString(),
-                funcionId,
-                boletas,
-                fecha: new Date().toISOString().split('T')[0]
-            });
-
+            appState.ventas.push({ id: Date.now().toString(), funcionId, boletas, fecha: new Date().toISOString().split('T')[0] });
             saveData();
             document.getElementById('funcionSelect').value = '';
             document.getElementById('boletas').value = '';
@@ -355,37 +391,31 @@
 
         function renderEntrada() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">🚪 Registrar Entrada Libre</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🚪 Registrar Entrada Libre - ' + new Date().toLocaleDateString() + '</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'entrada_libre');
             const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
 
-            html += '<form onsubmit="handleRegistrarEntrada(event)" class="bg-white p-6 rounded-lg shadow max-w-md mb-8">';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Función</label>';
-            html += '<select id="funcionSelectEntrada" required class="w-full px-4 py-2 border rounded-lg">';
-            html += '<option value="">Seleccionar...</option>';
-
+            html += '<form onsubmit="handleRegistrarEntrada(event)" class="bg-white p-4 rounded shadow max-w-md mb-6">';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Función</label>';
+            html += '<select id="funcionSelectEntrada" required class="w-full px-3 py-2 border rounded text-sm"><option value="">Seleccionar...</option>';
             funciones.forEach(f => {
                 const obra = appState.obras.find(o => o.id === f.obraId);
-                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + '</option>';
+                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + ' ' + f.hora + '</option>';
             });
-
             html += '</select></div>';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Personas Registradas</label>';
-            html += '<input type="number" id="personas" required min="0" class="w-full px-4 py-2 border rounded-lg" /></div>';
-            html += '<button type="submit" class="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">Registrar Entrada</button>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Personas Registradas</label><input type="number" id="personas" required min="0" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<button type="submit" class="w-full bg-purple-600 text-white py-2 rounded text-sm hover:bg-purple-700">Registrar</button>';
             html += '</form>';
 
-            html += '<h3 class="text-lg font-bold mb-4">Últimos Registros</h3>';
-            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100"><tr><th class="px-6 py-3 text-left text-sm">Obra</th><th class="px-6 py-3 text-left text-sm">Personas</th><th class="px-6 py-3 text-left text-sm">Fecha</th></tr></thead><tbody>';
-
+            html += '<h3 class="text-lg font-bold mb-3">Últimos Registros</h3>';
+            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Personas</th><th class="px-4 py-2 text-left">Fecha</th></tr></thead><tbody>';
             appState.entrada_libre.slice().reverse().slice(0, 10).forEach(v => {
                 const f = appState.funciones.find(x => x.id === v.funcionId);
                 const o = appState.obras.find(x => x.id === f?.obraId);
-                html += '<tr class="border-b"><td class="px-6 py-3 text-sm">' + o?.nombre + '</td><td class="px-6 py-3 text-sm">' + v.personas + '</td><td class="px-6 py-3 text-sm">' + v.fecha + '</td></tr>';
+                html += '<tr class="border-b"><td class="px-4 py-2">' + o?.nombre + '</td><td class="px-4 py-2">' + v.personas + '</td><td class="px-4 py-2">' + v.fecha + '</td></tr>';
             });
-
             html += '</tbody></table></div></main></div>';
             return html;
         }
@@ -394,25 +424,93 @@
             e.preventDefault();
             const funcionId = document.getElementById('funcionSelectEntrada').value;
             const personas = parseInt(document.getElementById('personas').value);
-
-            appState.entrada_libre.push({
-                id: Date.now().toString(),
-                funcionId,
-                personas,
-                fecha: new Date().toISOString().split('T')[0]
-            });
-
+            appState.entrada_libre.push({ id: Date.now().toString(), funcionId, personas, fecha: new Date().toISOString().split('T')[0] });
             saveData();
             document.getElementById('funcionSelectEntrada').value = '';
             document.getElementById('personas').value = '';
             alert('✅ Entrada registrada');
         }
 
+        function renderSalas() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🏛️ Gestión de Salas</h2>';
+            html += '<button onclick="openCrearSala()" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 mb-4">+ Nueva Sala</button>';
+            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Nombre</th><th class="px-4 py-2 text-left">Aforo</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
+            appState.salas.forEach(sala => {
+                html += '<tr class="border-b"><td class="px-4 py-2">' + sala.nombre + '</td><td class="px-4 py-2">' + sala.aforo + '</td><td class="px-4 py-2"><button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
+            });
+            html += '</tbody></table></div></main></div>';
+            return html;
+        }
+
+        function openCrearSala() {
+            const nombre = prompt('Nombre de la sala:');
+            if (!nombre) return;
+            const aforo = prompt('Aforo:');
+            if (!aforo) return;
+            appState.salas.push({ id: Date.now().toString(), nombre, aforo: parseInt(aforo) });
+            saveData();
+            render();
+        }
+
+        function deleteSala(id) {
+            if (confirm('¿Eliminar esta sala?')) {
+                appState.salas = appState.salas.filter(s => s.id !== id);
+                saveData();
+                render();
+            }
+        }
+
+        function renderCalendario() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📅 Calendario de Funciones</h2>';
+            html += '<div class="bg-white p-4 rounded shadow">';
+            html += '<table class="w-full text-sm border-collapse">';
+            html += '<thead><tr><th class="border p-2 text-left">Fecha</th><th class="border p-2 text-left">Obra</th><th class="border p-2 text-left">Hora</th><th class="border p-2 text-left">Tipo</th><th class="border p-2 text-left">Sala</th></tr></thead><tbody>';
+
+            appState.funciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).forEach(f => {
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                const sala = getSala(obra.salaId);
+                const color = obra.tipo === 'boleteria' ? 'bg-blue-50' : 'bg-purple-50';
+                html += '<tr class="' + color + ' border"><td class="border p-2">' + f.fecha + '</td><td class="border p-2">' + obra.nombre + '</td><td class="border p-2">' + f.hora + '</td><td class="border p-2">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td><td class="border p-2">' + sala?.nombre + '</td></tr>';
+            });
+
+            html += '</tbody></table></div></main></div>';
+            return html;
+        }
+
         function renderReportes() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📈 Reportes</h2>';
-            html += '<p class="text-gray-600">En construcción...</p>';
-            html += '</main></div>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📈 Reportes</h2>';
+            html += '<div class="grid grid-cols-2 gap-4">';
+            html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen de Ventas</h3><p class="text-sm text-gray-600">Total ventas: ' + appState.ventas.length + '</p></div>';
+            html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen Entrada Libre</h3><p class="text-sm text-gray-600">Total registros: ' + appState.entrada_libre.length + '</p></div>';
+            html += '<div class="bg-white p-4 rounded shadow col-span-2"><h3 class="font-bold mb-3">Detalles por Obra</h3>';
+            appState.obras.forEach(o => {
+                const ventasObra = appState.ventas.filter(v => {
+                    const f = appState.funciones.find(x => x.id === v.funcionId);
+                    return f?.obraId === o.id;
+                });
+                const entradaObra = appState.entrada_libre.filter(v => {
+                    const f = appState.funciones.find(x => x.id === v.funcionId);
+                    return f?.obraId === o.id;
+                });
+                html += '<div class="mb-3 pb-3 border-b"><strong>' + o.nombre + '</strong>: Ventas: ' + ventasObra.length + ' | Entrada: ' + entradaObra.length + '</div>';
+            });
+            html += '</div></div></main></div>';
+            return html;
+        }
+
+        function renderHistorial() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📝 Historial de Cambios</h2>';
+            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Fecha</th><th class="px-4 py-2 text-left">Usuario</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Descripción</th></tr></thead><tbody>';
+            appState.historial.slice().reverse().forEach(h => {
+                html += '<tr class="border-b"><td class="px-4 py-2 text-xs">' + h.fecha + '</td><td class="px-4 py-2 text-xs">' + h.usuario + '</td><td class="px-4 py-2 text-xs">' + h.tipo + '</td><td class="px-4 py-2 text-xs">' + h.descripcion + '</td></tr>';
+            });
+            html += '</tbody></table></div></main></div>';
             return html;
         }
 
@@ -423,28 +521,19 @@
 
         function render() {
             const app = document.getElementById('app');
-
             if (!appState.user) {
                 app.innerHTML = renderLogin();
             } else {
                 switch (appState.currentPage) {
-                    case 'obras':
-                        app.innerHTML = renderObras();
-                        break;
-                    case 'crear-obra':
-                        app.innerHTML = renderCrearObra();
-                        break;
-                    case 'ventas':
-                        app.innerHTML = renderVentas();
-                        break;
-                    case 'entrada':
-                        app.innerHTML = renderEntrada();
-                        break;
-                    case 'reportes':
-                        app.innerHTML = renderReportes();
-                        break;
-                    default:
-                        app.innerHTML = renderDashboard();
+                    case 'obras': app.innerHTML = renderObras(); break;
+                    case 'crear-obra': app.innerHTML = renderCrearObra(); break;
+                    case 'salas': app.innerHTML = renderSalas(); break;
+                    case 'ventas': app.innerHTML = renderVentas(); break;
+                    case 'entrada': app.innerHTML = renderEntrada(); break;
+                    case 'calendario': app.innerHTML = renderCalendario(); break;
+                    case 'reportes': app.innerHTML = renderReportes(); break;
+                    case 'historial': app.innerHTML = renderHistorial(); break;
+                    default: app.innerHTML = renderDashboard();
                 }
             }
         }
@@ -452,9 +541,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             initData();
             const savedUser = localStorage.getItem('boleteria-user');
-            if (savedUser) {
-                appState.user = JSON.parse(savedUser);
-            }
+            if (savedUser) appState.user = JSON.parse(savedUser);
             render();
         });
     </script>
