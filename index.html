@@ -144,7 +144,7 @@
             html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
             html += '</form>';
             html += '<div class="mt-6 p-3 bg-gray-100 rounded-lg text-xs text-gray-700">';
-            html += '<strong>Prueba:</strong><br/>registrador.boleto@test.com / 123456';
+            html += '<strong>Prueba:</strong><br/>admin@test.com / admin123';
             html += '</div>';
             html += '</div></div>';
             return html;
@@ -276,13 +276,33 @@
                 html += '<td class="px-4 py-2">' + sala?.nombre + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + (obra.fechaRedes ? calcularDiasDesde(obra.fechaRedes) + 'd' : '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + (obra.fechaPauta ? calcularDiasDesde(obra.fechaPauta) + 'd' : '-') + '</td>';
-                html += '<td class="px-4 py-2"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 text-xs font-medium">Ver (' + accionesCount + ')</button>';
-                if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600 text-xs">Editar</button>';
+                html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
+                if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
+                if (appState.user.rol === 'admin') html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600">Eliminar</button>';
                 html += '</td></tr>';
             });
 
             html += '</tbody></table></div></main></div>';
             return html;
+        }
+
+        function deleteObra(obraId) {
+            if (confirm('¿Eliminar esta obra? Se borrarán todas sus acciones y registros.')) {
+                appState.obras = appState.obras.filter(o => o.id !== obraId);
+                appState.acciones = appState.acciones.filter(a => a.obraId !== obraId);
+                appState.ventas = appState.ventas.filter(v => {
+                    const f = appState.funciones.find(x => x.id === v.funcionId);
+                    return f?.obraId !== obraId;
+                });
+                appState.entrada_libre = appState.entrada_libre.filter(v => {
+                    const f = appState.funciones.find(x => x.id === v.funcionId);
+                    return f?.obraId !== obraId;
+                });
+                appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
+                saveData();
+                alert('✅ Obra eliminada');
+                render();
+            }
         }
 
         function viewObra(obraId) {
