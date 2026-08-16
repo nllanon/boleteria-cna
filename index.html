@@ -680,6 +680,20 @@
                 functionesAGuardar = appState.editingFunciones;
             }
 
+            // Validar fechas
+            const fechaTiquetera = document.getElementById('obraFechaTiquetera').value;
+            
+            if (functionesAGuardar.length > 0 && fechaTiquetera) {
+                const fechas = functionesAGuardar.map(f => new Date(f.fecha));
+                const primeraFuncion = new Date(Math.min(...fechas));
+                const tiquetera = new Date(fechaTiquetera);
+                
+                if (tiquetera >= primeraFuncion) {
+                    alert('⚠️ Error: La fecha de tiquetera debe ser ANTERIOR a la primera función.\n\nTiquetera: ' + fechaTiquetera + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
+                    return;
+                }
+            }
+
             // Calcular fecha última función automáticamente
             let fechaUltimaFuncion = document.getElementById('obraFechaUltimaFuncion').value || null;
             if (functionesAGuardar.length > 0) {
