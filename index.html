@@ -134,14 +134,14 @@
             html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
             html += '</form>';
             html += '<div class="mt-6 p-3 bg-gray-100 rounded-lg text-xs text-gray-700">';
-            html += '<strong>Usuarios:</strong><br/>👑 admin@test.com / admin123<br/>🎟️ registrador.boleto@test.com / 123456<br/>🚪 registrador.entrada@test.com / 123456<br/>👁️ visualizador@test.com / 123456';
+            html += '<strong>Usuarios:</strong><br/>👑 admin@test.com / admin123<br/>🎫 registrador.boleto@test.com / 123456<br/>🚶 registrador.entrada@test.com / 123456<br/>👁️ visualizador@test.com / 123456';
             html += '</div>';
             html += '</div></div>';
             return html;
         }
 
         function renderHeader() {
-            let rolTexto = { admin: '👑 Admin', registrador_boleto: '🎟️ Reg.Boleto', registrador_entrada: '🚪 Reg.Entrada', visualizador: '👁️ Visualizador' }[appState.user.rol];
+            let rolTexto = { admin: '👑 Admin', registrador_boleto: '🎫 Reg.Boleto', registrador_entrada: '🚶 Reg.Entrada', visualizador: '👁️ Visualizador' }[appState.user.rol];
             let html = '<header class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">';
             html += '<div><h1 class="text-xl font-bold text-gray-800">🎭 Boletería CNA</h1>';
             html += '<p class="text-xs text-gray-500">' + rolTexto + '</p></div>';
@@ -158,7 +158,7 @@
                     { id: 'obras', label: '📚 Obras' },
                     { id: 'salas', label: '🏛️ Salas' },
                     { id: 'ventas', label: '💰 Ventas' },
-                    { id: 'entrada', label: '🚪 Entrada' },
+                    { id: 'entrada', label: '🚶 Entrada' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' },
                     { id: 'historial', label: '📝 Historial' }
@@ -175,7 +175,7 @@
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Obras' },
-                    { id: 'entrada', label: '🚪 Entrada' },
+                    { id: 'entrada', label: '🚶 Entrada' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' }
                 ];
@@ -219,7 +219,7 @@
             html += '<div class="grid grid-cols-2 gap-6">';
 
             if (obrasBoleto.length > 0) {
-                html += '<div><h3 class="text-lg font-bold mb-3">🎟️ Obras con Boletería</h3>';
+                html += '<div><h3 class="text-lg font-bold mb-3">🎫 Obras con Boletería</h3>';
                 html += '<div class="grid grid-cols-1 gap-3">';
                 obrasBoleto.forEach(obra => {
                     const sala = getSala(obra.salaId);
@@ -234,7 +234,7 @@
             }
 
             if (obrasEntrada.length > 0) {
-                html += '<div><h3 class="text-lg font-bold mb-3">🚪 Obras con Entrada Libre</h3>';
+                html += '<div><h3 class="text-lg font-bold mb-3">🚶 Obras con Entrada Libre</h3>';
                 html += '<div class="grid grid-cols-1 gap-3">';
                 obrasEntrada.forEach(obra => {
                     const sala = getSala(obra.salaId);
@@ -267,7 +267,7 @@
             appState.obras.forEach(obra => {
                 const sala = getSala(obra.salaId);
                 html += '<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2">' + obra.nombre + '</td>';
-                html += '<td class="px-4 py-2">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td>';
+                html += '<td class="px-4 py-2">' + (obra.tipo === 'boleteria' ? '🎫' : '🚶') + '</td>';
                 html += '<td class="px-4 py-2">' + sala?.nombre + '</td>';
                 html += '<td class="px-4 py-2">' + sala?.aforo + '</td>';
                 html += '<td class="px-4 py-2">' + obra.diasVenta + '</td>';
@@ -304,7 +304,7 @@
             html += '<div><label class="block text-sm font-medium mb-1">Sala</label><select id="obraSala" required class="w-full px-3 py-2 border rounded text-sm">';
             appState.salas.forEach(s => html += '<option value="' + s.id + '" ' + (obra.salaId === s.id ? 'selected' : '') + '>' + s.nombre + ' (Aforo: ' + s.aforo + ')</option>');
             html += '</select></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>🎟️ Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🚪 Entrada Libre</option></select></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>🎫 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🚶 Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Días en Venta</label><input type="number" id="obraDiasVenta" value="' + obra.diasVenta + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Días en Redes</label><input type="number" id="obraDiasRedes" value="' + obra.diasRedes + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Días con Pauta Digital</label><input type="number" id="obraDiasPauta" value="' + obra.diasPauta + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
@@ -391,7 +391,7 @@
 
         function renderEntrada() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🚪 Registrar Entrada Libre - ' + new Date().toLocaleDateString() + '</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🚶 Registrar Entrada Libre - ' + new Date().toLocaleDateString() + '</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'entrada_libre');
             const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
@@ -473,7 +473,7 @@
                 const obra = appState.obras.find(o => o.id === f.obraId);
                 const sala = getSala(obra.salaId);
                 const color = obra.tipo === 'boleteria' ? 'bg-blue-50' : 'bg-purple-50';
-                html += '<tr class="' + color + ' border"><td class="border p-2">' + f.fecha + '</td><td class="border p-2">' + obra.nombre + '</td><td class="border p-2">' + f.hora + '</td><td class="border p-2">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td><td class="border p-2">' + sala?.nombre + '</td></tr>';
+                html += '<tr class="' + color + ' border"><td class="border p-2">' + f.fecha + '</td><td class="border p-2">' + obra.nombre + '</td><td class="border p-2">' + f.hora + '</td><td class="border p-2">' + (obra.tipo === 'boleteria' ? '🎫' : '🚶') + '</td><td class="border p-2">' + sala?.nombre + '</td></tr>';
             });
 
             html += '</tbody></table></div></main></div>';
