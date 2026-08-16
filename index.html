@@ -436,7 +436,7 @@
             saveData();
             document.getElementById('funcionFecha').value = '';
             document.getElementById('funcionHora').value = '';
-            render();
+            document.getElementById('funcionFecha').focus();
         }
 
         function deleteFuncion(funcionId) {
@@ -505,6 +505,30 @@
             }
         }
 
+        function updateFunctionsListDisplay() {
+            const listContainer = document.getElementById('funcionesAgregadasContainer');
+            if (!listContainer) return;
+            
+            let html = '';
+            if (appState.editingFunciones.length > 0) {
+                html += '<div class="bg-white rounded p-3 mb-3">';
+                html += '<h4 class="text-sm font-bold mb-2 text-blue-900">✅ Funciones agregadas (' + appState.editingFunciones.length + '):</h4>';
+                html += '<div class="space-y-2">';
+                appState.editingFunciones.forEach(f => {
+                    html += '<div class="p-2 bg-blue-100 rounded border border-blue-300 flex justify-between items-center">';
+                    html += '<div class="text-sm"><strong>' + f.fecha + '</strong> · ' + f.hora + '</div>';
+                    html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-bold">×</button>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                html += '</div>';
+            } else {
+                html = '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
+            }
+            
+            listContainer.innerHTML = html;
+        }
+
         function handleAgregarFuncionEnFormulario(e) {
             e.preventDefault();
             const fecha = document.getElementById('nuevaFuncionFecha').value;
@@ -520,12 +544,13 @@
             });
             document.getElementById('nuevaFuncionFecha').value = '';
             document.getElementById('nuevaFuncionHora').value = '';
-            setTimeout(() => render(), 0);
+            document.getElementById('nuevaFuncionFecha').focus();
+            updateFunctionsListDisplay();
         }
 
         function eliminarFuncionEnFormulario(tempId) {
             appState.editingFunciones = appState.editingFunciones.filter(f => f.id !== tempId);
-            render();
+            updateFunctionsListDisplay();
         }
 
         function renderCrearObra() {
@@ -556,36 +581,24 @@
             html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
             html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra</h3>';
             html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
-            html += '<strong>💡 Tip:</strong> Puedes agregar una o más funciones. Después de agregar, completa otros datos y guarda todo junto.';
+            html += '<strong>💡 Crea una o varias funciones aquí.</strong> No te preocupes, puedes agregar todas las que quieras sin salir. Solo guarda cuando termines.';
             html += '</div>';
             html += '<form onsubmit="handleAgregarFuncionEnFormulario(event)" class="mb-4 space-y-2">';
             html += '<div class="grid grid-cols-2 gap-2">';
-            html += '<input type="date" id="nuevaFuncionFecha" placeholder="Fecha" class="px-3 py-2 border rounded text-sm" />';
-            html += '<input type="time" id="nuevaFuncionHora" placeholder="Hora" class="px-3 py-2 border rounded text-sm" />';
+            html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+            html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
             html += '</div>';
-            html += '<button type="submit" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-medium">+ Agregar Función</button>';
+            html += '<button type="submit" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
             html += '</form>';
             
-            if (appState.editingFunciones.length > 0) {
-                html += '<div class="bg-white rounded p-3 mb-3">';
-                html += '<h4 class="text-sm font-bold mb-2 text-blue-900">Funciones agregadas (' + appState.editingFunciones.length + '):</h4>';
-                html += '<div class="space-y-2">';
-                appState.editingFunciones.forEach(f => {
-                    html += '<div class="p-2 bg-blue-100 rounded border border-blue-300 flex justify-between items-center">';
-                    html += '<div class="text-sm"><strong>' + f.fecha + '</strong> · ' + f.hora + '</div>';
-                    html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">×</button>';
-                    html += '</div>';
-                });
-                html += '</div>';
-                html += '</div>';
-            } else {
-                html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
-            }
+            html += '<div id="funcionesAgregadasContainer">';
+            html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
+            html += '</div>';
             html += '</div>';
 
             html += '</form>';
             html += '<div class="flex gap-2">';
-            html += '<button form="obraForm" type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 font-medium">Guardar Obra' + (appState.editingFunciones.length > 0 ? ' + ' + appState.editingFunciones.length + ' Función(es)' : '') + '</button>';
+            html += '<button form="obraForm" type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 font-medium">✅ GUARDAR OBRA' + (appState.editingFunciones.length > 0 ? ' + ' + appState.editingFunciones.length + ' FUNCIÓN(ES)' : '') + '</button>';
             html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm hover:bg-gray-500">Cancelar</button>';
             html += '</div>';
             html += '</div></main></div>';
@@ -645,7 +658,7 @@
             appState.currentPage = 'obras';
             appState.editingObra = null;
             appState.editingFunciones = [];
-            alert('✅ Obra guardada' + (appState.editingFunciones.length > 0 ? ' con funciones' : ''));
+            alert('✅ Obra guardada correctamente');
             render();
         }
 
