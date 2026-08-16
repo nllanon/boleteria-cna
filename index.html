@@ -46,9 +46,9 @@
                 ];
 
                 appState.obras = [
-                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', tipo: 'boleteria', cortesias: 10, diasVenta: 14, fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, videoDisponible: true },
-                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', tipo: 'boleteria', cortesias: 50, diasVenta: 21, fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, videoDisponible: false },
-                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', tipo: 'entrada_libre', cortesias: 0, diasVenta: 7, fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, videoDisponible: false }
+                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', tipo: 'boleteria', cortesias: 10, fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08' },
+                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', tipo: 'boleteria', cortesias: 50, fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null },
+                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', tipo: 'entrada_libre', cortesias: 0, fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null }
                 ];
 
                 appState.funciones = [
@@ -85,7 +85,7 @@
                 localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
                 render();
             } else {
-                alert('Credenciales inválidas.');
+                alert('Credenciales inválidos.');
             }
         }
 
@@ -125,6 +125,14 @@
             const hoy = new Date('2026-08-16');
             const inicio = new Date(fecha);
             const diff = Math.floor((hoy - inicio) / (1000 * 60 * 60 * 24));
+            return Math.max(0, diff);
+        }
+
+        function calcularDiasParaVender(fechaTiquetera, fechaUltimaFuncion) {
+            if (!fechaTiquetera || !fechaUltimaFuncion) return 0;
+            const inicio = new Date(fechaTiquetera);
+            const fin = new Date(fechaUltimaFuncion);
+            const diff = Math.floor((fin - inicio) / (1000 * 60 * 60 * 24));
             return Math.max(0, diff);
         }
 
@@ -229,10 +237,11 @@
                 html += '<div class="grid grid-cols-1 gap-3">';
                 obrasBoleto.forEach(obra => {
                     const sala = getSala(obra.salaId);
+                    const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
                     html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
-                    html += '<div class="mt-2 text-xs"><strong>Redes:</strong> ' + calcularDiasDesde(obra.fechaRedes) + ' días | <strong>Pauta:</strong> ' + calcularDiasDesde(obra.fechaPauta) + ' días</div>';
+                    html += '<div class="mt-2 text-xs"><strong>Para vender:</strong> ' + diasParaVender + ' días</div>';
                     html += '</div>';
                 });
                 html += '</div></div>';
@@ -246,7 +255,7 @@
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
                     html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
-                    html += '<div class="mt-2 text-xs"><strong>Aforo:</strong> ' + sala?.aforo + ' | <strong>Redes:</strong> ' + calcularDiasDesde(obra.fechaRedes) + ' días</div>';
+                    html += '<div class="mt-2 text-xs"><strong>Aforo:</strong> ' + sala?.aforo + '</div>';
                     html += '</div>';
                 });
                 html += '</div></div>';
@@ -266,17 +275,19 @@
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Redes</th><th class="px-4 py-2 text-left">Pauta</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Tiquetera</th><th class="px-4 py-2 text-left">Última Fun.</th><th class="px-4 py-2 text-left">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
 
             obrasFiltradas.forEach(obra => {
                 const sala = getSala(obra.salaId);
                 const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
                 const accionesCount = getAccionesObra(obra.id).length;
+                const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
                 html += '<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 font-medium cursor-pointer text-blue-600" onclick="viewObra(\'' + obra.id + '\')">' + obra.nombre + '</td>';
                 html += '<td class="px-4 py-2">' + icono + '</td>';
-                html += '<td class="px-4 py-2">' + sala?.nombre + '</td>';
-                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaRedes ? calcularDiasDesde(obra.fechaRedes) + 'd' : '-') + '</td>';
-                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaPauta ? calcularDiasDesde(obra.fechaPauta) + 'd' : '-') + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + sala?.nombre + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaTiquetera || '-') + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaUltimaFuncion || '-') + '</td>';
+                html += '<td class="px-4 py-2 text-xs font-bold">' + diasParaVender + 'd</td>';
                 html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
                 if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
                 if (appState.user.rol === 'admin') html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600">Eliminar</button>';
@@ -318,6 +329,7 @@
             
             const sala = getSala(obra.salaId);
             const acciones = getAccionesObra(obra.id);
+            const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
 
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6">';
@@ -329,8 +341,13 @@
             html += '<div class="text-right"><span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">' + (obra.tipo === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre') + '</span></div>';
             html += '</div>';
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
-            html += '<div><strong>Fecha en Redes:</strong> ' + (obra.fechaRedes ? obra.fechaRedes + ' (' + calcularDiasDesde(obra.fechaRedes) + ' días)' : 'No registrada') + '</div>';
-            html += '<div><strong>Fecha Pauta Digital:</strong> ' + (obra.fechaPauta ? obra.fechaPauta + ' (' + calcularDiasDesde(obra.fechaPauta) + ' días)' : 'No registrada') + '</div>';
+            html += '<div><strong>Fecha Tiquetera:</strong> ' + (obra.fechaTiquetera || 'No registrada') + '</div>';
+            html += '<div><strong>Última Función:</strong> ' + (obra.fechaUltimaFuncion || 'No registrada') + '</div>';
+            html += '<div><strong>Días para Vender:</strong> <span class="font-bold text-blue-600">' + diasParaVender + ' días</span></div>';
+            html += '<div><strong>Redes:</strong> ' + (obra.fechaRedes ? obra.fechaRedes + ' (' + calcularDiasDesde(obra.fechaRedes) + 'd)' : 'No registrada') + '</div>';
+            html += '<div><strong>Pauta Digital:</strong> ' + (obra.fechaPauta ? obra.fechaPauta : 'No registrada') + '</div>';
+            html += '<div><strong>Piezas:</strong> ' + (obra.piezasDesarrolladas ? '✅ Sí' : '❌ No') + (obra.fechaPiezasDesarrolladas ? ' (' + obra.fechaPiezasDesarrolladas + ')' : '') + '</div>';
+            html += '<div><strong>Video:</strong> ' + (obra.videoDisponible ? '✅ Sí' : '❌ No') + (obra.fechaVideoPatua ? ' (' + obra.fechaVideoPatua + ')' : '') + '</div>';
             html += '</div>';
             if (tienePermiso('editar_obra')) {
                 html += '<button onclick="openEditarObra(\'' + obra.id + '\')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">✏️ Editar Obra</button>';
@@ -401,8 +418,22 @@
             render();
         }
 
+        function handleCheckPiezas(e) {
+            const hoy = new Date('2026-08-16').toISOString().split('T')[0];
+            if (e.target.checked && !document.getElementById('obraFechaPiezas').value) {
+                document.getElementById('obraFechaPiezas').value = hoy;
+            }
+        }
+
+        function handleCheckVideo(e) {
+            const hoy = new Date('2026-08-16').toISOString().split('T')[0];
+            if (e.target.checked && !document.getElementById('obraFechaVideo').value) {
+                document.getElementById('obraFechaVideo').value = hoy;
+            }
+        }
+
         function renderCrearObra() {
-            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, diasVenta: 0, fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, videoDisponible: false };
+            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
             html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
             html += '<form onsubmit="handleGuardarObra(event)" class="bg-white p-6 rounded shadow">';
@@ -414,11 +445,14 @@
             html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Días en Venta</label><input type="number" id="obraDiasVenta" value="' + obra.diasVenta + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Fecha Tiquetera</label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Fecha Última Función</label><input type="date" id="obraFechaUltimaFuncion" value="' + (obra.fechaUltimaFuncion || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Redes</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Pauta Digital</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' class="mr-2" /> Piezas Desarrolladas</label></div>';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' class="mr-2" /> Video para Pauta</label></div>';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
+            html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
+            html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
             html += '</div>';
             html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
             html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
@@ -434,11 +468,14 @@
                 salaId: document.getElementById('obraSala').value,
                 tipo: document.getElementById('obraTipo').value,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
-                diasVenta: parseInt(document.getElementById('obraDiasVenta').value) || 0,
+                fechaTiquetera: document.getElementById('obraFechaTiquetera').value || null,
+                fechaUltimaFuncion: document.getElementById('obraFechaUltimaFuncion').value || null,
                 fechaRedes: document.getElementById('obraFechaRedes').value || null,
                 fechaPauta: document.getElementById('obraFechaPauta').value || null,
                 piezasDesarrolladas: document.getElementById('obraPiezas').checked,
-                videoDisponible: document.getElementById('obraVideo').checked
+                fechaPiezasDesarrolladas: document.getElementById('obraFechaPiezas').value || null,
+                videoDisponible: document.getElementById('obraVideo').checked,
+                fechaVideoPatua: document.getElementById('obraFechaVideo').value || null
             };
 
             if (appState.editingObra) {
