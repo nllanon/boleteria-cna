@@ -85,7 +85,7 @@
                 localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
                 render();
             } else {
-                alert('Credenciales inválidos.');
+                alert('Credenciales inválidas.');
             }
         }
 
@@ -335,6 +335,7 @@
             const acciones = getAccionesObra(obra.id);
             const funciones = getFuncionesObra(obra.id);
             const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
+            const canEdit = tienePermiso('editar_obra');
 
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6">';
@@ -354,36 +355,35 @@
             html += '<div><strong>Piezas:</strong> ' + (obra.piezasDesarrolladas ? '✅ Sí' : '❌ No') + (obra.fechaPiezasDesarrolladas ? ' (' + obra.fechaPiezasDesarrolladas + ')' : '') + '</div>';
             html += '<div><strong>Video:</strong> ' + (obra.videoDisponible ? '✅ Sí' : '❌ No') + (obra.fechaVideoPatua ? ' (' + obra.fechaVideoPatua + ')' : '') + '</div>';
             html += '</div>';
-            if (tienePermiso('editar_obra')) {
+            if (canEdit) {
                 html += '<button onclick="openEditarObra(\'' + obra.id + '\')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">✏️ Editar Obra</button>';
             }
             html += '</div>';
 
-            // Sección de Funciones - FORMULARIO PRIMERO
-            if (tienePermiso('editar_obra')) {
-                html += '<div class="bg-blue-50 border-2 border-blue-300 p-6 rounded shadow mb-6">';
-                html += '<h3 class="text-lg font-bold mb-4 text-blue-900">➕ Agregar Nueva Función</h3>';
-                html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="space-y-3">';
-                html += '<div class="grid grid-cols-2 gap-3">';
-                html += '<div><label class="block text-sm font-medium mb-1">📅 Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
-                html += '<div><label class="block text-sm font-medium mb-1">⏰ Hora</label><input type="time" id="funcionHora" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
-                html += '</div>';
-                html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 font-medium">✅ Crear Función</button>';
-                html += '</form>';
-                html += '</div>';
-            }
+            // ========== SECCIÓN DE FUNCIONES ==========
+            html += '<div class="bg-green-50 border-2 border-green-300 p-6 rounded shadow mb-6">';
+            html += '<h3 class="text-lg font-bold mb-4 text-green-900">🎬 CREAR NUEVA FUNCIÓN</h3>';
+            html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="space-y-3">';
+            html += '<div class="grid grid-cols-2 gap-3">';
+            html += '<div><label class="block text-sm font-medium mb-1 text-gray-700">📅 Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border-2 border-gray-300 rounded text-sm font-medium" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1 text-gray-700">⏰ Hora</label><input type="time" id="funcionHora" required class="w-full px-3 py-2 border-2 border-gray-300 rounded text-sm font-medium" /></div>';
+            html += '</div>';
+            html += '<button type="submit" class="w-full bg-green-600 text-white px-4 py-3 rounded text-base font-bold hover:bg-green-700">✅ AGREGAR FUNCIÓN</button>';
+            html += '</form>';
+            html += '</div>';
 
-            html += '<div class="bg-white p-6 rounded shadow mb-6"><h3 class="text-xl font-bold mb-4">🎬 Listado de Funciones (' + funciones.length + ')</h3>';
-            
+            // Lista de funciones
+            html += '<div class="bg-white p-6 rounded shadow mb-6">';
+            html += '<h3 class="text-lg font-bold mb-4">📋 Funciones Registradas (' + funciones.length + ')</h3>';
             if (funciones.length === 0) {
-                html += '<p class="text-gray-500 text-sm italic">Sin funciones registradas</p>';
+                html += '<p class="text-gray-500">Sin funciones registradas</p>';
             } else {
                 html += '<div class="space-y-2">';
                 funciones.forEach(f => {
                     html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500 flex justify-between items-center">';
                     html += '<div><strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong></div>';
-                    if (tienePermiso('editar_obra')) {
-                        html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs">Eliminar</button>';
+                    if (canEdit) {
+                        html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs font-medium">Eliminar</button>';
                     }
                     html += '</div>';
                 });
@@ -421,6 +421,10 @@
             e.preventDefault();
             const fecha = document.getElementById('funcionFecha').value;
             const hora = document.getElementById('funcionHora').value;
+            if (!fecha || !hora) {
+                alert('Por favor completa los campos de fecha y hora');
+                return;
+            }
             appState.funciones.push({
                 id: Date.now().toString(),
                 obraId,
@@ -431,7 +435,7 @@
             saveData();
             document.getElementById('funcionFecha').value = '';
             document.getElementById('funcionHora').value = '';
-            alert('✅ Función agregada');
+            alert('✅ Función agregada correctamente');
             render();
         }
 
