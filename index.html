@@ -641,10 +641,16 @@
             if (!appState.editingMultipleFunciones) {
                 const fecha = document.getElementById('funcionUnicaFecha').value;
                 const hora = document.getElementById('funcionUnicaHora').value;
-                if (fecha && hora) {
-                    functionesAGuardar.push({ fecha, hora });
+                if (!fecha || !hora) {
+                    alert('⚠️ Debes ingresar al menos la fecha y hora de la función');
+                    return;
                 }
+                functionesAGuardar.push({ fecha, hora });
             } else {
+                if (appState.editingFunciones.length === 0) {
+                    alert('⚠️ Debes agregar al menos una función');
+                    return;
+                }
                 functionesAGuardar = appState.editingFunciones;
             }
 
