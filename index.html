@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boletería CNA - Sistema Completo</title>
+    <title>Boletería CNA - Con Roles</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
@@ -11,44 +11,41 @@
     <div id="app"></div>
 
     <script>
-        // ====== ESTADO GLOBAL ======
         let appState = {
             user: null,
             obras: [],
             funciones: [],
             ventas: [],
+            entrada_libre: [],
             cierres: [],
             notas: [],
             currentPage: 'dashboard',
-            editingObra: null,
-            editingFuncion: null,
-            chartInstance: null
+            editingObra: null
         };
 
-        // ====== INICIALIZAR DATOS ======
+        const USUARIOS = {
+            'admin@test.com': { password: 'admin123', nombre: 'Administrador CNA', rol: 'admin' },
+            'registrador.boleto@test.com': { password: '123456', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
+            'registrador.entrada@test.com': { password: '123456', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
+            'visualizador@test.com': { password: '123456', nombre: 'Visualizador', rol: 'visualizador' }
+        };
+
         function initData() {
             const saved = localStorage.getItem('boleteria-data');
             if (saved) {
                 const data = JSON.parse(saved);
-                appState.obras = data.obras || [];
-                appState.funciones = data.funciones || [];
-                appState.ventas = data.ventas || [];
-                appState.cierres = data.cierres || [];
-                appState.notas = data.notas || [];
+                Object.assign(appState, data);
             } else {
-                // Datos iniciales
                 appState.obras = [
                     { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', sala: 'Sala Fanny Mikey', aforo: 222, cortesias: 10, tipo: 'boleteria' },
                     { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', sala: 'Teatro Colón', aforo: 720, cortesias: 50, tipo: 'boleteria' },
-                    { id: '3', nombre: 'Viseira – Davi Fonseca', artista: 'Danza Contemporánea', sala: 'Sala Delia Zapata Olivella', aforo: 300, cortesias: 20, tipo: 'boleteria' }
+                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', sala: 'Sala Delia Zapata', aforo: 300, cortesias: 0, tipo: 'entrada_libre' }
                 ];
-
                 appState.funciones = [
                     { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada' },
                     { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada' },
                     { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada' }
                 ];
-
                 saveData();
             }
         }
@@ -58,24 +55,24 @@
                 obras: appState.obras,
                 funciones: appState.funciones,
                 ventas: appState.ventas,
+                entrada_libre: appState.entrada_libre,
                 cierres: appState.cierres,
                 notas: appState.notas
             }));
-            render();
         }
 
-        // ====== AUTHENTICATION ======
         function handleLogin(e) {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
-            if (email === 'test@test.com' && password === 'test123456') {
-                appState.user = { email };
+            const usuario = USUARIOS[email];
+            if (usuario && usuario.password === password) {
+                appState.user = { email, ...usuario };
                 localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
                 render();
             } else {
-                alert('Credenciales inválidas.\n\nPrueba: test@test.com / test123456');
+                alert('Credenciales inválidas.\n\nPrueba:\nadmin@test.com / admin123\nregistrador.boleto@test.com / 123456\nregistrador.entrada@test.com / 123456\nvisualizador@test.com / 123456');
             }
         }
 
@@ -86,17 +83,199 @@
             render();
         }
 
-        // ====== OBRAS ======
+        function tienePermiso(accion) {
+            const rol = appState.user?.rol;
+            const permisos = {
+                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'generar_reportes', 'ver_acciones', 'crear_acciones'],
+                'registrador_boleto': ['ver_obras_boleto', 'registrar_venta', 'ver_acciones', 'crear_acciones', 'generar_reportes'],
+                'registrador_entrada': ['ver_obras_entrada', 'registrar_entrada', 'ver_acciones', 'crear_acciones', 'generar_reportes'],
+                'visualizador': ['ver_todo']
+            };
+            return permisos[rol]?.includes(accion) || false;
+        }
+
+        function renderLogin() {
+            let html = '<div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">';
+            html += '<div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">';
+            html += '<h1 class="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>';
+            html += '<p class="text-center text-gray-500 text-sm mb-6">Con Control de Roles</p>';
+            html += '<form onsubmit="handleLogin(event)">';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">Email</label>';
+            html += '<input type="email" id="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com" /></div>';
+            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>';
+            html += '<input type="password" id="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" /></div>';
+            html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
+            html += '</form>';
+            html += '<div class="mt-6 p-4 bg-gray-100 rounded-lg text-xs text-gray-700">';
+            html += '<strong>Usuarios de prueba:</strong><br/>';
+            html += 'Admin: admin@test.com / admin123<br/>';
+            html += 'Reg. Boleto: registrador.boleto@test.com / 123456<br/>';
+            html += 'Reg. Entrada: registrador.entrada@test.com / 123456<br/>';
+            html += 'Visualizador: visualizador@test.com / 123456';
+            html += '</div>';
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderHeader() {
+            let rolTexto = '';
+            if (appState.user.rol === 'admin') rolTexto = '👑 Administrador';
+            else if (appState.user.rol === 'registrador_boleto') rolTexto = '🎟️ Registrador Boletería';
+            else if (appState.user.rol === 'registrador_entrada') rolTexto = '🚪 Registrador Entrada Libre';
+            else rolTexto = '👁️ Visualizador';
+
+            let html = '<header class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">';
+            html += '<div><h1 class="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>';
+            html += '<p class="text-xs text-gray-500">' + rolTexto + '</p></div>';
+            html += '<div class="flex items-center gap-4">';
+            html += '<span class="text-sm text-gray-600">' + appState.user.email + '</span>';
+            html += '<button onclick="handleLogout()" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition">Salir</button>';
+            html += '</div></div></header>';
+            return html;
+        }
+
+        function renderNav() {
+            let items = [];
+
+            if (tienePermiso('ver_todo')) {
+                items = [
+                    { id: 'dashboard', label: '📊 Dashboard' },
+                    { id: 'obras', label: '📚 Obras' },
+                    { id: 'ventas', label: '💰 Ventas' },
+                    { id: 'entrada', label: '🚪 Entrada Libre' },
+                    { id: 'reportes', label: '📈 Reportes' }
+                ];
+            } else if (tienePermiso('registrar_venta')) {
+                items = [
+                    { id: 'dashboard', label: '📊 Dashboard' },
+                    { id: 'obras', label: '📚 Obras' },
+                    { id: 'ventas', label: '💰 Registrar Venta' },
+                    { id: 'reportes', label: '📈 Reportes' }
+                ];
+            } else if (tienePermiso('registrar_entrada')) {
+                items = [
+                    { id: 'dashboard', label: '📊 Dashboard' },
+                    { id: 'obras', label: '📚 Obras' },
+                    { id: 'entrada', label: '🚪 Registrar Entrada' },
+                    { id: 'reportes', label: '📈 Reportes' }
+                ];
+            } else {
+                items = [
+                    { id: 'dashboard', label: '📊 Dashboard' },
+                    { id: 'obras', label: '📚 Obras' }
+                ];
+            }
+
+            let html = '<div class="bg-white border-b"><div class="max-w-7xl mx-auto px-4 flex gap-4 py-4 overflow-x-auto">';
+            items.forEach(page => {
+                const active = appState.currentPage === page.id;
+                html += '<button onclick="changePage(\'' + page.id + '\')" class="px-4 py-2 rounded-lg font-medium transition whitespace-nowrap ' + (active ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100') + '">' + page.label + '</button>';
+            });
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderDashboard() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📊 Dashboard</h2>';
+
+            let obrasFiltradas = appState.obras;
+            if (appState.user.rol === 'registrador_boleto') {
+                obrasFiltradas = obrasFiltradas.filter(o => o.tipo === 'boleteria');
+            } else if (appState.user.rol === 'registrador_entrada') {
+                obrasFiltradas = obrasFiltradas.filter(o => o.tipo === 'entrada_libre');
+            }
+
+            html += '<div class="grid grid-cols-3 gap-4 mb-8">';
+            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
+            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Total Ventas</p><p class="text-2xl font-bold text-green-600">' + appState.ventas.length + '</p></div>';
+            html += '<div class="bg-white p-4 rounded-lg shadow"><p class="text-gray-500 text-xs">Entrada Libre</p><p class="text-2xl font-bold text-purple-600">' + appState.entrada_libre.length + '</p></div>';
+            html += '</div>';
+
+            html += '<h3 class="text-lg font-bold mb-4">Obras ' + (appState.user.rol === 'registrador_boleto' ? 'con Boletería' : appState.user.rol === 'registrador_entrada' ? 'con Entrada Libre' : '') + '</h3>';
+            html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+
+            obrasFiltradas.forEach(obra => {
+                html += '<div class="bg-white p-4 rounded-lg shadow">';
+                html += '<h4 class="font-bold text-gray-800">' + obra.nombre + '</h4>';
+                html += '<p class="text-xs text-gray-600">' + obra.artista + '</p>';
+                html += '<p class="text-xs text-gray-500 mt-2">' + obra.sala + '</p>';
+                html += '<p class="text-xs mt-2"><strong>Tipo:</strong> ' + (obra.tipo === 'boleteria' ? '🎟️ Boletería' : '🚪 Entrada Libre') + '</p>';
+                html += '<p class="text-xs"><strong>Aforo:</strong> ' + obra.aforo + '</p>';
+                html += '</div>';
+            });
+
+            html += '</div></main></div>';
+            return html;
+        }
+
+        function renderObras() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📚 Gestión de Obras</h2>';
+
+            if (tienePermiso('crear_obra')) {
+                html += '<button onclick="openCrearObra()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mb-4">+ Nueva Obra</button>';
+            }
+
+            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
+            html += '<thead class="bg-gray-100 border-b"><tr>';
+            html += '<th class="px-6 py-3 text-left text-sm font-medium">Obra</th>';
+            html += '<th class="px-6 py-3 text-left text-sm font-medium">Tipo</th>';
+            html += '<th class="px-6 py-3 text-left text-sm font-medium">Sala</th>';
+            html += '<th class="px-6 py-3 text-left text-sm font-medium">Aforo</th>';
+
+            if (tienePermiso('crear_obra')) {
+                html += '<th class="px-6 py-3 text-left text-sm font-medium">Acciones</th>';
+            }
+
+            html += '</tr></thead><tbody>';
+
+            appState.obras.forEach(obra => {
+                html += '<tr class="border-b hover:bg-gray-50">';
+                html += '<td class="px-6 py-3 text-sm">' + obra.nombre + '</td>';
+                html += '<td class="px-6 py-3 text-sm">' + (obra.tipo === 'boleteria' ? '🎟️' : '🚪') + '</td>';
+                html += '<td class="px-6 py-3 text-sm">' + obra.sala + '</td>';
+                html += '<td class="px-6 py-3 text-sm">' + obra.aforo + '</td>';
+
+                if (tienePermiso('crear_obra')) {
+                    html += '<td class="px-6 py-3 text-sm"><button onclick="openEditarObra(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800">Editar</button></td>';
+                }
+
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div></main></div>';
+            return html;
+        }
+
         function openCrearObra() {
             appState.editingObra = null;
             appState.currentPage = 'crear-obra';
             render();
         }
 
-        function openEditarObra(obraId) {
-            appState.editingObra = appState.obras.find(o => o.id === obraId);
+        function openEditarObra(id) {
+            appState.editingObra = appState.obras.find(o => o.id === id);
             appState.currentPage = 'crear-obra';
             render();
+        }
+
+        function renderCrearObra() {
+            const obra = appState.editingObra || { nombre: '', artista: '', sala: '', aforo: '', tipo: 'boleteria' };
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            html += '<main class="max-w-2xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
+            html += '<form onsubmit="handleGuardarObra(event)" class="bg-white p-6 rounded-lg shadow">';
+            html += '<div class="grid grid-cols-2 gap-4 mb-4">';
+            html += '<div><label class="block text-sm font-medium mb-2">Nombre</label><input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-2">Artista</label><input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-2">Sala</label><input type="text" id="obraSala" value="' + obra.sala + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-2">Aforo</label><input type="number" id="obraAforo" value="' + obra.aforo + '" required class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-2">Tipo</label><select id="obraTipo" class="w-full px-4 py-2 border rounded-lg"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>🎟️ Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🚪 Entrada Libre</option></select></div>';
+            html += '</div>';
+            html += '<button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 mr-2">Guardar</button>';
+            html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-6 py-2 rounded-lg">Cancelar</button>';
+            html += '</form></main></div>';
+            return html;
         }
 
         function handleGuardarObra(e) {
@@ -105,81 +284,61 @@
             const artista = document.getElementById('obraArtista').value;
             const sala = document.getElementById('obraSala').value;
             const aforo = parseInt(document.getElementById('obraAforo').value);
-            const cortesias = parseInt(document.getElementById('obraCortesias').value);
             const tipo = document.getElementById('obraTipo').value;
 
-            if (!nombre || !artista || !sala || !aforo) {
-                alert('Completa todos los campos');
-                return;
-            }
-
             if (appState.editingObra) {
-                Object.assign(appState.editingObra, { nombre, artista, sala, aforo, cortesias, tipo });
+                Object.assign(appState.editingObra, { nombre, artista, sala, aforo, tipo });
             } else {
-                appState.obras.push({
-                    id: Date.now().toString(),
-                    nombre, artista, sala, aforo, cortesias, tipo
-                });
+                appState.obras.push({ id: Date.now().toString(), nombre, artista, sala, aforo, tipo });
             }
 
             saveData();
             appState.currentPage = 'obras';
             appState.editingObra = null;
-        }
-
-        function deleteObra(obraId) {
-            if (confirm('¿Eliminar esta obra?')) {
-                appState.obras = appState.obras.filter(o => o.id !== obraId);
-                saveData();
-            }
-        }
-
-        // ====== FUNCIONES ======
-        function openAgregarFuncion(obraId) {
-            appState.editingFuncion = { obraId, id: '', fecha: '', hora: '', estado: 'programada' };
-            appState.currentPage = 'agregar-funcion';
             render();
         }
 
-        function handleGuardarFuncion(e) {
-            e.preventDefault();
-            const fecha = document.getElementById('funcionFecha').value;
-            const hora = document.getElementById('funcionHora').value;
+        function renderVentas() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">💰 Registrar Venta del Día</h2>';
 
-            if (!fecha || !hora) {
-                alert('Completa todos los campos');
-                return;
-            }
+            const obras = appState.obras.filter(o => o.tipo === 'boleteria');
+            const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
 
-            if (!appState.editingFuncion.id) {
-                appState.funciones.push({
-                    id: Date.now().toString(),
-                    obraId: appState.editingFuncion.obraId,
-                    fecha, hora,
-                    estado: 'programada'
-                });
-            }
+            html += '<form onsubmit="handleRegistrarVenta(event)" class="bg-white p-6 rounded-lg shadow max-w-md mb-8">';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Función</label>';
+            html += '<select id="funcionSelect" required class="w-full px-4 py-2 border rounded-lg">';
+            html += '<option value="">Seleccionar...</option>';
 
-            saveData();
-            appState.currentPage = 'obras';
-            appState.editingFuncion = null;
+            funciones.forEach(f => {
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + '</option>';
+            });
+
+            html += '</select></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Boletas Vendidas</label>';
+            html += '<input type="number" id="boletas" required min="0" class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">Registrar</button>';
+            html += '</form>';
+
+            html += '<h3 class="text-lg font-bold mb-4">Últimos Registros</h3>';
+            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-6 py-3 text-left text-sm">Obra</th><th class="px-6 py-3 text-left text-sm">Boletas</th><th class="px-6 py-3 text-left text-sm">Fecha</th></tr></thead><tbody>';
+
+            appState.ventas.slice().reverse().slice(0, 10).forEach(v => {
+                const f = appState.funciones.find(x => x.id === v.funcionId);
+                const o = appState.obras.find(x => x.id === f?.obraId);
+                html += '<tr class="border-b"><td class="px-6 py-3 text-sm">' + o?.nombre + '</td><td class="px-6 py-3 text-sm">' + v.boletas + '</td><td class="px-6 py-3 text-sm">' + v.fecha + '</td></tr>';
+            });
+
+            html += '</tbody></table></div></main></div>';
+            return html;
         }
 
-        function deleteFuncion(funcionId) {
-            appState.funciones = appState.funciones.filter(f => f.id !== funcionId);
-            saveData();
-        }
-
-        // ====== VENTAS ======
         function handleRegistrarVenta(e) {
             e.preventDefault();
             const funcionId = document.getElementById('funcionSelect').value;
             const boletas = parseInt(document.getElementById('boletas').value);
-
-            if (!funcionId || boletas <= 0) {
-                alert('Completa todos los campos');
-                return;
-            }
 
             appState.ventas.push({
                 id: Date.now().toString(),
@@ -189,470 +348,72 @@
             });
 
             saveData();
-            document.getElementById('ventaForm').reset();
+            document.getElementById('funcionSelect').value = '';
+            document.getElementById('boletas').value = '';
             alert('✅ Venta registrada');
         }
 
-        // ====== CIERRE DE FUNCIONES ======
-        function openCierre(funcionId) {
-            const funcion = appState.funciones.find(f => f.id === funcionId);
-            const obra = appState.obras.find(o => o.id === funcion.obraId);
-            const ventasTotal = appState.ventas
-                .filter(v => v.funcionId === funcionId)
-                .reduce((sum, v) => sum + v.boletas, 0);
-
-            appState.editingFuncion = {
-                ...funcion,
-                obra,
-                ventasEstimadas: ventasTotal,
-                cortesiasReales: obra.cortesias
-            };
-            appState.currentPage = 'cierre-funcion';
-            render();
-        }
-
-        function handleGuardarCierre(e) {
-            e.preventDefault();
-            const ventasFinales = parseInt(document.getElementById('ventasFinales').value);
-            const cortesiasFinales = parseInt(document.getElementById('cortesiasFinales').value);
-            const notas = document.getElementById('notasCierre').value;
-
-            const cierre = {
-                id: Date.now().toString(),
-                funcionId: appState.editingFuncion.id,
-                ventasFinales,
-                cortesiasFinales,
-                notas,
-                fecha: new Date().toISOString().split('T')[0]
-            };
-
-            appState.cierres.push(cierre);
-            const funcion = appState.funciones.find(f => f.id === appState.editingFuncion.id);
-            if (funcion) funcion.estado = 'cerrada';
-
-            saveData();
-            appState.currentPage = 'pendientes-cierre';
-            appState.editingFuncion = null;
-        }
-
-        // ====== CALCULAR OCUPACIÓN ======
-        function calcularOcupacion(funcionId) {
-            const funcion = appState.funciones.find(f => f.id === funcionId);
-            const obra = appState.obras.find(o => o.id === funcion.obraId);
-            const ventasTotal = appState.ventas
-                .filter(v => v.funcionId === funcionId)
-                .reduce((sum, v) => sum + v.boletas, 0);
-
-            const ocupacion = ((ventasTotal + obra.cortesias) / obra.aforo) * 100;
-            return Math.min(100, Math.round(ocupacion));
-        }
-
-        function getColorOcupacion(ocupacion) {
-            if (ocupacion > 70) return 'bg-green-500';
-            if (ocupacion > 50) return 'bg-yellow-500';
-            return 'bg-red-500';
-        }
-
-        // ====== GRÁFICOS ======
-        function renderGraficoVentas(funcionId) {
-            const funcion = appState.funciones.find(f => f.id === funcionId);
-            const obra = appState.obras.find(o => o.id === funcion.obraId);
-            const ventasTotal = appState.ventas
-                .filter(v => v.funcionId === funcionId)
-                .reduce((sum, v) => sum + v.boletas, 0);
-
-            const ctx = document.getElementById('ventasChart');
-            if (!ctx) return;
-
-            if (appState.chartInstance) {
-                appState.chartInstance.destroy();
-            }
-
-            appState.chartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Boletas Vendidas', 'Cortesías', 'Disponible'],
-                    datasets: [{
-                        data: [ventasTotal, obra.cortesias, obra.aforo - ventasTotal - obra.cortesias],
-                        backgroundColor: ['#10b981', '#f59e0b', '#334155'],
-                        borderColor: '#0f172a',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#cbd5e1' }
-                        }
-                    }
-                }
-            });
-        }
-
-        // ====== VISTAS ======
-        function renderLogin() {
-            let html = '<div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">';
-            html += '<div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">';
-            html += '<h1 class="text-3xl font-bold mb-2 text-center text-gray-800">🎭 Boletería CNA</h1>';
-            html += '<p class="text-center text-gray-500 text-sm mb-6">Centro Nacional de las Artes</p>';
-            html += '<form onsubmit="handleLogin(event)">';
-            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">Email</label>';
-            html += '<input type="email" id="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com" /></div>';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>';
-            html += '<input type="password" id="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" /></div>';
-            html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
-            html += '</form><p class="text-xs text-gray-500 mt-6 text-center">Prueba: test@test.com / test123456</p>';
-            html += '</div></div>';
-            return html;
-        }
-
-        function renderDashboard() {
-            const totalVentas = appState.ventas.length;
-            const ocupacionPromedio = appState.funciones.length > 0
-                ? Math.round(appState.funciones.reduce((sum, f) => sum + calcularOcupacion(f.id), 0) / appState.funciones.length)
-                : 0;
-
+        function renderEntrada() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📊 Dashboard</h2>';
-            html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">';
-            html += '<div class="bg-white p-6 rounded-lg shadow"><p class="text-gray-500 text-sm">Total Obras</p><p class="text-3xl font-bold text-blue-600">' + appState.obras.length + '</p></div>';
-            html += '<div class="bg-white p-6 rounded-lg shadow"><p class="text-gray-500 text-sm">Total Ventas</p><p class="text-3xl font-bold text-green-600">' + totalVentas + '</p></div>';
-            html += '<div class="bg-white p-6 rounded-lg shadow"><p class="text-gray-500 text-sm">Ocupación Promedio</p><p class="text-3xl font-bold text-purple-600">' + ocupacionPromedio + '%</p></div>';
-            html += '</div>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">🚪 Registrar Entrada Libre</h2>';
 
-            html += '<h3 class="text-xl font-bold mb-4">Obras Activas</h3>';
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+            const obras = appState.obras.filter(o => o.tipo === 'entrada_libre');
+            const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
 
-            appState.obras.forEach(obra => {
-                const funcione = appState.funciones.find(f => f.obraId === obra.id);
-                const ocupacion = funcione ? calcularOcupacion(funcione.id) : 0;
-                const colorClass = getColorOcupacion(ocupacion);
-
-                html += '<div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">';
-                html += '<h4 class="font-bold text-lg text-gray-800">' + obra.nombre + '</h4>';
-                html += '<p class="text-sm text-gray-600">' + obra.artista + '</p>';
-                html += '<p class="text-xs text-gray-500 mt-2">📍 ' + obra.sala + '</p>';
-                html += '<p class="text-xs text-gray-500">👥 Aforo: ' + obra.aforo + '</p>';
-                html += '<div class="mt-4">';
-                html += '<div class="flex justify-between text-xs mb-1"><span>Ocupación</span><span class="font-bold">' + ocupacion + '%</span></div>';
-                html += '<div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full ' + colorClass + '" style="width: ' + ocupacion + '%"></div></div>';
-                html += '</div></div>';
-            });
-
-            html += '</div></main></div>';
-            return html;
-        }
-
-        function renderObras() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8">';
-            html += '<div class="flex justify-between items-center mb-6">';
-            html += '<h2 class="text-2xl font-bold">📚 Gestión de Obras</h2>';
-            html += '<button onclick="openCrearObra()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">+ Nueva Obra</button>';
-            html += '</div>';
-
-            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100 border-b"><tr>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Obra</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Artista</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Sala</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Aforo</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Acciones</th>';
-            html += '</tr></thead><tbody>';
-
-            appState.obras.forEach(obra => {
-                html += '<tr class="border-b hover:bg-gray-50">';
-                html += '<td class="px-6 py-3 text-sm">' + obra.nombre + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + obra.artista + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + obra.sala + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + obra.aforo + '</td>';
-                html += '<td class="px-6 py-3 text-sm">';
-                html += '<button onclick="openEditarObra(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 mr-4">Editar</button>';
-                html += '<button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600 hover:text-red-800">Eliminar</button>';
-                html += '<button onclick="openAgregarFuncion(\'' + obra.id + '\')" class="text-green-600 hover:text-green-800 ml-4">+ Función</button>';
-                html += '</td></tr>';
-            });
-
-            html += '</tbody></table></div>';
-
-            html += '<h3 class="text-xl font-bold mt-8 mb-4">📅 Funciones Programadas</h3>';
-            html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100 border-b"><tr>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Obra</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Fecha</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Hora</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Estado</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Acciones</th>';
-            html += '</tr></thead><tbody>';
-
-            appState.funciones.forEach(f => {
-                const obra = appState.obras.find(o => o.id === f.obraId);
-                const estadoClass = f.estado === 'programada' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
-                html += '<tr class="border-b hover:bg-gray-50">';
-                html += '<td class="px-6 py-3 text-sm">' + obra.nombre + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + f.fecha + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + f.hora + '</td>';
-                html += '<td class="px-6 py-3 text-sm"><span class="px-3 py-1 rounded-full text-xs font-medium ' + estadoClass + '">' + f.estado + '</span></td>';
-                html += '<td class="px-6 py-3 text-sm"><button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 hover:text-red-800">Eliminar</button></td>';
-                html += '</tr>';
-            });
-
-            html += '</tbody></table></div></main></div>';
-            return html;
-        }
-
-        function renderCrearObra() {
-            const obra = appState.editingObra || { nombre: '', artista: '', sala: '', aforo: '', cortesias: '', tipo: 'boleteria' };
-            const titulo = appState.editingObra ? '✏️ Editar Obra' : '➕ Nueva Obra';
-
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
-            html += '<main class="max-w-2xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">' + titulo + '</h2>';
-            html += '<form onsubmit="handleGuardarObra(event)" class="bg-white p-6 rounded-lg shadow">';
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Nombre</label>';
-            html += '<input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Artista</label>';
-            html += '<input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Sala</label>';
-            html += '<input type="text" id="obraSala" value="' + obra.sala + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Aforo</label>';
-            html += '<input type="number" id="obraAforo" value="' + obra.aforo + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Cortesías Estimadas</label>';
-            html += '<input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-
-            html += '<div><label class="block text-sm font-medium mb-2">Tipo</label>';
-            html += '<select id="obraTipo" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">';
-            html += '<option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>Boletería</option>';
-            html += '<option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>Entrada Libre</option>';
-            html += '</select></div>';
-
-            html += '</div><div class="flex gap-2">';
-            html += '<button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Guardar</button>';
-            html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500">Cancelar</button>';
-            html += '</div></form></main></div>';
-
-            return html;
-        }
-
-        function renderVentas() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">💰 Registrar Venta</h2>';
-            html += '<form id="ventaForm" onsubmit="handleRegistrarVenta(event)" class="bg-white p-6 rounded-lg shadow-md max-w-md mb-8">';
+            html += '<form onsubmit="handleRegistrarEntrada(event)" class="bg-white p-6 rounded-lg shadow max-w-md mb-8">';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Función</label>';
-            html += '<select id="funcionSelect" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">';
-            html += '<option value="">Seleccionar función...</option>';
+            html += '<select id="funcionSelectEntrada" required class="w-full px-4 py-2 border rounded-lg">';
+            html += '<option value="">Seleccionar...</option>';
 
-            appState.funciones.forEach(f => {
+            funciones.forEach(f => {
                 const obra = appState.obras.find(o => o.id === f.obraId);
-                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + ' ' + f.hora + '</option>';
+                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + '</option>';
             });
 
             html += '</select></div>';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Boletas Vendidas</label>';
-            html += '<input type="number" id="boletas" required min="1" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />';
-            html += '</div>';
-            html += '<button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">Registrar Venta</button>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Personas Registradas</label>';
+            html += '<input type="number" id="personas" required min="0" class="w-full px-4 py-2 border rounded-lg" /></div>';
+            html += '<button type="submit" class="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">Registrar Entrada</button>';
             html += '</form>';
 
-            html += '<h3 class="text-xl font-bold mb-4">Últimas Ventas</h3>';
+            html += '<h3 class="text-lg font-bold mb-4">Últimos Registros</h3>';
             html += '<div class="bg-white rounded-lg shadow overflow-hidden"><table class="w-full">';
-            html += '<thead class="bg-gray-100 border-b"><tr>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Función</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Boletas</th>';
-            html += '<th class="px-6 py-3 text-left text-sm font-medium">Fecha</th>';
-            html += '</tr></thead><tbody>';
+            html += '<thead class="bg-gray-100"><tr><th class="px-6 py-3 text-left text-sm">Obra</th><th class="px-6 py-3 text-left text-sm">Personas</th><th class="px-6 py-3 text-left text-sm">Fecha</th></tr></thead><tbody>';
 
-            const ventasReversas = appState.ventas.slice().reverse().slice(0, 20);
-            ventasReversas.forEach(venta => {
-                const funcion = appState.funciones.find(f => f.id === venta.funcionId);
-                const obra = appState.obras.find(o => o.id === funcion?.obraId);
-                html += '<tr class="border-b hover:bg-gray-50">';
-                html += '<td class="px-6 py-3 text-sm">' + (obra?.nombre || '') + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + venta.boletas + '</td>';
-                html += '<td class="px-6 py-3 text-sm">' + venta.fecha + '</td>';
-                html += '</tr>';
+            appState.entrada_libre.slice().reverse().slice(0, 10).forEach(v => {
+                const f = appState.funciones.find(x => x.id === v.funcionId);
+                const o = appState.obras.find(x => x.id === f?.obraId);
+                html += '<tr class="border-b"><td class="px-6 py-3 text-sm">' + o?.nombre + '</td><td class="px-6 py-3 text-sm">' + v.personas + '</td><td class="px-6 py-3 text-sm">' + v.fecha + '</td></tr>';
             });
 
             html += '</tbody></table></div></main></div>';
             return html;
         }
 
-        function renderAgregarFuncion() {
-            const obra = appState.obras.find(o => o.id === appState.editingFuncion.obraId);
+        function handleRegistrarEntrada(e) {
+            e.preventDefault();
+            const funcionId = document.getElementById('funcionSelectEntrada').value;
+            const personas = parseInt(document.getElementById('personas').value);
 
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
-            html += '<main class="max-w-2xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📅 Agregar Función - ' + obra.nombre + '</h2>';
-            html += '<form onsubmit="handleGuardarFuncion(event)" class="bg-white p-6 rounded-lg shadow">';
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">';
-            html += '<div><label class="block text-sm font-medium mb-2">Fecha</label>';
-            html += '<input type="date" id="funcionFecha" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Hora</label>';
-            html += '<input type="time" id="funcionHora" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-            html += '</div><div class="flex gap-2">';
-            html += '<button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Guardar</button>';
-            html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500">Cancelar</button>';
-            html += '</div></form></main></div>';
-
-            return html;
-        }
-
-        function renderGraficos() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📈 Gráficos de Ventas</h2><div class="grid grid-cols-1 gap-6">';
-
-            appState.funciones.forEach(f => {
-                const obra = appState.obras.find(o => o.id === f.obraId);
-                const ventasTotal = appState.ventas
-                    .filter(v => v.funcionId === f.id)
-                    .reduce((sum, v) => sum + v.boletas, 0);
-                const ocupacion = calcularOcupacion(f.id);
-                const disponible = obra.aforo - ventasTotal - obra.cortesias;
-                const colorOcupacion = ocupacion > 70 ? 'text-green-600' : ocupacion > 50 ? 'text-yellow-600' : 'text-red-600';
-
-                html += '<div class="bg-white p-6 rounded-lg shadow">';
-                html += '<h3 class="text-lg font-bold mb-4">' + obra.nombre + ' - ' + f.fecha + '</h3>';
-                html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">';
-                html += '<div><canvas id="chart-' + f.id + '" style="max-height: 300px;"></canvas></div>';
-                html += '<div class="bg-gray-50 p-4 rounded-lg">';
-                html += '<p class="text-sm text-gray-600 mb-2">Boletas Vendidas</p>';
-                html += '<p class="text-3xl font-bold text-green-600 mb-4">' + ventasTotal + '</p>';
-                html += '<p class="text-sm text-gray-600 mb-2">Cortesías</p>';
-                html += '<p class="text-3xl font-bold text-yellow-600 mb-4">' + obra.cortesias + '</p>';
-                html += '<p class="text-sm text-gray-600 mb-2">Disponible</p>';
-                html += '<p class="text-3xl font-bold text-gray-600 mb-4">' + disponible + '</p>';
-                html += '<p class="text-sm text-gray-600 mb-2">Ocupación</p>';
-                html += '<p class="text-3xl font-bold ' + colorOcupacion + '">' + ocupacion + '%</p>';
-                html += '</div></div></div>';
-
-                setTimeout(() => {
-                    const ctx = document.getElementById('chart-' + f.id);
-                    if (ctx && !appState.chartInstance) {
-                        appState.chartInstance = new Chart(ctx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['Boletas Vendidas', 'Cortesías', 'Disponible'],
-                                datasets: [{
-                                    data: [ventasTotal, obra.cortesias, disponible],
-                                    backgroundColor: ['#10b981', '#f59e0b', '#334155'],
-                                    borderColor: '#0f172a',
-                                    borderWidth: 2
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: {
-                                    legend: { labels: { color: '#cbd5e1' } }
-                                }
-                            }
-                        });
-                    }
-                }, 100);
+            appState.entrada_libre.push({
+                id: Date.now().toString(),
+                funcionId,
+                personas,
+                fecha: new Date().toISOString().split('T')[0]
             });
 
-            html += '</div></main></div>';
-            return html;
+            saveData();
+            document.getElementById('funcionSelectEntrada').value = '';
+            document.getElementById('personas').value = '';
+            alert('✅ Entrada registrada');
         }
 
-        function renderPendientesCierre() {
-            const pendientes = appState.funciones.filter(f => f.estado === 'programada');
+        function renderReportes() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">🔴 Funciones Pendientes de Cierre</h2>';
-
-            if (pendientes.length === 0) {
-                html += '<p class="text-gray-500">No hay funciones pendientes de cierre.</p>';
-            } else {
-                html += '<div class="grid grid-cols-1 gap-4">';
-                pendientes.forEach(f => {
-                    const obra = appState.obras.find(o => o.id === f.obraId);
-                    const ventasTotal = appState.ventas
-                        .filter(v => v.funcionId === f.id)
-                        .reduce((sum, v) => sum + v.boletas, 0);
-
-                    html += '<div class="bg-white p-6 rounded-lg shadow border-l-4 border-red-500">';
-                    html += '<div class="flex justify-between items-start">';
-                    html += '<div>';
-                    html += '<h3 class="text-lg font-bold">' + obra.nombre + '</h3>';
-                    html += '<p class="text-sm text-gray-600">' + f.fecha + ' ' + f.hora + '</p>';
-                    html += '<p class="text-sm text-gray-600">Sala: ' + obra.sala + '</p>';
-                    html += '<p class="text-sm mt-2"><strong>Boletas estimadas:</strong> ' + ventasTotal + '</p>';
-                    html += '</div>';
-                    html += '<button onclick="openCierre(\'' + f.id + '\')" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Completar Cierre</button>';
-                    html += '</div></div>';
-                });
-                html += '</div>';
-            }
-
+            html += '<main class="max-w-7xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📈 Reportes</h2>';
+            html += '<p class="text-gray-600">En construcción...</p>';
             html += '</main></div>';
             return html;
-        }
-
-        function renderCierreFuncion() {
-            const funcion = appState.editingFuncion;
-            const obra = funcion.obra;
-            const ocupacion = calcularOcupacion(funcion.id);
-
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
-            html += '<main class="max-w-2xl mx-auto px-4 py-8"><h2 class="text-2xl font-bold mb-6">📋 Cierre de Función</h2>';
-            html += '<p class="text-lg mb-6">' + obra.nombre + ' - ' + funcion.fecha + ' ' + funcion.hora + '</p>';
-            html += '<form onsubmit="handleGuardarCierre(event)" class="bg-white p-6 rounded-lg shadow">';
-            html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">';
-            html += '<div><label class="block text-sm font-medium mb-2">Boletas Vendidas (Final)</label>';
-            html += '<input type="number" id="ventasFinales" value="' + funcion.ventasEstimadas + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-2">Cortesías Reales</label>';
-            html += '<input type="number" id="cortesiasFinales" value="' + funcion.cortesiasReales + '" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>';
-            html += '</div><div class="mb-4"><label class="block text-sm font-medium mb-2">Notas</label>';
-            html += '<textarea id="notasCierre" rows="4" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Observaciones del cierre..."></textarea></div>';
-            html += '<div class="bg-gray-50 p-4 rounded-lg mb-4">';
-            html += '<p class="text-sm text-gray-600">Ocupación Estimada: <strong>' + ocupacion + '%</strong></p>';
-            html += '<p class="text-sm text-gray-600">Aforo: <strong>' + obra.aforo + '</strong></p>';
-            html += '</div><div class="flex gap-2">';
-            html += '<button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">Guardar Cierre</button>';
-            html += '<button type="button" onclick="changePage(\'pendientes-cierre\')" class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500">Cancelar</button>';
-            html += '</div></form></main></div>';
-
-            return html;
-        }
-
-        function renderHeader() {
-            return `
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-                        <h1 class="text-2xl font-bold text-gray-800">🎭 Boletería CNA</h1>
-                        <div class="flex items-center gap-4">
-                            <span class="text-sm text-gray-600">${appState.user?.email}</span>
-                            <button onclick="handleLogout()" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition">Salir</button>
-                        </div>
-                    </div>
-                </header>
-            `;
-        }
-
-        function renderNav() {
-            const pages = [
-                { id: 'dashboard', label: '📊 Dashboard' },
-                { id: 'obras', label: '📚 Obras' },
-                { id: 'ventas', label: '💰 Ventas' },
-                { id: 'graficos', label: '📈 Gráficos' },
-                { id: 'pendientes-cierre', label: '🔴 Cierre' }
-            ];
-
-            return `
-                <div class="bg-white border-b">
-                    <div class="max-w-7xl mx-auto px-4 flex gap-4 py-4 overflow-x-auto">
-                        ${pages.map(page => `
-                            <button onclick="changePage('${page.id}')" class="px-4 py-2 rounded-lg font-medium transition whitespace-nowrap ${appState.currentPage === page.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}">
-                                ${page.label}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
         }
 
         function changePage(page) {
@@ -676,17 +437,11 @@
                     case 'ventas':
                         app.innerHTML = renderVentas();
                         break;
-                    case 'agregar-funcion':
-                        app.innerHTML = renderAgregarFuncion();
+                    case 'entrada':
+                        app.innerHTML = renderEntrada();
                         break;
-                    case 'graficos':
-                        app.innerHTML = renderGraficos();
-                        break;
-                    case 'pendientes-cierre':
-                        app.innerHTML = renderPendientesCierre();
-                        break;
-                    case 'cierre-funcion':
-                        app.innerHTML = renderCierreFuncion();
+                    case 'reportes':
+                        app.innerHTML = renderReportes();
                         break;
                     default:
                         app.innerHTML = renderDashboard();
@@ -694,15 +449,12 @@
             }
         }
 
-        // ====== INICIALIZAR ======
         window.addEventListener('DOMContentLoaded', () => {
             initData();
-
             const savedUser = localStorage.getItem('boleteria-user');
             if (savedUser) {
                 appState.user = JSON.parse(savedUser);
             }
-
             render();
         });
     </script>
