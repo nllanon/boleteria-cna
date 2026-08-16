@@ -510,7 +510,58 @@
 
         function toggleMultipleFunciones(e) {
             appState.editingMultipleFunciones = e.target.checked;
-            render();
+            updateFunctionsSectionDisplay();
+        }
+
+        function updateFunctionsSectionDisplay() {
+            const container = document.getElementById('funcionesSectionContainer');
+            if (!container) return;
+            
+            let html = '';
+            
+            // Si NO múltiples (única función)
+            if (!appState.editingMultipleFunciones) {
+                html += '<div class="space-y-2">';
+                html += '<label class="block text-sm font-medium text-gray-700">Una función</label>';
+                html += '<div class="grid grid-cols-2 gap-2">';
+                html += '<input type="date" id="funcionUnicaFecha" value="' + (appState.editingFunciones[0]?.fecha || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '<input type="time" id="funcionUnicaHora" value="' + (appState.editingFunciones[0]?.hora || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '</div>';
+                html += '</div>';
+            } else {
+                // Si SÍ múltiples
+                html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
+                html += '<strong>💡 Agrega todas las funciones que necesites.</strong>';
+                html += '</div>';
+                
+                html += '<div class="mb-4 space-y-2">';
+                html += '<div class="grid grid-cols-2 gap-2">';
+                html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '</div>';
+                html += '<button type="button" onclick="handleAgregarFuncionEnFormulario()" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
+                html += '</div>';
+                
+                html += '<div id="funcionesAgregadasContainer">';
+                if (appState.editingFunciones.length > 0) {
+                    html += '<div class="bg-white rounded p-3 mb-3">';
+                    html += '<h4 class="text-sm font-bold mb-2 text-blue-900">✅ Funciones agregadas (' + appState.editingFunciones.length + '):</h4>';
+                    html += '<div class="space-y-2">';
+                    appState.editingFunciones.forEach(f => {
+                        html += '<div class="p-2 bg-blue-100 rounded border border-blue-300 flex justify-between items-center">';
+                        html += '<div class="text-sm"><strong>' + f.fecha + '</strong> · ' + f.hora + '</div>';
+                        html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-bold">×</button>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    html += '</div>';
+                } else {
+                    html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
+                }
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
         }
 
         function handleAgregarFuncionEnFormulario() {
@@ -593,33 +644,8 @@
             html += '<label class="flex items-center text-sm text-blue-900"><input type="checkbox" id="multipleFuncionesCheck" ' + (appState.editingMultipleFunciones ? 'checked' : '') + ' onchange="toggleMultipleFunciones(event)" class="mr-2" /> <strong>¿Múltiples funciones?</strong></label>';
             html += '</div>';
 
-            // Si NO múltiples (única función)
-            if (!appState.editingMultipleFunciones) {
-                html += '<div class="space-y-2">';
-                html += '<label class="block text-sm font-medium text-gray-700">Una función</label>';
-                html += '<div class="grid grid-cols-2 gap-2">';
-                html += '<input type="date" id="funcionUnicaFecha" value="' + (appState.editingFunciones[0]?.fecha || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
-                html += '<input type="time" id="funcionUnicaHora" value="' + (appState.editingFunciones[0]?.hora || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
-                html += '</div>';
-                html += '</div>';
-            } else {
-                // Si SÍ múltiples
-                html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
-                html += '<strong>💡 Agrega todas las funciones que necesites.</strong>';
-                html += '</div>';
-                
-                html += '<div class="mb-4 space-y-2">';
-                html += '<div class="grid grid-cols-2 gap-2">';
-                html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
-                html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
-                html += '</div>';
-                html += '<button type="button" onclick="handleAgregarFuncionEnFormulario()" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
-                html += '</div>';
-                
-                html += '<div id="funcionesAgregadasContainer">';
-                html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
-                html += '</div>';
-            }
+            // Contenedor dinámico que se actualiza sin recargar
+            html += '<div id="funcionesSectionContainer"></div>';
 
             html += '</div>';
 
@@ -914,7 +940,10 @@
                 switch (appState.currentPage) {
                     case 'obras': app.innerHTML = renderObras(); break;
                     case 'ver-obra': app.innerHTML = renderVerObra(); break;
-                    case 'crear-obra': app.innerHTML = renderCrearObra(); break;
+                    case 'crear-obra': 
+                        app.innerHTML = renderCrearObra();
+                        setTimeout(() => updateFunctionsSectionDisplay(), 0);
+                        break;
                     case 'salas': app.innerHTML = renderSalas(); break;
                     case 'crear-sala': app.innerHTML = renderCrearSala(); break;
                     case 'ventas': app.innerHTML = renderVentas(); break;
