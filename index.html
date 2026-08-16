@@ -625,19 +625,28 @@
             html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Fecha Tiquetera</label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div style="display:none"><label>Fecha Última Función (auto)</label><input type="date" id="obraFechaUltimaFuncion" value="' + (obra.fechaUltimaFuncion || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Redes</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Pauta Digital</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
-            html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
-            html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
             html += '</div>';
 
-            // SECCIÓN DE FUNCIONES EN CREAR OBRA
+            // SECCIÓN DE FECHAS EN ORDEN CRONOLÓGICO
+            html += '<div class="bg-yellow-50 border-2 border-yellow-300 p-4 rounded mb-4">';
+            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📅 Cronología de Fechas</h3>';
+            html += '<div class="space-y-3">';
+            
+            // 1. Tiquetera (obligatoria)
+            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">1️⃣ Fecha Tiquetera <span class="text-red-500">*</span></label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border-2 border-yellow-300 rounded text-sm font-medium" /></div>';
+            
+            // 2. Redes (opcional)
+            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">2️⃣ Activación en Redes (opcional)</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            
+            // 3. Pauta Digital (opcional)
+            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">3️⃣ Activación Pauta Digital (opcional)</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            
+            html += '</div>';
+            html += '</div>';
+
+            // SECCIÓN DE FUNCIONES
             html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
-            html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra</h3>';
+            html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 4️⃣ Funciones para esta obra <span class="text-red-500">*</span></h3>';
             
             // Opción única vs múltiple
             html += '<div class="mb-4 p-3 bg-blue-100 rounded border border-blue-400">';
@@ -648,6 +657,19 @@
             html += '<div id="funcionesSectionContainer"></div>';
 
             html += '</div>';
+
+            // SECCIÓN DE DATOS COMPLEMENTARIOS
+            html += '<div class="bg-gray-50 border-2 border-gray-300 p-4 rounded mb-4">';
+            html += '<h3 class="text-lg font-bold mb-3 text-gray-900">📋 Datos Complementarios</h3>';
+            html += '<div class="space-y-3">';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
+            html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="ml-4 mt-1 px-3 py-1 border rounded text-sm bg-white" /></div>';
+            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
+            html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 mt-1 px-3 py-1 border rounded text-sm bg-white" /></div>';
+            html += '</div>';
+            html += '</div>';
+
+            html += '<div style="display:none"><input type="date" id="obraFechaUltimaFuncion" value="' + (obra.fechaUltimaFuncion || '') + '" /></div>';
 
             html += '</form>';
             html += '<div class="flex gap-2">';
@@ -680,6 +702,22 @@
                 functionesAGuardar = appState.editingFunciones;
             }
 
+            // Obtener todas las fechas
+            const fechaTiquetera = document.getElementById('obraFechaTiquetera').value;
+            const fechaRedes = document.getElementById('obraFechaRedes').value;
+            const fechaPauta = document.getElementById('obraFechaPauta').value;
+
+            // Validar que tiquetera sea obligatoria
+            if (!fechaTiquetera) {
+                alert('⚠️ Fecha de tiquetera es obligatoria');
+                return;
+            }
+
+            // Calcular primera y última función
+            const fechas = functionesAGuardar.map(f => new Date(f.fecha));
+            const primeraFuncion = new Date(Math.min(...fechas));
+            const ultimaFuncion = new Date(Math.max(...fechas));
+
             // Validar que las funciones no sean en el pasado
             const hoy = new Date('2026-08-16');
             for (let f of functionesAGuardar) {
@@ -690,26 +728,47 @@
                 }
             }
 
-            // Validar fechas
-            const fechaTiquetera = document.getElementById('obraFechaTiquetera').value;
-            
-            if (functionesAGuardar.length > 0 && fechaTiquetera) {
-                const fechas = functionesAGuardar.map(f => new Date(f.fecha));
-                const primeraFuncion = new Date(Math.min(...fechas));
-                const tiquetera = new Date(fechaTiquetera);
-                
-                if (tiquetera >= primeraFuncion) {
-                    alert('⚠️ Error: La fecha de tiquetera debe ser ANTERIOR a la primera función.\n\nTiquetera: ' + fechaTiquetera + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
-                    return;
-                }
+            // Validar orden de fechas: Tiquetera < Redes < Pauta < Funciones
+            const tiquetera = new Date(fechaTiquetera);
+
+            // Tiquetera < Primera función
+            if (tiquetera >= primeraFuncion) {
+                alert('⚠️ Error: Fecha tiquetera debe ser anterior a la primera función.\n\nTiquetera: ' + fechaTiquetera + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
+                return;
             }
 
-            // Calcular fecha última función automáticamente
-            let fechaUltimaFuncion = document.getElementById('obraFechaUltimaFuncion').value || null;
-            if (functionesAGuardar.length > 0) {
-                const fechas = functionesAGuardar.map(f => new Date(f.fecha));
-                const maxFecha = new Date(Math.max(...fechas));
-                fechaUltimaFuncion = maxFecha.toISOString().split('T')[0];
+            // Si redes existe, validar tiquetera < redes
+            if (fechaRedes) {
+                const redes = new Date(fechaRedes);
+                if (tiquetera >= redes) {
+                    alert('⚠️ Error: Fecha tiquetera debe ser anterior a redes.\n\nTiquetera: ' + fechaTiquetera + '\nRedes: ' + fechaRedes);
+                    return;
+                }
+                // Si pauta existe, validar redes < pauta
+                if (fechaPauta) {
+                    const pauta = new Date(fechaPauta);
+                    if (redes >= pauta) {
+                        alert('⚠️ Error: Fecha redes debe ser anterior a pauta.\n\nRedes: ' + fechaRedes + '\nPauta: ' + fechaPauta);
+                        return;
+                    }
+                    // Validar pauta < primera función
+                    if (pauta >= primeraFuncion) {
+                        alert('⚠️ Error: Fecha pauta debe ser anterior a primera función.\n\nPauta: ' + fechaPauta + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
+                        return;
+                    }
+                }
+            } else if (fechaPauta) {
+                // Si hay pauta pero no redes, validar tiquetera < pauta
+                const pauta = new Date(fechaPauta);
+                if (tiquetera >= pauta) {
+                    alert('⚠️ Error: Fecha tiquetera debe ser anterior a pauta.\n\nTiquetera: ' + fechaTiquetera + '\nPauta: ' + fechaPauta);
+                    return;
+                }
+                // Validar pauta < primera función
+                if (pauta >= primeraFuncion) {
+                    alert('⚠️ Error: Fecha pauta debe ser anterior a primera función.\n\nPauta: ' + fechaPauta + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
+                    return;
+                }
             }
 
             const data = {
@@ -718,10 +777,10 @@
                 salaId: document.getElementById('obraSala').value,
                 tipo: document.getElementById('obraTipo').value,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
-                fechaTiquetera: document.getElementById('obraFechaTiquetera').value || null,
-                fechaUltimaFuncion: fechaUltimaFuncion,
-                fechaRedes: document.getElementById('obraFechaRedes').value || null,
-                fechaPauta: document.getElementById('obraFechaPauta').value || null,
+                fechaTiquetera: fechaTiquetera,
+                fechaUltimaFuncion: ultimaFuncion.toISOString().split('T')[0],
+                fechaRedes: fechaRedes || null,
+                fechaPauta: fechaPauta || null,
                 piezasDesarrolladas: document.getElementById('obraPiezas').checked,
                 fechaPiezasDesarrolladas: document.getElementById('obraFechaPiezas').value || null,
                 videoDisponible: document.getElementById('obraVideo').checked,
