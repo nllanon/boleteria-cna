@@ -23,6 +23,7 @@
             editingObra: null,
             editingSala: null,
             editingFunciones: [],
+            editingMultipleFunciones: false,
             viewingObraId: null
         };
 
@@ -479,6 +480,7 @@
         function openCrearObra() {
             appState.editingObra = null;
             appState.editingFunciones = [];
+            appState.editingMultipleFunciones = false;
             appState.currentPage = 'crear-obra';
             render();
         }
@@ -486,6 +488,7 @@
         function openEditarObra(id) {
             appState.editingObra = appState.obras.find(o => o.id === id);
             appState.editingFunciones = getFuncionesObra(id).map(f => ({...f}));
+            appState.editingMultipleFunciones = appState.editingFunciones.length > 1;
             appState.currentPage = 'crear-obra';
             appState.viewingObraId = null;
             render();
@@ -503,6 +506,11 @@
             if (e.target.checked && !document.getElementById('obraFechaVideo').value) {
                 document.getElementById('obraFechaVideo').value = hoy;
             }
+        }
+
+        function toggleMultipleFunciones(e) {
+            appState.editingMultipleFunciones = e.target.checked;
+            render();
         }
 
         function handleAgregarFuncionEnFormulario() {
@@ -576,25 +584,43 @@
             html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
             html += '</div>';
 
-            // SECCIÓN DE FUNCIONES EN CREAR OBRA - SIN FORMULARIO ANIDADO
+            // SECCIÓN DE FUNCIONES EN CREAR OBRA
             html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
             html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra</h3>';
-            html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
-            html += '<strong>💡 Crea una o varias funciones aquí.</strong> Puedes agregar todas las que quieras sin problemas. Solo guarda cuando termines.';
-            html += '</div>';
             
-            // Inputs sin form
-            html += '<div class="mb-4 space-y-2">';
-            html += '<div class="grid grid-cols-2 gap-2">';
-            html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
-            html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+            // Opción única vs múltiple
+            html += '<div class="mb-4 p-3 bg-blue-100 rounded border border-blue-400">';
+            html += '<label class="flex items-center text-sm text-blue-900"><input type="checkbox" id="multipleFuncionesCheck" ' + (appState.editingMultipleFunciones ? 'checked' : '') + ' onchange="toggleMultipleFunciones(event)" class="mr-2" /> <strong>¿Múltiples funciones?</strong></label>';
             html += '</div>';
-            html += '<button type="button" onclick="handleAgregarFuncionEnFormulario()" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
-            html += '</div>';
-            
-            html += '<div id="funcionesAgregadasContainer">';
-            html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
-            html += '</div>';
+
+            // Si NO múltiples (única función)
+            if (!appState.editingMultipleFunciones) {
+                html += '<div class="space-y-2">';
+                html += '<label class="block text-sm font-medium text-gray-700">Una función</label>';
+                html += '<div class="grid grid-cols-2 gap-2">';
+                html += '<input type="date" id="funcionUnicaFecha" value="' + (appState.editingFunciones[0]?.fecha || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '<input type="time" id="funcionUnicaHora" value="' + (appState.editingFunciones[0]?.hora || '') + '" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '</div>';
+                html += '</div>';
+            } else {
+                // Si SÍ múltiples
+                html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
+                html += '<strong>💡 Agrega todas las funciones que necesites.</strong>';
+                html += '</div>';
+                
+                html += '<div class="mb-4 space-y-2">';
+                html += '<div class="grid grid-cols-2 gap-2">';
+                html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
+                html += '</div>';
+                html += '<button type="button" onclick="handleAgregarFuncionEnFormulario()" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
+                html += '</div>';
+                
+                html += '<div id="funcionesAgregadasContainer">';
+                html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
+                html += '</div>';
+            }
+
             html += '</div>';
 
             html += '</form>';
@@ -609,10 +635,23 @@
         function handleGuardarObra(e) {
             e.preventDefault();
             
+            let functionesAGuardar = [];
+
+            // Si es una función única, tomarla del input
+            if (!appState.editingMultipleFunciones) {
+                const fecha = document.getElementById('funcionUnicaFecha').value;
+                const hora = document.getElementById('funcionUnicaHora').value;
+                if (fecha && hora) {
+                    functionesAGuardar.push({ fecha, hora });
+                }
+            } else {
+                functionesAGuardar = appState.editingFunciones;
+            }
+
             // Calcular fecha última función automáticamente
             let fechaUltimaFuncion = document.getElementById('obraFechaUltimaFuncion').value || null;
-            if (appState.editingFunciones.length > 0) {
-                const fechas = appState.editingFunciones.map(f => new Date(f.fecha));
+            if (functionesAGuardar.length > 0) {
+                const fechas = functionesAGuardar.map(f => new Date(f.fecha));
                 const maxFecha = new Date(Math.max(...fechas));
                 fechaUltimaFuncion = maxFecha.toISOString().split('T')[0];
             }
@@ -644,9 +683,9 @@
             }
 
             // Guardar funciones
-            appState.editingFunciones.forEach(f => {
+            functionesAGuardar.forEach(f => {
                 appState.funciones.push({
-                    id: f.id.startsWith('temp-') ? ('fn-' + Date.now() + Math.random()).replace('.', '') : f.id,
+                    id: f.id?.startsWith('temp-') ? ('fn-' + Date.now() + Math.random()).replace('.', '') : (f.id || Date.now().toString()),
                     obraId: obraId,
                     fecha: f.fecha,
                     hora: f.hora,
@@ -658,6 +697,7 @@
             appState.currentPage = 'obras';
             appState.editingObra = null;
             appState.editingFunciones = [];
+            appState.editingMultipleFunciones = false;
             alert('✅ Obra guardada correctamente');
             render();
         }
