@@ -680,6 +680,16 @@
                 functionesAGuardar = appState.editingFunciones;
             }
 
+            // Validar que las funciones no sean en el pasado
+            const hoy = new Date('2026-08-16');
+            for (let f of functionesAGuardar) {
+                const fechaFuncion = new Date(f.fecha);
+                if (fechaFuncion < hoy) {
+                    alert('⚠️ Error: Las funciones no pueden ser en fechas pasadas.\n\nFecha de función: ' + f.fecha + '\nFecha de hoy: ' + hoy.toISOString().split('T')[0]);
+                    return;
+                }
+            }
+
             // Validar fechas
             const fechaTiquetera = document.getElementById('obraFechaTiquetera').value;
             
