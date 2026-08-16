@@ -140,6 +140,10 @@
             return appState.acciones.filter(a => a.obraId === obraId);
         }
 
+        function getFuncionesObra(obraId) {
+            return appState.funciones.filter(f => f.obraId === obraId).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        }
+
         function renderLogin() {
             let html = '<div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">';
             html += '<div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">';
@@ -329,6 +333,7 @@
             
             const sala = getSala(obra.salaId);
             const acciones = getAccionesObra(obra.id);
+            const funciones = getFuncionesObra(obra.id);
             const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
 
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
@@ -354,6 +359,36 @@
             }
             html += '</div>';
 
+            // Sección de Funciones
+            html += '<div class="bg-white p-6 rounded shadow mb-6"><h3 class="text-xl font-bold mb-4">🎬 Funciones (' + funciones.length + ')</h3>';
+            
+            if (tienePermiso('editar_obra')) {
+                html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
+                html += '<div class="grid grid-cols-2 gap-3 mb-3">';
+                html += '<div><label class="block text-sm font-medium mb-1">Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+                html += '<div><label class="block text-sm font-medium mb-1">Hora</label><input type="time" id="funcionHora" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+                html += '</div>';
+                html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Nueva Función</button>';
+                html += '</form>';
+            }
+
+            if (funciones.length === 0) {
+                html += '<p class="text-gray-500 text-sm">Sin funciones registradas</p>';
+            } else {
+                html += '<div class="space-y-2">';
+                funciones.forEach(f => {
+                    html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500 flex justify-between items-center">';
+                    html += '<div><strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong></div>';
+                    if (tienePermiso('editar_obra')) {
+                        html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs">Eliminar</button>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // Sección de Acciones
             html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📋 Acciones Registradas (' + acciones.length + ')</h3>';
             html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
             html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Publicado en redes, Enviado correo..." class="w-full px-3 py-2 border rounded text-sm" /></div>';
@@ -377,6 +412,35 @@
             }
             html += '</div></main></div>';
             return html;
+        }
+
+        function handleAgregarFuncion(e, obraId) {
+            e.preventDefault();
+            const fecha = document.getElementById('funcionFecha').value;
+            const hora = document.getElementById('funcionHora').value;
+            appState.funciones.push({
+                id: Date.now().toString(),
+                obraId,
+                fecha,
+                hora,
+                estado: 'programada'
+            });
+            saveData();
+            document.getElementById('funcionFecha').value = '';
+            document.getElementById('funcionHora').value = '';
+            alert('✅ Función agregada');
+            render();
+        }
+
+        function deleteFuncion(funcionId) {
+            if (confirm('¿Eliminar esta función?')) {
+                appState.funciones = appState.funciones.filter(f => f.id !== funcionId);
+                appState.ventas = appState.ventas.filter(v => v.funcionId !== funcionId);
+                appState.entrada_libre = appState.entrada_libre.filter(v => v.funcionId !== funcionId);
+                saveData();
+                alert('✅ Función eliminada');
+                render();
+            }
         }
 
         function handleAgregarAccion(e, obraId) {
