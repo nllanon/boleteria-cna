@@ -359,21 +359,24 @@
             }
             html += '</div>';
 
-            // Sección de Funciones
-            html += '<div class="bg-white p-6 rounded shadow mb-6"><h3 class="text-xl font-bold mb-4">🎬 Funciones (' + funciones.length + ')</h3>';
-            
+            // Sección de Funciones - FORMULARIO PRIMERO
             if (tienePermiso('editar_obra')) {
-                html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
-                html += '<div class="grid grid-cols-2 gap-3 mb-3">';
-                html += '<div><label class="block text-sm font-medium mb-1">Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
-                html += '<div><label class="block text-sm font-medium mb-1">Hora</label><input type="time" id="funcionHora" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+                html += '<div class="bg-blue-50 border-2 border-blue-300 p-6 rounded shadow mb-6">';
+                html += '<h3 class="text-lg font-bold mb-4 text-blue-900">➕ Agregar Nueva Función</h3>';
+                html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="space-y-3">';
+                html += '<div class="grid grid-cols-2 gap-3">';
+                html += '<div><label class="block text-sm font-medium mb-1">📅 Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+                html += '<div><label class="block text-sm font-medium mb-1">⏰ Hora</label><input type="time" id="funcionHora" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
                 html += '</div>';
-                html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Nueva Función</button>';
+                html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 font-medium">✅ Crear Función</button>';
                 html += '</form>';
+                html += '</div>';
             }
 
+            html += '<div class="bg-white p-6 rounded shadow mb-6"><h3 class="text-xl font-bold mb-4">🎬 Listado de Funciones (' + funciones.length + ')</h3>';
+            
             if (funciones.length === 0) {
-                html += '<p class="text-gray-500 text-sm">Sin funciones registradas</p>';
+                html += '<p class="text-gray-500 text-sm italic">Sin funciones registradas</p>';
             } else {
                 html += '<div class="space-y-2">';
                 funciones.forEach(f => {
