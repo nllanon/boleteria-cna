@@ -21,6 +21,7 @@
             historial: [],
             currentPage: 'dashboard',
             editingObra: null,
+            editingSala: null,
             viewingObraId: null
         };
 
@@ -543,19 +544,52 @@
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
             html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Nombre</th><th class="px-4 py-2 text-left">Aforo</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
             appState.salas.forEach(sala => {
-                html += '<tr class="border-b"><td class="px-4 py-2">' + sala.nombre + '</td><td class="px-4 py-2">' + sala.aforo + '</td><td class="px-4 py-2"><button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
+                html += '<tr class="border-b"><td class="px-4 py-2">' + sala.nombre + '</td><td class="px-4 py-2">' + sala.aforo + '</td><td class="px-4 py-2"><button onclick="openEditarSala(\'' + sala.id + '\')" class="text-blue-600 text-xs">Editar</button> <button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
             });
             html += '</tbody></table></div></main></div>';
             return html;
         }
 
         function openCrearSala() {
-            const nombre = prompt('Nombre de la sala:');
-            if (!nombre) return;
-            const aforo = prompt('Aforo:');
-            if (!aforo) return;
-            appState.salas.push({ id: Date.now().toString(), nombre, aforo: parseInt(aforo) });
+            appState.editingSala = null;
+            appState.currentPage = 'crear-sala';
+            render();
+        }
+
+        function openEditarSala(id) {
+            appState.editingSala = appState.salas.find(s => s.id === id);
+            appState.currentPage = 'crear-sala';
+            render();
+        }
+
+        function renderCrearSala() {
+            const sala = appState.editingSala || { nombre: '', aforo: '' };
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
+            html += '<form onsubmit="handleGuardarSala(event)" class="bg-white p-6 rounded shadow">';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Aforo</label><input type="number" id="salaAforo" value="' + sala.aforo + '" required min="1" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
+            html += '<button type="button" onclick="changePage(\'salas\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
+            html += '</form></main></div>';
+            return html;
+        }
+
+        function handleGuardarSala(e) {
+            e.preventDefault();
+            const nombre = document.getElementById('salaNombre').value;
+            const aforo = parseInt(document.getElementById('salaAforo').value);
+
+            if (appState.editingSala) {
+                appState.editingSala.nombre = nombre;
+                appState.editingSala.aforo = aforo;
+            } else {
+                appState.salas.push({ id: Date.now().toString(), nombre, aforo });
+            }
+
             saveData();
+            appState.currentPage = 'salas';
+            appState.editingSala = null;
             render();
         }
 
@@ -613,6 +647,7 @@
         function changePage(page) {
             appState.currentPage = page;
             appState.viewingObraId = null;
+            appState.editingSala = null;
             render();
         }
 
@@ -626,6 +661,7 @@
                     case 'ver-obra': app.innerHTML = renderVerObra(); break;
                     case 'crear-obra': app.innerHTML = renderCrearObra(); break;
                     case 'salas': app.innerHTML = renderSalas(); break;
+                    case 'crear-sala': app.innerHTML = renderCrearSala(); break;
                     case 'ventas': app.innerHTML = renderVentas(); break;
                     case 'entrada': app.innerHTML = renderEntrada(); break;
                     case 'calendario': app.innerHTML = renderCalendario(); break;
