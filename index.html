@@ -22,6 +22,7 @@
             currentPage: 'dashboard',
             editingObra: null,
             editingSala: null,
+            editingFunciones: [],
             viewingObraId: null
         };
 
@@ -478,12 +479,14 @@
 
         function openCrearObra() {
             appState.editingObra = null;
+            appState.editingFunciones = [];
             appState.currentPage = 'crear-obra';
             render();
         }
 
         function openEditarObra(id) {
             appState.editingObra = appState.obras.find(o => o.id === id);
+            appState.editingFunciones = getFuncionesObra(id).map(f => ({...f}));
             appState.currentPage = 'crear-obra';
             appState.viewingObraId = null;
             render();
@@ -503,6 +506,29 @@
             }
         }
 
+        function handleAgregarFuncionEnFormulario(e) {
+            e.preventDefault();
+            const fecha = document.getElementById('nuevaFuncionFecha').value;
+            const hora = document.getElementById('nuevaFuncionHora').value;
+            if (!fecha || !hora) {
+                alert('Completa fecha y hora');
+                return;
+            }
+            appState.editingFunciones.push({
+                id: 'temp-' + Date.now(),
+                fecha,
+                hora
+            });
+            document.getElementById('nuevaFuncionFecha').value = '';
+            document.getElementById('nuevaFuncionHora').value = '';
+            render();
+        }
+
+        function eliminarFuncionEnFormulario(tempId) {
+            appState.editingFunciones = appState.editingFunciones.filter(f => f.id !== tempId);
+            render();
+        }
+
         function renderCrearObra() {
             const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
@@ -517,7 +543,7 @@
             html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Fecha Tiquetera</label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Fecha Última Función</label><input type="date" id="obraFechaUltimaFuncion" value="' + (obra.fechaUltimaFuncion || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div style="display:none"><label>Fecha Última Función (auto)</label><input type="date" id="obraFechaUltimaFuncion" value="' + (obra.fechaUltimaFuncion || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Redes</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Fecha Activación Pauta Digital</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
@@ -525,7 +551,31 @@
             html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
             html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
             html += '</div>';
-            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
+
+            // SECCIÓN DE FUNCIONES EN CREAR OBRA
+            html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
+            html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra</h3>';
+            html += '<form onsubmit="handleAgregarFuncionEnFormulario(event)" class="mb-4 space-y-2">';
+            html += '<div class="grid grid-cols-2 gap-2">';
+            html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border rounded text-sm" />';
+            html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border rounded text-sm" />';
+            html += '</div>';
+            html += '<button type="submit" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">+ Agregar Función</button>';
+            html += '</form>';
+            
+            if (appState.editingFunciones.length > 0) {
+                html += '<div class="space-y-2">';
+                appState.editingFunciones.forEach(f => {
+                    html += '<div class="p-2 bg-white rounded border-l-4 border-blue-500 flex justify-between items-center">';
+                    html += '<div class="text-sm"><strong>' + f.fecha + '</strong> ' + f.hora + '</div>';
+                    html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="text-red-600 text-xs">X</button>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+
+            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 mr-2">Guardar Obra' + (appState.editingFunciones.length > 0 ? ' + ' + appState.editingFunciones.length + ' Función(es)' : '') + '</button>';
             html += '<button type="button" onclick="changePage(\'obras\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
             html += '</form></main></div>';
             return html;
@@ -533,6 +583,15 @@
 
         function handleGuardarObra(e) {
             e.preventDefault();
+            
+            // Calcular fecha última función automáticamente
+            let fechaUltimaFuncion = document.getElementById('obraFechaUltimaFuncion').value || null;
+            if (appState.editingFunciones.length > 0) {
+                const fechas = appState.editingFunciones.map(f => new Date(f.fecha));
+                const maxFecha = new Date(Math.max(...fechas));
+                fechaUltimaFuncion = maxFecha.toISOString().split('T')[0];
+            }
+
             const data = {
                 nombre: document.getElementById('obraNombre').value,
                 artista: document.getElementById('obraArtista').value,
@@ -540,7 +599,7 @@
                 tipo: document.getElementById('obraTipo').value,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
                 fechaTiquetera: document.getElementById('obraFechaTiquetera').value || null,
-                fechaUltimaFuncion: document.getElementById('obraFechaUltimaFuncion').value || null,
+                fechaUltimaFuncion: fechaUltimaFuncion,
                 fechaRedes: document.getElementById('obraFechaRedes').value || null,
                 fechaPauta: document.getElementById('obraFechaPauta').value || null,
                 piezasDesarrolladas: document.getElementById('obraPiezas').checked,
@@ -549,15 +608,32 @@
                 fechaVideoPatua: document.getElementById('obraFechaVideo').value || null
             };
 
+            let obraId;
             if (appState.editingObra) {
                 Object.assign(appState.editingObra, data);
+                obraId = appState.editingObra.id;
+                // Eliminar funciones viejas de este formulario y agregar nuevas
+                appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
             } else {
-                appState.obras.push({ id: Date.now().toString(), ...data });
+                obraId = Date.now().toString();
+                appState.obras.push({ id: obraId, ...data });
             }
+
+            // Guardar funciones nuevas
+            appState.editingFunciones.forEach(f => {
+                appState.funciones.push({
+                    id: f.id.startsWith('temp-') ? Date.now().toString() + Math.random() : f.id,
+                    obraId: obraId,
+                    fecha: f.fecha,
+                    hora: f.hora,
+                    estado: 'programada'
+                });
+            });
 
             saveData();
             appState.currentPage = 'obras';
             appState.editingObra = null;
+            appState.editingFunciones = [];
             render();
         }
 
