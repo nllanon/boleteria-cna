@@ -505,6 +505,24 @@
             }
         }
 
+        function handleAgregarFuncionEnFormulario() {
+            const fecha = document.getElementById('nuevaFuncionFecha').value;
+            const hora = document.getElementById('nuevaFuncionHora').value;
+            if (!fecha || !hora) {
+                alert('Completa fecha y hora');
+                return;
+            }
+            appState.editingFunciones.push({
+                id: 'temp-' + Date.now(),
+                fecha,
+                hora
+            });
+            document.getElementById('nuevaFuncionFecha').value = '';
+            document.getElementById('nuevaFuncionHora').value = '';
+            document.getElementById('nuevaFuncionFecha').focus();
+            updateFunctionsListDisplay();
+        }
+
         function updateFunctionsListDisplay() {
             const listContainer = document.getElementById('funcionesAgregadasContainer');
             if (!listContainer) return;
@@ -527,25 +545,6 @@
             }
             
             listContainer.innerHTML = html;
-        }
-
-        function handleAgregarFuncionEnFormulario(e) {
-            e.preventDefault();
-            const fecha = document.getElementById('nuevaFuncionFecha').value;
-            const hora = document.getElementById('nuevaFuncionHora').value;
-            if (!fecha || !hora) {
-                alert('Completa fecha y hora');
-                return;
-            }
-            appState.editingFunciones.push({
-                id: 'temp-' + Date.now(),
-                fecha,
-                hora
-            });
-            document.getElementById('nuevaFuncionFecha').value = '';
-            document.getElementById('nuevaFuncionHora').value = '';
-            document.getElementById('nuevaFuncionFecha').focus();
-            updateFunctionsListDisplay();
         }
 
         function eliminarFuncionEnFormulario(tempId) {
@@ -577,19 +576,21 @@
             html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 px-3 py-1 border rounded text-sm bg-gray-50" disabled /></div>';
             html += '</div>';
 
-            // SECCIÓN DE FUNCIONES EN CREAR OBRA
+            // SECCIÓN DE FUNCIONES EN CREAR OBRA - SIN FORMULARIO ANIDADO
             html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
             html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra</h3>';
             html += '<div class="mb-3 p-3 bg-blue-100 rounded border border-blue-400 text-sm text-blue-900">';
-            html += '<strong>💡 Crea una o varias funciones aquí.</strong> No te preocupes, puedes agregar todas las que quieras sin salir. Solo guarda cuando termines.';
+            html += '<strong>💡 Crea una o varias funciones aquí.</strong> Puedes agregar todas las que quieras sin problemas. Solo guarda cuando termines.';
             html += '</div>';
-            html += '<form onsubmit="handleAgregarFuncionEnFormulario(event)" class="mb-4 space-y-2">';
+            
+            // Inputs sin form
+            html += '<div class="mb-4 space-y-2">';
             html += '<div class="grid grid-cols-2 gap-2">';
             html += '<input type="date" id="nuevaFuncionFecha" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
             html += '<input type="time" id="nuevaFuncionHora" class="px-3 py-2 border-2 border-blue-300 rounded text-sm font-medium" />';
             html += '</div>';
-            html += '<button type="submit" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
-            html += '</form>';
+            html += '<button type="button" onclick="handleAgregarFuncionEnFormulario()" class="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 font-bold">+ AGREGAR FUNCIÓN</button>';
+            html += '</div>';
             
             html += '<div id="funcionesAgregadasContainer">';
             html += '<p class="text-sm text-gray-500 italic">Sin funciones aún</p>';
@@ -636,14 +637,13 @@
             if (appState.editingObra) {
                 Object.assign(appState.editingObra, data);
                 obraId = appState.editingObra.id;
-                // Eliminar funciones viejas y agregar nuevas
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
             } else {
                 obraId = Date.now().toString();
                 appState.obras.push({ id: obraId, ...data });
             }
 
-            // Guardar funciones nuevas
+            // Guardar funciones
             appState.editingFunciones.forEach(f => {
                 appState.funciones.push({
                     id: f.id.startsWith('temp-') ? ('fn-' + Date.now() + Math.random()).replace('.', '') : f.id,
