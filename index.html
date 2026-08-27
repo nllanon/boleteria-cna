@@ -1418,23 +1418,68 @@
         }
 
         function renderCalendario() {
+            const hoy = new Date('2026-08-27');
+            const mes = hoy.getMonth();
+            const anio = hoy.getFullYear();
+            
+            // Generar días del mes
+            const primerDia = new Date(anio, mes, 1).getDay();
+            const diasMes = new Date(anio, mes + 1, 0).getDate();
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'];
+            
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📅 Calendario de Funciones</h2>';
-            html += '<div class="bg-white p-4 rounded shadow">';
-            html += '<table class="w-full text-sm border-collapse">';
-            html += '<thead><tr><th class="border p-2 text-left">Fecha</th><th class="border p-2 text-left">Obra</th><th class="border p-2 text-left">Hora</th><th class="border p-2 text-left">Tipo</th><th class="border p-2 text-left">Sala</th></tr></thead><tbody>';
-
-            let obras_filtradas = appState.obras.filter(o => puedeVerObra(o));
-            appState.funciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).filter(f => obras_filtradas.some(o => o.id === f.obraId)).forEach(f => {
-                const obra = appState.obras.find(o => o.id === f.obraId);
-                const sala = getSala(obra.salaId);
-                const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-                const color = obra.tipo === 'boleteria' ? 'bg-blue-50' : 'bg-purple-50';
-                html += '<tr class="' + color + ' border"><td class="border p-2">' + f.fecha + '</td><td class="border p-2 cursor-pointer text-blue-600" onclick="viewObra(\'' + obra.id + '\')">' + obra.nombre + '</td><td class="border p-2">' + f.hora + '</td><td class="border p-2">' + icono + '</td><td class="border p-2">' + sala?.nombre + '</td></tr>';
+            html += '<main class="max-w-6xl mx-auto px-4 py-6">';
+            html += '<h2 class="text-2xl font-bold mb-6">📅 Calendario de Funciones</h2>';
+            html += '<div class="bg-white rounded shadow p-6">';
+            
+            // Encabezado mes/año
+            html += '<div class="flex justify-between items-center mb-6">';
+            html += '<h3 class="text-xl font-bold">' + meses[mes] + ' ' + anio + '</h3>';
+            html += '</div>';
+            
+            // Encabezado días de semana
+            html += '<div class="grid grid-cols-7 gap-2 mb-2">';
+            diasSemana.forEach(d => {
+                html += '<div class="text-center font-bold text-gray-700 py-2">' + d + '</div>';
             });
-
-            html += '</tbody></table></div></main></div>';
+            html += '</div>';
+            
+            // Grid de fechas
+            html += '<div class="grid grid-cols-7 gap-2">';
+            
+            // Espacios vacíos antes del primer día (ajustado: domingo=0, lunes=1)
+            const inicioGrid = primerDia === 0 ? 6 : primerDia - 1; // Convertir a lunes=0
+            for (let i = 0; i < inicioGrid; i++) {
+                html += '<div class="bg-gray-100 rounded p-2 min-h-24"></div>';
+            }
+            
+            // Días del mes
+            for (let dia = 1; dia <= diasMes; dia++) {
+                const fecha = String(anio) + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+                const funcionesDia = appState.funciones.filter(f => f.fecha === fecha);
+                const esHoy = fecha === '2026-08-27';
+                
+                html += '<div class="bg-white border-2 ' + (esHoy ? 'border-blue-500' : 'border-gray-200') + ' rounded p-2 min-h-24 overflow-auto">';
+                html += '<div class="font-bold text-sm mb-1 ' + (esHoy ? 'text-blue-600' : 'text-gray-800') + '">' + dia + '</div>';
+                
+                funcionesDia.forEach(f => {
+                    const obra = appState.obras.find(o => o.id === f.obraId);
+                    const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
+                    const colorBg = obra.tipo === 'boleteria' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+                    html += '<div class="text-xs ' + colorBg + ' rounded p-1 mb-1 cursor-pointer hover:shadow" onclick="viewObra(\'' + obra.id + '\')">';
+                    html += '<div class="font-semibold truncate">' + icono + ' ' + obra.nombre.substring(0, 12) + '</div>';
+                    html += '<div class="text-xs">' + f.hora + '</div>';
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            html += '</main></div>';
             return html;
+        }
         }
 
         function renderReportes() {
