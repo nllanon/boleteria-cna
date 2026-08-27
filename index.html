@@ -181,6 +181,16 @@
                         window.chartInstanceVentas.destroy();
                     }
 
+                    // Si no hay datos de ventas, mostrar mensaje
+                    if (datos.fechas.length === 0) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.font = '16px Arial';
+                        ctx.fillStyle = '#999';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Sin datos de ventas registradas', canvas.width / 2, canvas.height / 2);
+                        return;
+                    }
+
                     const fechaPrimeraFuncion = funciones.length > 0 ? funciones[0].fecha : null;
                     
                     window.chartInstanceVentas = new Chart(canvas, {
@@ -1172,7 +1182,7 @@
                         + '<h3 style="margin: 0; font-size: 18px; font-weight: bold;">📊 Gráfico de Ventas Diarias</h3>'
                         + '<button onclick="cerrarGraficoVentas()" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>'
                         + '</div>'
-                        + '<canvas id="chartVentas" style="max-height: 400px;"></canvas>'
+                        + '<canvas id="chartVentas" style="max-height: 400px; min-height: 300px;"></canvas>'
                         + '</div>'
                         + '</div>';
                     app.innerHTML += modalHTML;
