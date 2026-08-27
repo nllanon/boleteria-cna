@@ -62,9 +62,9 @@
                 ];
 
                 appState.funciones = [
-                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada', cortesias: 10, cortesiasEntregadas: 0 },
-                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada', cortesias: 50, cortesiasEntregadas: 0 },
-                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada', cortesias: 0, cortesiasEntregadas: 0 }
+                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada', cortesias: 10, cortesiasEntregadas: 0, ventasAcumuladas: 0 },
+                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada', cortesias: 50, cortesiasEntregadas: 0, ventasAcumuladas: 0 },
+                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada', cortesias: 0, cortesiasEntregadas: 0, ventasAcumuladas: 0 }
                 ];
 
                 appState.acciones = [];
@@ -176,15 +176,26 @@
         }
 
         function calcularDiasPorVender(fecha) {
-            if (!fecha) return 'N/A';
+            if (!fecha || fecha === '' || fecha === null || fecha === undefined) return 'N/A';
+            
             try {
+                // Validar formato YYYY-MM-DD
+                if (typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                    return 'N/A';
+                }
+                
                 const hoy = new Date();
                 hoy.setHours(0, 0, 0, 0);
-                const fin = new Date(fecha + 'T00:00:00');
+                
+                const partes = fecha.split('-');
+                const fin = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+                
                 if (isNaN(fin.getTime())) return 'N/A';
+                
                 const dias = Math.floor((fin - hoy) / (1000 * 60 * 60 * 24));
-                return dias >= 0 ? dias : 0;
+                return Math.max(0, dias);
             } catch (e) {
+                console.error('Error calcularDiasPorVender:', fecha, e);
                 return 'N/A';
             }
         }
@@ -441,11 +452,11 @@
                     // Funciones
                     html += '<div class="bg-gray-50 p-3 rounded mb-3">';
                     funciones.forEach(f => {
-                        const ventasFunc = (obra.totalVentas || 0);
+                        const ventasFunc = (f.ventasAcumuladas || 0);
                         const aforo = sala?.aforo || 1;
                         const cortesiasEntregadas = f.cortesiasEntregadas || 0;
-                        const disponible = aforo - cortesiasEntregadas;
-                        const porcenVenta = disponible > 0 ? Math.round((ventasFunc / disponible) * 100) : 0;
+                        const disponible = Math.max(1, aforo - cortesiasEntregadas);
+                        const porcenVenta = Math.round((ventasFunc / disponible) * 100);
                         
                         const diasPorVender = calcularDiasPorVender(f.fecha);
                         
@@ -1084,52 +1095,79 @@
 
         function renderVentas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Corte de Ventas</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Corte de Ventas por Función</h2>';
 
-            const obras = appState.obras.filter(o => o.tipo === 'boleteria');
+            const funciones = appState.funciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-            html += '<div class="grid grid-cols-1 gap-4">';
-            obras.forEach(obra => {
-                const sala = getSala(obra.salaId);
-                html += '<div class="bg-white p-4 rounded shadow">';
-                html += '<h4 class="font-bold text-sm mb-2">' + obra.nombre + ' | ' + sala?.nombre + '</h4>';
-                html += '<div class="text-xs text-gray-600 mb-3"><strong>Acumulado:</strong> Boletas: ' + (obra.totalVentas || 0) + ' | Membresía: ' + (obra.totalMembresia || 0) + '</div>';
-                html += '<form onsubmit="guardarCortesVentas(event, \'' + obra.id + '\')" class="flex gap-2">';
-                html += '<input type="number" class="flex-1 px-2 py-1 border rounded text-xs" placeholder="Boletas" id="boletas_' + obra.id + '" value="0" />';
-                html += '<input type="number" class="flex-1 px-2 py-1 border rounded text-xs" placeholder="Membresía" id="membresia_' + obra.id + '" value="0" />';
-                html += '<button type="submit" class="px-3 py-1 bg-green-600 text-white rounded text-xs font-bold">Registrar</button>';
-                html += '</form>';
+            if (funciones.length === 0) {
+                html += '<p class="text-gray-600">Sin funciones registradas</p>';
+                html += '</main></div>';
+                return html;
+            }
+
+            html += '<form onsubmit="guardarCortesVentasFunciones(event)" class="bg-white p-6 rounded shadow mb-6">';
+            html += '<div class="space-y-4">';
+            
+            funciones.forEach(f => {
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                const sala = getSala(obra?.salaId);
+                
+                html += '<div class="bg-gray-50 p-4 rounded border-2 border-gray-300">';
+                html += '<div class="grid grid-cols-3 gap-2 mb-3">';
+                html += '<div><strong>' + (obra?.nombre || 'Sin nombre') + '</strong></div>';
+                html += '<div class="text-xs text-gray-600">' + formatearFecha(f.fecha) + ' ' + formatearHora(f.hora) + '</div>';
+                html += '<div class="text-xs text-gray-600">' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</div>';
+                html += '</div>';
+                
+                html += '<label class="block text-sm font-medium mb-1">Boletas vendidas en este corte</label>';
+                html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-funcion-id="' + f.id + '" value="0" min="0" />';
                 html += '</div>';
             });
-            html += '</div></main></div>';
+            
+            html += '</div>';
+            html += '<button type="submit" class="mt-6 w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">✅ Guardar Corte</button>';
+            html += '</form>';
+
+            html += '</main></div>';
             return html;
         }
 
-        function guardarCortesVentas(event, obraId) {
+        function guardarCortesVentasFunciones(event) {
             event.preventDefault();
-            const boletas = parseInt(document.getElementById('boletas_' + obraId).value) || 0;
-            const membresia = parseInt(document.getElementById('membresia_' + obraId).value) || 0;
+            const inputs = document.querySelectorAll('input[data-funcion-id]');
+            let guardadas = 0;
             
-            const obra = appState.obras.find(o => o.id === obraId);
-            if (!obra) return false;
-
-            obra.totalVentas = (obra.totalVentas || 0) + boletas;
-            obra.totalMembresia = (obra.totalMembresia || 0) + membresia;
-
-            appState.historial.push({
-                id: Date.now().toString(),
-                timestamp: new Date().toISOString(),
-                usuario: appState.user.email,
-                obraId: obraId,
-                accion: 'Corte de ventas',
-                detalles: 'Boletas: +' + boletas + ' | Membresía: +' + membresia
+            inputs.forEach(input => {
+                const funcionId = input.getAttribute('data-funcion-id');
+                const boletas = parseInt(input.value) || 0;
+                
+                if (boletas > 0) {
+                    const funcion = appState.funciones.find(f => f.id === funcionId);
+                    if (funcion) {
+                        funcion.ventasAcumuladas = (funcion.ventasAcumuladas || 0) + boletas;
+                        
+                        appState.historial.push({
+                            id: Date.now().toString(),
+                            timestamp: new Date().toISOString(),
+                            usuario: appState.user.email,
+                            funcionId: funcionId,
+                            accion: 'Registro de ventas',
+                            detalles: 'Boletas: +' + boletas
+                        });
+                        
+                        guardadas++;
+                        input.value = '0';
+                    }
+                }
             });
-
-            guardarAppState();
-            document.getElementById('boletas_' + obraId).value = '0';
-            document.getElementById('membresia_' + obraId).value = '0';
+            
+            if (guardadas > 0) {
+                guardarAppState();
+                alert('✅ ' + guardadas + ' función(es) actualizada(s)');
+            } else {
+                alert('⚠️ No hay ventas para registrar');
+            }
             render();
-            return false;
         }
 
         function renderEntrada() {
