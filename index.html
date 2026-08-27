@@ -355,10 +355,12 @@
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
 
+            const totalVentas = appState.obras.reduce((sum, o) => sum + (o.totalVentas || 0), 0);
+            const totalMembresia = appState.obras.reduce((sum, o) => sum + (o.totalMembresia || 0), 0);
             html += '<div class="grid grid-cols-4 gap-2 mb-6">';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Ventas Registradas</p><p class="text-2xl font-bold text-green-600">' + appState.ventas.length + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Entrada Libre</p><p class="text-2xl font-bold text-purple-600">' + appState.entrada_libre.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Boletas Vendidas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Membresía Casa Exp.</p><p class="text-2xl font-bold text-purple-600">' + totalMembresia + '</p></div>';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
             html += '</div>';
 
@@ -496,6 +498,23 @@
             html += '<div><strong>Piezas:</strong> ' + (obra.piezasDesarrolladas ? '✅ Sí' : '❌ No') + (obra.fechaPiezasDesarrolladas ? ' (' + obra.fechaPiezasDesarrolladas + ')' : '') + '</div>';
             html += '<div><strong>Video:</strong> ' + (obra.videoDisponible ? '✅ Sí' : '❌ No') + (obra.fechaVideoPatua ? ' (' + obra.fechaVideoPatua + ')' : '') + '</div>';
             html += '</div>';
+
+            // ALERTAS DE ESTADO
+            html += '<div class="grid grid-cols-1 gap-2 mb-4">';
+            const alertas = [
+                { label: 'Piezas Desarrolladas', ok: obra.piezasDesarrolladas },
+                { label: 'Video Disponible', ok: obra.videoDisponible },
+                { label: 'Salida en Tiquetera', ok: !!obra.fechaTiquetera },
+                { label: 'Salida en Redes', ok: !!obra.fechaRedes },
+                { label: 'Salida en Pauta', ok: !!obra.fechaPauta }
+            ];
+            alertas.forEach(a => {
+                const color = a.ok ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800';
+                const icon = a.ok ? '✅' : '⚠️';
+                html += '<div class="p-3 rounded border-2 ' + color + ' text-sm font-medium">' + icon + ' ' + a.label + '</div>';
+            });
+            html += '</div>';
+
             if (canEdit) {
                 html += '<button onclick="openEditarObra(\'' + obra.id + '\')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">✏️ Editar Obra</button>';
             }
@@ -530,6 +549,16 @@
                 });
                 html += '</div>';
             }
+            html += '</div>';
+
+            // RESUMEN DE VENTAS Y CORTESÍAS
+            html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
+            html += '<h3 class="text-lg font-bold mb-4 text-purple-900">💰 VENTAS Y CORTESÍAS</h3>';
+            html += '<div class="grid grid-cols-3 gap-4 mb-4">';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Total Boletas Vendidas</strong><div class="text-2xl font-bold text-blue-600">' + (obra.totalVentas || 0) + '</div></div>';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Membresía Casa Expandida</strong><div class="text-2xl font-bold text-purple-600">' + (obra.totalMembresia || 0) + '</div></div>';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Planeadas</strong><div class="text-2xl font-bold text-orange-600">' + (obra.cortesias || 0) + '</div></div>';
+            html += '</div>';
             html += '</div>';
 
             // Sección de Acciones
@@ -933,7 +962,7 @@
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
             } else {
                 obraId = Date.now().toString();
-                appState.obras.push({ id: obraId, ...data });
+                appState.obras.push({ id: obraId, ...data, totalVentas: 0, totalMembresia: 0 });
             }
 
             // Guardar funciones
@@ -958,44 +987,52 @@
 
         function renderVentas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Registrar Venta del Día</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Corte de Ventas</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'boleteria');
-            const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
 
-            html += '<form onsubmit="handleRegistrarVenta(event)" class="bg-white p-4 rounded shadow max-w-md mb-6">';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Función</label>';
-            html += '<select id="funcionSelect" required class="w-full px-3 py-2 border rounded text-sm"><option value="">Seleccionar...</option>';
-            funciones.forEach(f => {
-                const obra = appState.obras.find(o => o.id === f.obraId);
-                html += '<option value="' + f.id + '">' + obra.nombre + ' - ' + f.fecha + ' ' + f.hora + '</option>';
+            html += '<div class="grid grid-cols-1 gap-4">';
+            obras.forEach(obra => {
+                const sala = getSala(obra.salaId);
+                html += '<div class="bg-white p-4 rounded shadow">';
+                html += '<h4 class="font-bold text-sm mb-2">' + obra.nombre + ' | ' + sala?.nombre + '</h4>';
+                html += '<div class="text-xs text-gray-600 mb-3"><strong>Acumulado:</strong> Boletas: ' + (obra.totalVentas || 0) + ' | Membresía: ' + (obra.totalMembresia || 0) + '</div>';
+                html += '<form onsubmit="guardarCortesVentas(event, \'' + obra.id + '\')" class="flex gap-2">';
+                html += '<input type="number" class="flex-1 px-2 py-1 border rounded text-xs" placeholder="Boletas" id="boletas_' + obra.id + '" value="0" />';
+                html += '<input type="number" class="flex-1 px-2 py-1 border rounded text-xs" placeholder="Membresía" id="membresia_' + obra.id + '" value="0" />';
+                html += '<button type="submit" class="px-3 py-1 bg-green-600 text-white rounded text-xs font-bold">Registrar</button>';
+                html += '</form>';
+                html += '</div>';
             });
-            html += '</select></div>';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Boletas Vendidas</label><input type="number" id="boletas" required min="0" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<button type="submit" class="w-full bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700">Registrar</button>';
-            html += '</form>';
-
-            html += '<h3 class="text-lg font-bold mb-3">Últimos Registros</h3>';
-            html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Boletas</th><th class="px-4 py-2 text-left">Fecha</th></tr></thead><tbody>';
-            appState.ventas.slice().reverse().slice(0, 10).forEach(v => {
-                const f = appState.funciones.find(x => x.id === v.funcionId);
-                const o = appState.obras.find(x => x.id === f?.obraId);
-                html += '<tr class="border-b"><td class="px-4 py-2">' + o?.nombre + '</td><td class="px-4 py-2">' + v.boletas + '</td><td class="px-4 py-2">' + v.fecha + '</td></tr>';
-            });
-            html += '</tbody></table></div></main></div>';
+            html += '</div></main></div>';
             return html;
         }
 
-        function handleRegistrarVenta(e) {
-            e.preventDefault();
-            const funcionId = document.getElementById('funcionSelect').value;
-            const boletas = parseInt(document.getElementById('boletas').value);
-            appState.ventas.push({ id: Date.now().toString(), funcionId, boletas, fecha: new Date('2026-08-16').toISOString().split('T')[0] });
-            saveData();
-            document.getElementById('funcionSelect').value = '';
-            document.getElementById('boletas').value = '';
-            alert('✅ Venta registrada');
+        function guardarCortesVentas(event, obraId) {
+            event.preventDefault();
+            const boletas = parseInt(document.getElementById('boletas_' + obraId).value) || 0;
+            const membresia = parseInt(document.getElementById('membresia_' + obraId).value) || 0;
+            
+            const obra = appState.obras.find(o => o.id === obraId);
+            if (!obra) return false;
+
+            obra.totalVentas = (obra.totalVentas || 0) + boletas;
+            obra.totalMembresia = (obra.totalMembresia || 0) + membresia;
+
+            appState.historial.push({
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString(),
+                usuario: appState.user.email,
+                obraId: obraId,
+                accion: 'Corte de ventas',
+                detalles: 'Boletas: +' + boletas + ' | Membresía: +' + membresia
+            });
+
+            guardarAppState();
+            document.getElementById('boletas_' + obraId).value = '0';
+            document.getElementById('membresia_' + obraId).value = '0';
+            render();
+            return false;
         }
 
         function renderEntrada() {
