@@ -213,50 +213,49 @@
                                     ticks: { stepSize: 1 }
                                 }
                             }
-                        },
-                        plugins: [{
-                            afterDatasetsDraw(chart) {
-                                const { ctx, chartArea: { left, top, width, height } } = chart;
-                                const labels = chart.data.labels;
-                                const xScale = chart.scales.x;
-                                const yScale = chart.scales.y;
-                                
-                                const lineas = [
-                                    { fecha: obra.fechaTiquetera, color: '#10b981', label: 'Tiquetera' },
-                                    { fecha: obra.fechaRedes, color: '#f59e0b', label: 'Redes' },
-                                    { fecha: obra.fechaPauta, color: '#8b5cf6', label: 'Pauta' },
-                                    { fecha: fechaPrimeraFuncion, color: '#ef4444', label: 'Estreno' }
-                                ];
-                                
-                                lineas.forEach(linea => {
-                                    if (!linea.fecha) return;
-                                    
-                                    const labelIndex = labels.indexOf(linea.fecha);
-                                    if (labelIndex === -1) return;
-                                    
-                                    const x = xScale.getPixelForValue(labelIndex);
-                                    
-                                    ctx.strokeStyle = linea.color;
-                                    ctx.lineWidth = 2;
-                                    ctx.setLineDash([5, 5]);
-                                    ctx.beginPath();
-                                    ctx.moveTo(x, top);
-                                    ctx.lineTo(x, top + height);
-                                    ctx.stroke();
-                                    ctx.setLineDash([]);
-                                    
-                                    ctx.font = 'bold 11px Arial';
-                                    ctx.fillStyle = linea.color;
-                                    ctx.save();
-                                    ctx.translate(x + 5, top + 15);
-                                    ctx.rotate(-Math.PI / 2);
-                                    ctx.textAlign = 'right';
-                                    ctx.fillText(linea.label, 0, 0);
-                                    ctx.restore();
-                                });
-                            }
-                        }]
+                        }
                     });
+                    
+                    // Dibujar líneas timeline después de renderizar
+                    setTimeout(() => {
+                        const ctx = canvas.getContext('2d');
+                        const xScale = window.chartInstanceVentas.scales.x;
+                        const chartArea = window.chartInstanceVentas.chartArea;
+                        const labels = window.chartInstanceVentas.data.labels;
+                        
+                        const lineas = [
+                            { fecha: obra.fechaTiquetera, color: '#10b981', label: 'Tiquetera' },
+                            { fecha: obra.fechaRedes, color: '#f59e0b', label: 'Redes' },
+                            { fecha: obra.fechaPauta, color: '#8b5cf6', label: 'Pauta' },
+                            { fecha: fechaPrimeraFuncion, color: '#ef4444', label: 'Estreno' }
+                        ];
+                        
+                        lineas.forEach(linea => {
+                            if (!linea.fecha) return;
+                            const labelIndex = labels.indexOf(linea.fecha);
+                            if (labelIndex === -1) return;
+                            
+                            const x = xScale.getPixelForValue(labelIndex);
+                            
+                            ctx.strokeStyle = linea.color;
+                            ctx.lineWidth = 2;
+                            ctx.setLineDash([5, 5]);
+                            ctx.beginPath();
+                            ctx.moveTo(x, chartArea.top);
+                            ctx.lineTo(x, chartArea.bottom);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                            
+                            ctx.font = 'bold 11px Arial';
+                            ctx.fillStyle = linea.color;
+                            ctx.save();
+                            ctx.translate(x + 5, chartArea.top + 15);
+                            ctx.rotate(-Math.PI / 2);
+                            ctx.textAlign = 'right';
+                            ctx.fillText(linea.label, 0, 0);
+                            ctx.restore();
+                        });
+                    }, 50);
                 }
             }, 100);
         }
