@@ -605,7 +605,7 @@
             const primeraFuncion = getPrimeraFuncion(obra.id);
             const ultimaFuncion = getUltimaFuncion(obra.id);
             const diasTotalesParaVender = calcularDiasTotalesParaVender(obra.fechaTiquetera, obra.id);
-            const diasPorVender = calcularDiasPorVender(obra.id);
+            const diasPorVender = ultimaFuncion ? calcularDiasPorVender(ultimaFuncion.fecha) : 'N/A';
             const canEdit = tienePermiso('editar_obra');
 
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
