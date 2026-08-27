@@ -174,27 +174,26 @@
             return Math.max(0, dias);
         }
 
-        function calcularDiasPorVender(obraId) {
-            const ultimaFuncion = getUltimaFuncion(obraId);
-            if (!ultimaFuncion) return 'N/A';
-            const hoy = new Date('2026-08-16');
-            const fin = new Date(ultimaFuncion.fecha);
+        function calcularDiasPorVender(fecha) {
+            if (!fecha) return 'N/A';
+            const hoy = new Date();
+            const fin = new Date(fecha);
             const dias = Math.floor((fin - hoy) / (1000 * 60 * 60 * 24));
             return Math.max(0, dias);
         }
 
-        function getColorDiasPorVender(dias) {
-            if (dias === 'N/A') return 'text-gray-600';
-            if (dias >= 60) return 'text-green-600';
-            if (dias >= 30) return 'text-yellow-600';
-            return 'text-red-600';
+        function formatearFecha(fecha) {
+            if (!fecha) return '-';
+            const d = new Date(fecha + 'T00:00:00');
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const anio = d.getFullYear();
+            return dia + '/' + mes + '/' + anio;
         }
 
-        function getBgColorDiasPorVender(dias) {
-            if (dias === 'N/A') return 'bg-gray-50';
-            if (dias >= 60) return 'bg-green-50';
-            if (dias >= 30) return 'bg-yellow-50';
-            return 'bg-red-50';
+        function formatearHora(hora) {
+            if (!hora) return '-';
+            return hora;  // Ya viene en formato 24h (HH:MM)
         }
 
         function getVentasPorDiaObra(obraId) {
@@ -424,9 +423,6 @@
                 obrasBoleto.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
-                    const diasPorVender = calcularDiasPorVender(obra.id);
-                    const colorDias = getColorDiasPorVender(diasPorVender);
-                    const bgDias = getBgColorDiasPorVender(diasPorVender);
                     
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<div class="flex justify-between items-start mb-3">';
@@ -444,21 +440,23 @@
                         const disponible = aforo - cortesiasEntregadas;
                         const porcenVenta = disponible > 0 ? Math.round((ventasFunc / disponible) * 100) : 0;
                         
+                        const diasPorVender = calcularDiasPorVender(f.fecha);
+                        
                         let colorVenta = 'text-red-600';
                         if (porcenVenta >= 70) colorVenta = 'text-green-600';
                         else if (porcenVenta >= 40) colorVenta = 'text-yellow-600';
                         
+                        let colorDias = 'text-red-600';
+                        if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
+                        else if (diasPorVender >= 60) colorDias = 'text-green-600';
+                        else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
+                        
                         html += '<div class="text-xs mb-2">';
-                        html += '<strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong> | ';
-                        html += '<span class="' + colorVenta + ' font-bold">' + porcenVenta + '% venta</span>';
+                        html += '<strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | ';
+                        html += '<span class="' + colorVenta + ' font-bold">' + porcenVenta + '% venta</span> | ';
+                        html += '<span class="' + colorDias + ' font-bold">' + diasPorVender + 'd por vender</span>';
                         html += '</div>';
                     });
-                    html += '</div>';
-                    
-                    // Días por vender
-                    html += '<div class="' + bgDias + ' border-l-4 border-orange-500 p-3 rounded">';
-                    html += '<p class="text-xs text-gray-600">Días por vender:</p>';
-                    html += '<p class="text-lg font-bold ' + colorDias + '">' + diasPorVender + ' días</p>';
                     html += '</div>';
                     html += '</div>';
                 });
@@ -471,9 +469,6 @@
                 obrasEntrada.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
-                    const diasPorVender = calcularDiasPorVender(obra.id);
-                    const colorDias = getColorDiasPorVender(diasPorVender);
-                    const bgDias = getBgColorDiasPorVender(diasPorVender);
                     
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<div class="flex justify-between items-start mb-3">';
@@ -485,14 +480,15 @@
                     // Funciones
                     html += '<div class="bg-gray-50 p-3 rounded mb-3">';
                     funciones.forEach(f => {
-                        html += '<div class="text-xs mb-2"><strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong></div>';
+                        const diasPorVender = calcularDiasPorVender(f.fecha);
+                        
+                        let colorDias = 'text-red-600';
+                        if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
+                        else if (diasPorVender >= 60) colorDias = 'text-green-600';
+                        else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
+                        
+                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorDias + ' font-bold">' + diasPorVender + 'd por vender</span></div>';
                     });
-                    html += '</div>';
-                    
-                    // Días por vender
-                    html += '<div class="' + bgDias + ' border-l-4 border-orange-500 p-3 rounded">';
-                    html += '<p class="text-xs text-gray-600">Días por vender:</p>';
-                    html += '<p class="text-lg font-bold ' + colorDias + '">' + diasPorVender + ' días</p>';
                     html += '</div>';
                     html += '</div>';
                 });
@@ -524,8 +520,8 @@
                 html += '<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 font-medium cursor-pointer text-blue-600" onclick="viewObra(\'' + obra.id + '\')">' + obra.nombre + '</td>';
                 html += '<td class="px-4 py-2">' + icono + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + sala?.nombre + '</td>';
-                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaTiquetera || '-') + '</td>';
-                html += '<td class="px-4 py-2 text-xs">' + (ultimaFunc ? ultimaFunc.fecha : '-') + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + formatearFecha(obra.fechaTiquetera) + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + (ultimaFunc ? formatearFecha(ultimaFunc.fecha) : '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs font-bold">' + diasTotales + 'd</td>';
                 html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
                 if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
@@ -586,8 +582,8 @@
             html += '</div>';
             
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
-            if (primeraFuncion) html += '<div><strong>Primera Función:</strong> ' + primeraFuncion.fecha + ' ' + primeraFuncion.hora + '</div>';
-            if (ultimaFuncion) html += '<div><strong>Última Función:</strong> ' + ultimaFuncion.fecha + ' ' + ultimaFuncion.hora + '</div>';
+            if (primeraFuncion) html += '<div><strong>Primera Función:</strong> ' + formatearFecha(primeraFuncion.fecha) + ' ' + formatearHora(primeraFuncion.hora) + '</div>';
+            if (ultimaFuncion) html += '<div><strong>Última Función:</strong> ' + formatearFecha(ultimaFuncion.fecha) + ' ' + formatearHora(ultimaFuncion.hora) + '</div>';
             html += '<div><strong>Días totales para vender:</strong> <span class="font-bold text-blue-600">' + diasTotalesParaVender + ' días</span></div>';
             html += '<div><strong>Días por vender:</strong> <span class="font-bold text-orange-600">' + diasPorVender + ' días</span></div>';
             html += '</div>';
@@ -604,7 +600,7 @@
             alertas.forEach(a => {
                 const color = a.ok ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800';
                 const icon = a.ok ? '✅' : '⚠️';
-                const fechaText = a.fecha ? ' (' + a.fecha + ')' : '';
+                const fechaText = a.fecha ? ' (' + formatearFecha(a.fecha) + ')' : '';
                 html += '<div class="p-3 rounded border-2 ' + color + ' text-sm font-medium">' + icon + ' ' + a.label + fechaText + '</div>';
             });
             html += '</div>';
