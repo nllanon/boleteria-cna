@@ -221,8 +221,8 @@
         }
 
         function renderDashboard() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">📊 Dashboard</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📊 Dashboard</h2>';
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
 
@@ -272,7 +272,7 @@
         }
 
         function renderObras() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6">';
 
             if (tienePermiso('crear_obra')) {
@@ -281,7 +281,7 @@
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-700"><tr><th class="px-4 py-2 text-left text-white">Obra</th><th class="px-4 py-2 text-left text-white">Tipo</th><th class="px-4 py-2 text-left text-white">Sala</th><th class="px-4 py-2 text-left text-white">Tiquetera</th><th class="px-4 py-2 text-left text-white">Última Fun.</th><th class="px-4 py-2 text-left text-white">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody class="bg-gray-900">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Tiquetera</th><th class="px-4 py-2 text-left">Última Fun.</th><th class="px-4 py-2 text-left">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
 
             obrasFiltradas.forEach(obra => {
                 const sala = getSala(obra.salaId);
@@ -294,9 +294,9 @@
                 html += '<td class="px-4 py-2 text-xs">' + (obra.fechaTiquetera || '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + (obra.fechaUltimaFuncion || '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs font-bold">' + diasParaVender + 'd</td>';
-                html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-400 font-medium">Ver (' + accionesCount + ')</button>';
-                if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-400">Editar</button>';
-                if (appState.user.rol === 'admin') html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-400">Eliminar</button>';
+                html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
+                if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
+                if (appState.user.rol === 'admin') html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600">Eliminar</button>';
                 html += '</td></tr>';
             });
 
@@ -339,7 +339,7 @@
             const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
             const canEdit = tienePermiso('editar_obra');
 
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6">';
             html += '<button onclick="changePage(\'obras\')" class="text-blue-600 text-sm mb-4">← Volver</button>';
             html += '<div class="bg-white p-6 rounded shadow mb-6">';
@@ -364,7 +364,7 @@
 
             // ========== SECCIÓN DE FUNCIONES ==========
             html += '<div class="bg-green-50 border-2 border-green-300 p-6 rounded shadow mb-6">';
-            html += '<h3 class="text-lg font-bold mb-4 text-white">🎬 CREAR NUEVA FUNCIÓN</h3>';
+            html += '<h3 class="text-lg font-bold mb-4 text-green-900">🎬 CREAR NUEVA FUNCIÓN</h3>';
             html += '<form onsubmit="handleAgregarFuncion(event, \'' + obra.id + '\')" class="space-y-3">';
             html += '<div class="grid grid-cols-2 gap-3">';
             html += '<div><label class="block text-sm font-medium mb-1 text-gray-700">📅 Fecha</label><input type="date" id="funcionFecha" required class="w-full px-3 py-2 border-2 border-gray-300 rounded text-sm font-medium" /></div>';
@@ -382,7 +382,7 @@
             } else {
                 html += '<div class="space-y-2">';
                 funciones.forEach(f => {
-                    html += '<div class="p-3 bg-gray-800 rounded text-white border-l-4 border-orange-500 flex justify-between items-center">';
+                    html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500 flex justify-between items-center">';
                     html += '<div><strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong></div>';
                     if (canEdit) {
                         html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs font-medium">Eliminar</button>';
@@ -395,7 +395,7 @@
 
             // Sección de Acciones
             html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📋 Acciones Registradas (' + acciones.length + ')</h3>';
-            html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-800 rounded border">';
+            html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
             html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Publicado en redes, Enviado correo..." class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar Acción</button>';
             html += '</form>';
@@ -405,7 +405,7 @@
             } else {
                 html += '<div class="space-y-3">';
                 acciones.slice().reverse().forEach(a => {
-                    html += '<div class="p-3 bg-gray-800 rounded text-white border-l-4 border-blue-500">';
+                    html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-blue-500">';
                     html += '<div class="flex justify-between items-start mb-2">';
                     html += '<div><strong>' + a.descripcion + '</strong></div>';
                     html += '<button onclick="toggleAccionHecho(\'' + a.id + '\')" class="' + (a.hecho ? 'bg-green-500' : 'bg-gray-400') + ' text-white px-2 py-1 rounded text-xs">' + (a.hecho ? '✅ Hecho' : '❌ Pendiente') + '</button>';
@@ -613,8 +613,8 @@
 
         function renderCrearObra() {
             const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
-            let html = '<div class="min-h-screen bg-black">' + renderHeader();
-            html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
             html += '<div class="bg-white p-6 rounded shadow">';
             html += '<form id="obraForm" onsubmit="handleGuardarObra(event)">';
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
@@ -629,7 +629,7 @@
 
             // SECCIÓN DE FECHAS EN ORDEN CRONOLÓGICO
             html += '<div class="bg-yellow-50 border-2 border-yellow-300 p-4 rounded mb-4">';
-            html += '<h3 class="text-lg font-bold mb-4 text-white">📅 Cronología de Fechas</h3>';
+            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📅 Cronología de Fechas</h3>';
             html += '<div class="space-y-3">';
             
             // 1. Tiquetera (obligatoria)
@@ -658,9 +658,9 @@
 
             html += '</div>';
 
-            // SECCIÓN DE DATOS COMPLEMENTARIOS (después de funciones)
-            html += '<div class="bg-purple-50 border-2 border-purple-300 p-4 rounded mb-4">';
-            html += '<h3 class="text-lg font-bold mb-3 text-white">📋 Datos Complementarios</h3>';
+            // SECCIÓN DE DATOS COMPLEMENTARIOS
+            html += '<div class="bg-gray-50 border-2 border-gray-300 p-4 rounded mb-4">';
+            html += '<h3 class="text-lg font-bold mb-3 text-gray-900">📋 Datos Complementarios</h3>';
             html += '<div class="space-y-3">';
             html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
             html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="ml-4 mt-1 px-3 py-1 border rounded text-sm bg-white" /></div>';
@@ -818,8 +818,8 @@
         }
 
         function renderVentas() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">💵 Registrar Venta del Día</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Registrar Venta del Día</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'boleteria');
             const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
@@ -838,7 +838,7 @@
 
             html += '<h3 class="text-lg font-bold mb-3">Últimos Registros</h3>';
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-700"><tr><th class="px-4 py-2 text-left text-white">Obra</th><th class="px-4 py-2 text-left text-white">Boletas</th><th class="px-4 py-2 text-left text-white">Fecha</th></tr></thead><tbody class="bg-gray-900">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Boletas</th><th class="px-4 py-2 text-left">Fecha</th></tr></thead><tbody>';
             appState.ventas.slice().reverse().slice(0, 10).forEach(v => {
                 const f = appState.funciones.find(x => x.id === v.funcionId);
                 const o = appState.obras.find(x => x.id === f?.obraId);
@@ -860,8 +860,8 @@
         }
 
         function renderEntrada() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">🎟️ Registrar Entrada Libre</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🎟️ Registrar Entrada Libre</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'entrada_libre');
             const funciones = appState.funciones.filter(f => obras.some(o => o.id === f.obraId));
@@ -880,7 +880,7 @@
 
             html += '<h3 class="text-lg font-bold mb-3">Últimos Registros</h3>';
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-700"><tr><th class="px-4 py-2 text-left text-white">Obra</th><th class="px-4 py-2 text-left text-white">Personas</th><th class="px-4 py-2 text-left text-white">Fecha</th></tr></thead><tbody class="bg-gray-900">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Personas</th><th class="px-4 py-2 text-left">Fecha</th></tr></thead><tbody>';
             appState.entrada_libre.slice().reverse().slice(0, 10).forEach(v => {
                 const f = appState.funciones.find(x => x.id === v.funcionId);
                 const o = appState.obras.find(x => x.id === f?.obraId);
@@ -902,11 +902,11 @@
         }
 
         function renderSalas() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">🏛️ Gestión de Salas</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🏛️ Gestión de Salas</h2>';
             html += '<button onclick="openCrearSala()" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 mb-4">+ Nueva Sala</button>';
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
-            html += '<thead class="bg-gray-700"><tr><th class="px-4 py-2 text-left text-white">Nombre</th><th class="px-4 py-2 text-left text-white">Aforo</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody class="bg-gray-900">';
+            html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Nombre</th><th class="px-4 py-2 text-left">Aforo</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
             appState.salas.forEach(sala => {
                 html += '<tr class="border-b"><td class="px-4 py-2">' + sala.nombre + '</td><td class="px-4 py-2">' + sala.aforo + '</td><td class="px-4 py-2"><button onclick="openEditarSala(\'' + sala.id + '\')" class="text-blue-600 text-xs">Editar</button> <button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
             });
@@ -928,8 +928,8 @@
 
         function renderCrearSala() {
             const sala = appState.editingSala || { nombre: '', aforo: '' };
-            let html = '<div class="min-h-screen bg-black">' + renderHeader();
-            html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
             html += '<form onsubmit="handleGuardarSala(event)" class="bg-white p-6 rounded shadow">';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Aforo</label><input type="number" id="salaAforo" value="' + sala.aforo + '" required min="1" class="w-full px-3 py-2 border rounded text-sm" /></div>';
@@ -966,11 +966,11 @@
         }
 
         function renderCalendario() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">📅 Calendario de Funciones</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📅 Calendario de Funciones</h2>';
             html += '<div class="bg-white p-4 rounded shadow">';
             html += '<table class="w-full text-sm border-collapse">';
-            html += '<thead><tr><th class="border p-2 text-left">Fecha</th><th class="border p-2 text-left">Obra</th><th class="border p-2 text-left">Hora</th><th class="border p-2 text-left">Tipo</th><th class="border p-2 text-left">Sala</th></tr></thead><tbody class="bg-gray-900">';
+            html += '<thead><tr><th class="border p-2 text-left">Fecha</th><th class="border p-2 text-left">Obra</th><th class="border p-2 text-left">Hora</th><th class="border p-2 text-left">Tipo</th><th class="border p-2 text-left">Sala</th></tr></thead><tbody>';
 
             let obras_filtradas = appState.obras.filter(o => puedeVerObra(o));
             appState.funciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).filter(f => obras_filtradas.some(o => o.id === f.obraId)).forEach(f => {
@@ -986,8 +986,8 @@
         }
 
         function renderReportes() {
-            let html = '<div class="min-h-screen bg-black">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4 text-white">📈 Reportes</h2>';
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📈 Reportes</h2>';
             html += '<div class="grid grid-cols-2 gap-4">';
             html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen de Ventas</h3><p class="text-sm text-gray-600">Total ventas: ' + appState.ventas.length + '</p></div>';
             html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen Entrada Libre</h3><p class="text-sm text-gray-600">Total registros: ' + appState.entrada_libre.length + '</p></div>';
