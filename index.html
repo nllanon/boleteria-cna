@@ -56,9 +56,9 @@
                 ];
 
                 appState.obras = [
-                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08', totalVentas: 0, totalMembresia: 0 },
-                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null, totalVentas: 0, totalMembresia: 0 },
-                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', temporadaId: '1', tipo: 'entrada_libre', fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null, totalVentas: 0, totalMembresia: 0 }
+                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08' },
+                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null },
+                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', temporadaId: '1', tipo: 'entrada_libre', fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null }
                 ];
 
                 appState.funciones = [
@@ -421,13 +421,13 @@
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
 
-            const totalVentas = appState.obras.reduce((sum, o) => sum + (o.totalVentas || 0), 0);
+            const totalVentas = appState.funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
             const totalMembresia = appState.obras.reduce((sum, o) => sum + (o.totalMembresia || 0), 0);
             html += '<div class="grid grid-cols-4 gap-2 mb-6">';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Boletas Vendidas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Membresía Casa Exp.</p><p class="text-2xl font-bold text-purple-600">' + totalMembresia + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Boletas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Temporada</p><p class="text-2xl font-bold text-purple-600">1</p></div>';
             html += '</div>';
 
             const obrasBoleto = obrasFiltradas.filter(o => o.tipo === 'boleteria');
@@ -441,6 +441,7 @@
                 obrasBoleto.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
+                    const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
                     
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<div class="flex justify-between items-start mb-3">';
@@ -449,8 +450,14 @@
                     html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg">📊</button>';
                     html += '</div>';
                     
-                    // Funciones
-                    html += '<div class="bg-gray-50 p-3 rounded mb-3">';
+                    // Total de ventas
+                    html += '<div class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">';
+                    html += '<p class="text-xs text-gray-600">Total Vendido</p>';
+                    html += '<p class="text-2xl font-bold text-blue-600">' + totalVentas + ' boletas</p>';
+                    html += '</div>';
+                    
+                    // Funciones con su % individual
+                    html += '<div class="bg-gray-50 p-3 rounded">';
                     funciones.forEach(f => {
                         const ventasFunc = (f.ventasAcumuladas || 0);
                         const aforo = sala?.aforo || 1;
@@ -471,8 +478,8 @@
                         
                         html += '<div class="text-xs mb-2">';
                         html += '<strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | ';
-                        html += '<span class="' + colorVenta + ' font-bold">' + porcenVenta + '% venta</span> | ';
-                        html += '<span class="' + colorDias + ' font-bold">' + diasPorVender + 'd por vender</span>';
+                        html += '<span class="' + colorVenta + ' font-bold">' + porcenVenta + '%</span> | ';
+                        html += '<span class="' + colorDias + ' font-bold">' + diasPorVender + 'd</span>';
                         html += '</div>';
                     });
                     html += '</div>';
@@ -660,12 +667,16 @@
             html += '</div>';
 
             // RESUMEN DE VENTAS Y CORTESÍAS
+            const totalVentasObra = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
+            const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
+            const totalCortesiasEntregadas = funciones.reduce((sum, f) => sum + (f.cortesiasEntregadas || 0), 0);
             html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
             html += '<h3 class="text-lg font-bold mb-4 text-purple-900">💰 VENTAS Y CORTESÍAS</h3>';
-            html += '<div class="grid grid-cols-3 gap-4 mb-4">';
-            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Total Boletas Vendidas</strong><div class="text-2xl font-bold text-blue-600">' + (obra.totalVentas || 0) + '</div></div>';
-            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Membresía Casa Expandida</strong><div class="text-2xl font-bold text-purple-600">' + (obra.totalMembresia || 0) + '</div></div>';
-            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Planeadas</strong><div class="text-2xl font-bold text-orange-600">' + (obra.cortesias || 0) + '</div></div>';
+            html += '<div class="grid grid-cols-4 gap-4 mb-4">';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Total Boletas</strong><div class="text-2xl font-bold text-blue-600">' + totalVentasObra + '</div></div>';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Total Funciones</strong><div class="text-2xl font-bold text-orange-600">' + funciones.length + '</div></div>';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Planeadas</strong><div class="text-2xl font-bold text-yellow-600">' + totalCortesias + '</div></div>';
+            html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Entregadas</strong><div class="text-2xl font-bold text-green-600">' + totalCortesiasEntregadas + '</div></div>';
             html += '</div>';
             html += '</div>';
 
@@ -1070,7 +1081,7 @@
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
             } else {
                 obraId = Date.now().toString();
-                appState.obras.push({ id: obraId, ...data, totalVentas: 0, totalMembresia: 0 });
+                appState.obras.push({ id: obraId, ...data });
             }
 
             // Guardar funciones
@@ -1095,37 +1106,57 @@
 
         function renderVentas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">💵 Corte de Ventas por Función</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">💵 Corte de Ventas</h2>';
 
-            const funciones = appState.funciones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            const obras = appState.obras.filter(o => o.tipo === 'boleteria');
 
-            if (funciones.length === 0) {
-                html += '<p class="text-gray-600">Sin funciones registradas</p>';
+            if (obras.length === 0) {
+                html += '<p class="text-gray-600">Sin obras registradas</p>';
                 html += '</main></div>';
                 return html;
             }
 
-            html += '<form onsubmit="guardarCortesVentasFunciones(event)" class="bg-white p-6 rounded shadow mb-6">';
-            html += '<div class="space-y-4">';
+            html += '<form onsubmit="guardarCortesVentasFunciones(event)">';
             
-            funciones.forEach(f => {
-                const obra = appState.obras.find(o => o.id === f.obraId);
-                const sala = getSala(obra?.salaId);
+            obras.forEach(obra => {
+                const funciones = getFuncionesObra(obra.id);
+                const sala = getSala(obra.salaId);
+                const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
                 
-                html += '<div class="bg-gray-50 p-4 rounded border-2 border-gray-300">';
-                html += '<div class="grid grid-cols-3 gap-2 mb-3">';
-                html += '<div><strong>' + (obra?.nombre || 'Sin nombre') + '</strong></div>';
-                html += '<div class="text-xs text-gray-600">' + formatearFecha(f.fecha) + ' ' + formatearHora(f.hora) + '</div>';
-                html += '<div class="text-xs text-gray-600">' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</div>';
+                if (funciones.length === 0) return;
+                
+                html += '<div class="bg-white rounded shadow mb-6">';
+                html += '<div class="bg-blue-50 p-4 border-b-2 border-blue-300">';
+                html += '<h3 class="text-lg font-bold text-gray-800">' + obra.nombre + '</h3>';
+                html += '<p class="text-sm text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</p>';
+                html += '<p class="text-sm font-medium text-blue-700 mt-2">Total vendido: <strong>' + totalVentas + ' boletas</strong></p>';
                 html += '</div>';
                 
-                html += '<label class="block text-sm font-medium mb-1">Boletas vendidas en este corte</label>';
-                html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-funcion-id="' + f.id + '" value="0" min="0" />';
+                html += '<div class="overflow-x-auto">';
+                html += '<table class="w-full text-sm">';
+                html += '<thead class="bg-gray-100 border-b"><tr>';
+                html += '<th class="px-4 py-2 text-left">Fecha</th>';
+                html += '<th class="px-4 py-2 text-left">Hora</th>';
+                html += '<th class="px-4 py-2 text-left">Boletas Acumuladas</th>';
+                html += '<th class="px-4 py-2 text-left">Registro de Hoy</th>';
+                html += '</tr></thead>';
+                html += '<tbody>';
+                
+                funciones.forEach(f => {
+                    html += '<tr class="border-b hover:bg-gray-50">';
+                    html += '<td class="px-4 py-2">' + formatearFecha(f.fecha) + '</td>';
+                    html += '<td class="px-4 py-2">' + formatearHora(f.hora) + '</td>';
+                    html += '<td class="px-4 py-2 font-bold">' + (f.ventasAcumuladas || 0) + '</td>';
+                    html += '<td class="px-4 py-2"><input type="number" class="w-24 px-2 py-1 border rounded text-sm" data-funcion-id="' + f.id + '" value="0" min="0" /></td>';
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                html += '</div>';
                 html += '</div>';
             });
             
-            html += '</div>';
-            html += '<button type="submit" class="mt-6 w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">✅ Guardar Corte</button>';
+            html += '<button type="submit" class="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 mb-4">✅ Guardar Corte</button>';
             html += '</form>';
 
             html += '</main></div>';
@@ -1164,10 +1195,10 @@
             if (guardadas > 0) {
                 guardarAppState();
                 alert('✅ ' + guardadas + ' función(es) actualizada(s)');
+                render();
             } else {
                 alert('⚠️ No hay ventas para registrar');
             }
-            render();
         }
 
         function renderEntrada() {
