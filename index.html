@@ -175,10 +175,13 @@
                 if (canvas && window.Chart) {
                     const obra = appState.obras.find(o => o.id === obraId);
                     const datos = getVentasPorDiaObra(obraId);
+                    const funciones = getFuncionesObra(obraId);
                     
                     if (window.chartInstanceVentas) {
                         window.chartInstanceVentas.destroy();
                     }
+
+                    const fechaPrimeraFuncion = funciones.length > 0 ? funciones[0].fecha : null;
                     
                     window.chartInstanceVentas = new Chart(canvas, {
                         type: 'bar',
@@ -199,6 +202,9 @@
                                     display: true,
                                     text: 'Ventas diarias: ' + obra.nombre,
                                     font: { size: 14 }
+                                },
+                                legend: {
+                                    display: true
                                 }
                             },
                             scales: {
@@ -207,7 +213,49 @@
                                     ticks: { stepSize: 1 }
                                 }
                             }
-                        }
+                        },
+                        plugins: [{
+                            afterDatasetsDraw(chart) {
+                                const { ctx, chartArea: { left, top, width, height } } = chart;
+                                const labels = chart.data.labels;
+                                const xScale = chart.scales.x;
+                                const yScale = chart.scales.y;
+                                
+                                const lineas = [
+                                    { fecha: obra.fechaTiquetera, color: '#10b981', label: 'Tiquetera' },
+                                    { fecha: obra.fechaRedes, color: '#f59e0b', label: 'Redes' },
+                                    { fecha: obra.fechaPauta, color: '#8b5cf6', label: 'Pauta' },
+                                    { fecha: fechaPrimeraFuncion, color: '#ef4444', label: 'Estreno' }
+                                ];
+                                
+                                lineas.forEach(linea => {
+                                    if (!linea.fecha) return;
+                                    
+                                    const labelIndex = labels.indexOf(linea.fecha);
+                                    if (labelIndex === -1) return;
+                                    
+                                    const x = xScale.getPixelForValue(labelIndex);
+                                    
+                                    ctx.strokeStyle = linea.color;
+                                    ctx.lineWidth = 2;
+                                    ctx.setLineDash([5, 5]);
+                                    ctx.beginPath();
+                                    ctx.moveTo(x, top);
+                                    ctx.lineTo(x, top + height);
+                                    ctx.stroke();
+                                    ctx.setLineDash([]);
+                                    
+                                    ctx.font = 'bold 11px Arial';
+                                    ctx.fillStyle = linea.color;
+                                    ctx.save();
+                                    ctx.translate(x + 5, top + 15);
+                                    ctx.rotate(-Math.PI / 2);
+                                    ctx.textAlign = 'right';
+                                    ctx.fillText(linea.label, 0, 0);
+                                    ctx.restore();
+                                });
+                            }
+                        }]
                     });
                 }
             }, 100);
