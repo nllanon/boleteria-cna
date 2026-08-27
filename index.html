@@ -176,10 +176,16 @@
 
         function calcularDiasPorVender(fecha) {
             if (!fecha) return 'N/A';
-            const hoy = new Date();
-            const fin = new Date(fecha);
-            const dias = Math.floor((fin - hoy) / (1000 * 60 * 60 * 24));
-            return Math.max(0, dias);
+            try {
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const fin = new Date(fecha + 'T00:00:00');
+                if (isNaN(fin.getTime())) return 'N/A';
+                const dias = Math.floor((fin - hoy) / (1000 * 60 * 60 * 24));
+                return dias >= 0 ? dias : 0;
+            } catch (e) {
+                return 'N/A';
+            }
         }
 
         function formatearFecha(fecha) {
