@@ -781,12 +781,23 @@
             event.preventDefault();
             const funciones = getFuncionesObra(obraId);
             let actualizadas = 0;
+            
+            // Calcular fecha de ayer
+            const hoy = new Date();
+            const ayer = new Date(hoy);
+            ayer.setDate(ayer.getDate() - 1);
+            const fechaAyer = ayer.toISOString().split('T')[0];
 
             funciones.forEach(f => {
                 const input = document.querySelector('input[data-baseline-' + f.id + ']');
                 if (input) {
                     const boletas = parseInt(input.value) || 0;
                     f.ventasAcumuladas = boletas;
+                    
+                    // Registrar en ventasPorDia para que el gráfico lo muestre
+                    if (!f.ventasPorDia) f.ventasPorDia = [];
+                    f.ventasPorDia = [{ fecha: fechaAyer, boletas: boletas }];
+                    
                     actualizadas++;
                 }
             });
