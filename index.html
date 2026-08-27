@@ -442,8 +442,7 @@
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
                     const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-                    const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
-                    const totalDisponible = (sala?.aforo || 0) - totalCortesias;
+                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
                     
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<div class="flex justify-between items-start mb-3">';
@@ -673,7 +672,7 @@
             const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
             const totalCortesiasEntregadas = funciones.reduce((sum, f) => sum + (f.cortesiasEntregadas || 0), 0);
             const aforo = sala?.aforo || 0;
-            const disponible = aforo - totalCortesias;
+            const disponible = funciones.reduce((sum, f) => sum + Math.max(0, aforo - (f.cortesias || 0)), 0);
             html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
             html += '<h3 class="text-lg font-bold mb-4 text-purple-900">💰 VENTAS Y CORTESÍAS</h3>';
             html += '<div class="grid grid-cols-4 gap-4 mb-4">';
