@@ -24,7 +24,9 @@
             editingSala: null,
             editingFunciones: [],
             editingMultipleFunciones: false,
-            viewingObraId: null
+            viewingObraId: null,
+            showGraficoVentas: false,
+            graficoVentasObraId: null
         };
 
         const USUARIOS = {
@@ -146,6 +148,76 @@
             return appState.funciones.filter(f => f.obraId === obraId).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
         }
 
+        function getVentasPorDiaObra(obraId) {
+            const ventasObra = appState.ventas.filter(v => {
+                const f = appState.funciones.find(x => x.id === v.funcionId);
+                return f?.obraId === obraId;
+            });
+
+            const porDia = {};
+            ventasObra.forEach(v => {
+                if (!porDia[v.fecha]) porDia[v.fecha] = 0;
+                porDia[v.fecha] += v.boletas;
+            });
+
+            const fechas = Object.keys(porDia).sort();
+            const boletas = fechas.map(f => porDia[f]);
+
+            return { fechas, boletas };
+        }
+
+        function abrirGraficoVentas(obraId) {
+            appState.showGraficoVentas = true;
+            appState.graficoVentasObraId = obraId;
+            render();
+            setTimeout(() => {
+                const canvas = document.getElementById('chartVentas');
+                if (canvas && window.Chart) {
+                    const obra = appState.obras.find(o => o.id === obraId);
+                    const datos = getVentasPorDiaObra(obraId);
+                    
+                    if (window.chartInstanceVentas) {
+                        window.chartInstanceVentas.destroy();
+                    }
+                    
+                    window.chartInstanceVentas = new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: datos.fechas,
+                            datasets: [{
+                                label: 'Boletas vendidas',
+                                data: datos.boletas,
+                                backgroundColor: '#3b82f6',
+                                borderColor: '#1e40af',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Ventas diarias: ' + obra.nombre,
+                                    font: { size: 14 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { stepSize: 1 }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 100);
+        }
+
+        function cerrarGraficoVentas() {
+            appState.showGraficoVentas = false;
+            render();
+        }
+
         function renderLogin() {
             let html = '<div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">';
             html += '<div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">';
@@ -244,10 +316,17 @@
                 obrasBoleto.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const diasParaVender = calcularDiasParaVender(obra.fechaTiquetera, obra.fechaUltimaFuncion);
+                    const ventasObra = appState.ventas.filter(v => {
+                        const f = appState.funciones.find(x => x.id === v.funcionId);
+                        return f?.obraId === obra.id;
+                    }).length;
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
-                    html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
+                    html += '<div class="flex justify-between items-start">';
+                    html += '<div><h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
                     html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
-                    html += '<div class="mt-2 text-xs"><strong>Para vender:</strong> ' + diasParaVender + ' días</div>';
+                    html += '<div class="mt-2 text-xs"><strong>Para vender:</strong> ' + diasParaVender + ' días</div></div>';
+                    html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg" title="Ver gráfico de ventas">📊</button>';
+                    html += '</div>';
                     html += '</div>';
                 });
                 html += '</div></div>';
@@ -259,9 +338,12 @@
                 obrasEntrada.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
-                    html += '<h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
+                    html += '<div class="flex justify-between items-start">';
+                    html += '<div><h4 class="font-bold text-sm text-gray-800">' + obra.nombre + '</h4>';
                     html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p>';
-                    html += '<div class="mt-2 text-xs"><strong>Aforo:</strong> ' + sala?.aforo + '</div>';
+                    html += '<div class="mt-2 text-xs"><strong>Aforo:</strong> ' + sala?.aforo + '</div></div>';
+                    html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg" title="Ver gráfico">📊</button>';
+                    html += '</div>';
                     html += '</div>';
                 });
                 html += '</div></div>';
@@ -1034,6 +1116,19 @@
                     case 'calendario': app.innerHTML = renderCalendario(); break;
                     case 'reportes': app.innerHTML = renderReportes(); break;
                     default: app.innerHTML = renderDashboard();
+                }
+                
+                if (appState.showGraficoVentas) {
+                    const modalHTML = '<div id="graficoModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">'
+                        + '<div style="background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 800px; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">'
+                        + '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">'
+                        + '<h3 style="margin: 0; font-size: 18px; font-weight: bold;">📊 Gráfico de Ventas Diarias</h3>'
+                        + '<button onclick="cerrarGraficoVentas()" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>'
+                        + '</div>'
+                        + '<canvas id="chartVentas" style="max-height: 400px;"></canvas>'
+                        + '</div>'
+                        + '</div>';
+                    app.innerHTML += modalHTML;
                 }
             }
         }
