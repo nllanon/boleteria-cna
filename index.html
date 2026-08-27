@@ -667,7 +667,28 @@
             }
             html += '</div>';
 
-            // RESUMEN DE VENTAS Y CORTESÍAS
+            // ========== BASELINE DE VENTAS (Ayer) ==========
+            html += '<div class="bg-yellow-50 border-2 border-yellow-300 p-6 rounded shadow mb-6">';
+            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📊 Establecer Baseline de Ventas (Acumuladas a Ayer)</h3>';
+            html += '<form onsubmit="guardarBaselineVentas(event, \'' + obra.id + '\')" class="space-y-3">';
+            if (funciones.length === 0) {
+                html += '<p class="text-gray-600 text-sm">Crea funciones primero</p>';
+            } else {
+                funciones.forEach(f => {
+                    const sala_info = getSala(obra.salaId);
+                    html += '<div class="bg-white p-3 rounded border-l-4 border-yellow-500">';
+                    html += '<div class="flex justify-between items-center mb-2">';
+                    html += '<strong>' + formatearFecha(f.fecha) + ' ' + formatearHora(f.hora) + '</strong>';
+                    html += '<span class="text-xs text-gray-600">Aforo: ' + (sala_info?.aforo || 0) + '</span>';
+                    html += '</div>';
+                    html += '<label class="block text-sm font-medium mb-1">Boletas vendidas hasta ayer</label>';
+                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-baseline-' + f.id + ' value="' + (f.ventasAcumuladas || 0) + '" min="0" max="' + (sala_info?.aforo || 1000) + '" />';
+                    html += '</div>';
+                });
+            }
+            html += '<button type="submit" class="w-full bg-yellow-600 text-white px-4 py-3 rounded text-base font-bold hover:bg-yellow-700">💾 Guardar Baseline</button>';
+            html += '</form>';
+            html += '</div>';
             const totalVentasObra = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
             const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
             const totalCortesiasEntregadas = funciones.reduce((sum, f) => sum + (f.cortesiasEntregadas || 0), 0);
@@ -737,6 +758,27 @@
                 appState.entrada_libre = appState.entrada_libre.filter(v => v.funcionId !== funcionId);
                 saveData();
                 alert('✅ Función eliminada');
+                render();
+            }
+        }
+
+        function guardarBaselineVentas(event, obraId) {
+            event.preventDefault();
+            const funciones = getFuncionesObra(obraId);
+            let actualizadas = 0;
+
+            funciones.forEach(f => {
+                const input = document.querySelector('input[data-baseline-' + f.id + ']');
+                if (input) {
+                    const boletas = parseInt(input.value) || 0;
+                    f.ventasAcumuladas = boletas;
+                    actualizadas++;
+                }
+            });
+
+            if (actualizadas > 0) {
+                saveData();
+                alert('✅ Baseline de ' + actualizadas + ' función(es) guardado');
                 render();
             }
         }
