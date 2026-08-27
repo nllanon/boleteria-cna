@@ -224,7 +224,7 @@
             return hora;  // Ya viene en formato 24h (HH:MM)
         }
 
-        function getVentasPorDiaObra(obraId) {
+        function getVentasAcumuladasPorDiaObra(obraId) {
             const funciones = getFuncionesObra(obraId);
             const porDia = {};
 
@@ -238,9 +238,13 @@
             });
 
             const fechas = Object.keys(porDia).sort();
-            const boletas = fechas.map(f => porDia[f]);
+            let acumulado = 0;
+            const boletasAcumuladas = fechas.map(f => {
+                acumulado += porDia[f];
+                return acumulado;
+            });
 
-            return { fechas, boletas };
+            return { fechas, boletasAcumuladas };
         }
 
         function abrirGraficoVentas(obraId) {
@@ -253,14 +257,7 @@
                     const obra = appState.obras.find(o => o.id === obraId);
                     const funciones = getFuncionesObra(obraId);
                     
-                    console.log('Obra:', obra.nombre);
-                    console.log('Funciones:', funciones);
-                    funciones.forEach(f => {
-                        console.log('Función', f.id, '- ventasAcumuladas:', f.ventasAcumuladas, '- ventasPorDia:', f.ventasPorDia);
-                    });
-                    
-                    const datos = getVentasPorDiaObra(obraId);
-                    console.log('Datos gráfico:', datos);
+                    const datos = getVentasAcumuladasPorDiaObra(obraId);
                     
                     if (window.chartInstanceVentas) {
                         window.chartInstanceVentas.destroy();
@@ -279,15 +276,21 @@
                     const fechaPrimeraFuncion = funciones.length > 0 ? funciones[0].fecha : null;
                     
                     window.chartInstanceVentas = new Chart(canvas, {
-                        type: 'bar',
+                        type: 'line',
                         data: {
                             labels: datos.fechas,
                             datasets: [{
-                                label: 'Boletas vendidas',
-                                data: datos.boletas,
-                                backgroundColor: '#3b82f6',
-                                borderColor: '#1e40af',
-                                borderWidth: 1
+                                label: 'Boletas vendidas (acumulado)',
+                                data: datos.boletasAcumuladas,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 6,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: '#1e40af',
+                                pointBorderWidth: 2
                             }]
                         },
                         options: {
@@ -297,10 +300,11 @@
                                 title: {
                                     display: true,
                                     text: 'Ventas diarias: ' + obra.nombre,
-                                    font: { size: 14 }
+                                    font: { size: 16, weight: 'bold' }
                                 },
                                 legend: {
-                                    display: true
+                                    display: true,
+                                    position: 'top'
                                 }
                             },
                             scales: {
@@ -320,18 +324,35 @@
                         const labels = window.chartInstanceVentas.data.labels;
                         
                         const lineas = [
-                            { fecha: obra.fechaTiquetera, color: '#10b981', label: 'Tiquetera' },
-                            { fecha: obra.fechaRedes, color: '#f59e0b', label: 'Redes' },
-                            { fecha: obra.fechaPauta, color: '#8b5cf6', label: 'Pauta' },
-                            { fecha: fechaPrimeraFuncion, color: '#ef4444', label: 'Estreno' }
+                            { fecha: obra.fechaTiquetera, color: '#10b981', label: '🎟️ Tiquetera' },
+                            { fecha: obra.fechaRedes, color: '#f59e0b', label: '📱 Redes' },
+                            { fecha: obra.fechaPauta, color: '#8b5cf6', label: '📺 Pauta' },
+                            { fecha: fechaPrimeraFuncion, color: '#ef4444', label: '🎬 Estreno' }
                         ];
                         
                         lineas.forEach(linea => {
                             if (!linea.fecha) return;
-                            const labelIndex = labels.indexOf(linea.fecha);
-                            if (labelIndex === -1) return;
                             
-                            const x = xScale.getPixelForValue(labelIndex);
+                            let x = null;
+                            const labelIndex = labels.indexOf(linea.fecha);
+                            if (labelIndex !== -1) {
+                                x = xScale.getPixelForValue(labelIndex);
+                            } else {
+                                // Interpolar entre fechas
+                                const fechaNum = new Date(linea.fecha).getTime();
+                                for (let i = 0; i < labels.length - 1; i++) {
+                                    const f1 = new Date(labels[i]).getTime();
+                                    const f2 = new Date(labels[i + 1]).getTime();
+                                    if (fechaNum >= f1 && fechaNum <= f2) {
+                                        const p1 = xScale.getPixelForValue(i);
+                                        const p2 = xScale.getPixelForValue(i + 1);
+                                        x = p1 + ((fechaNum - f1) / (f2 - f1)) * (p2 - p1);
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (x === null) return;
                             
                             ctx.strokeStyle = linea.color;
                             ctx.lineWidth = 2;
