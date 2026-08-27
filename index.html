@@ -1422,29 +1422,37 @@
             const mes = hoy.getMonth();
             const anio = hoy.getFullYear();
             
-            // Generar días del mes
-            const primerDia = new Date(anio, mes, 1).getDay(); // 0=domingo, 6=sábado
+            const primerDia = new Date(anio, mes, 1).getDay();
             const diasMes = new Date(anio, mes + 1, 0).getDate();
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-            const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
             
             let html = '<div class="min-h-screen bg-white">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-6 py-8">';
-            html += '<h1 class="text-4xl font-bold mb-8">' + meses[mes] + ' de ' + anio + '</h1>';
+            html += '<main class="max-w-7xl mx-auto px-8 py-8">';
+            
+            // Encabezado
+            html += '<div class="flex justify-between items-center mb-8">';
+            html += '<h1 class="text-5xl font-light">' + meses[mes] + ' de ' + anio + '</h1>';
+            html += '<div class="flex gap-4">';
+            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded">← Anterior</button>';
+            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded font-medium">Hoy</button>';
+            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded">Siguiente →</button>';
+            html += '</div>';
+            html += '</div>';
             
             // Encabezado días de semana
-            html += '<div class="grid grid-cols-7 gap-0 border-t-2 border-gray-300">';
+            html += '<div class="grid grid-cols-7 gap-px bg-gray-100 border-b border-gray-300 mb-px">';
             diasSemana.forEach(d => {
-                html += '<div class="text-center font-semibold text-gray-700 py-3 text-sm border-b-2 border-gray-300">' + d + '</div>';
+                html += '<div class="text-center font-semibold text-gray-700 py-3 text-sm bg-white">' + d + '</div>';
             });
             html += '</div>';
             
             // Grid de fechas
-            html += '<div class="grid grid-cols-7 gap-0 border border-gray-200">';
+            html += '<div class="grid grid-cols-7 gap-px bg-gray-300">';
             
-            // Espacios vacíos antes del primer día
+            // Espacios vacíos
             for (let i = 0; i < primerDia; i++) {
-                html += '<div class="bg-gray-50 min-h-32 border border-gray-200 p-2"></div>';
+                html += '<div class="bg-gray-50 min-h-28 p-2"></div>';
             }
             
             // Días del mes
@@ -1453,27 +1461,27 @@
                 const funcionesDia = appState.funciones.filter(f => f.fecha === fecha);
                 const esHoy = fecha === '2026-08-27';
                 
-                html += '<div class="min-h-32 border border-gray-200 p-2 bg-white hover:bg-gray-50 ' + (esHoy ? 'bg-blue-50' : '') + '">';
+                html += '<div class="bg-white min-h-28 p-2 hover:bg-gray-50">';
                 
-                // Número del día
+                // Número día
                 if (esHoy) {
-                    html += '<div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-500 text-white text-sm font-bold">' + dia + '</div>';
+                    html += '<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold mb-1">' + dia + '</div>';
                 } else {
-                    html += '<div class="text-sm font-semibold text-gray-900 mb-1">' + dia + '</div>';
+                    html += '<div class="text-xl font-light text-gray-900 mb-1">' + dia + '</div>';
                 }
                 
-                // Funciones del día
-                html += '<div class="space-y-1 text-xs">';
-                funcionesDia.slice(0, 3).forEach(f => {
+                // Funciones
+                html += '<div class="space-y-0.5">';
+                funcionesDia.slice(0, 2).forEach(f => {
                     const obra = appState.obras.find(o => o.id === f.obraId);
-                    const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-                    const colorBg = obra.tipo === 'boleteria' ? 'bg-blue-100 text-blue-900' : 'bg-purple-100 text-purple-900';
-                    html += '<div class="' + colorBg + ' rounded px-2 py-1 cursor-pointer hover:shadow-sm truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + obra.nombre + '">';
-                    html += icono + ' ' + f.hora;
+                    const icono = obra.tipo === 'boleteria' ? '|' : '○';
+                    const colorBg = obra.tipo === 'boleteria' ? 'bg-green-100 text-green-900' : 'bg-blue-100 text-blue-900';
+                    html += '<div class="' + colorBg + ' text-xs px-1.5 py-0.5 rounded-sm cursor-pointer hover:shadow-sm truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + obra.nombre + ' ' + f.hora + '">';
+                    html += icono + ' ' + obra.nombre.substring(0, 14);
                     html += '</div>';
                 });
-                if (funcionesDia.length > 3) {
-                    html += '<div class="text-gray-600 text-xs">+' + (funcionesDia.length - 3) + ' más</div>';
+                if (funcionesDia.length > 2) {
+                    html += '<div class="text-gray-600 text-xs px-1.5">y ' + (funcionesDia.length - 2) + ' más</div>';
                 }
                 html += '</div>';
                 
