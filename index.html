@@ -43,6 +43,16 @@
             if (saved) {
                 const data = JSON.parse(saved);
                 Object.assign(appState, data);
+                
+                // Migración: asegurar que todas las funciones tengan ventasPorDia
+                if (appState.funciones) {
+                    appState.funciones.forEach(f => {
+                        if (!f.ventasPorDia) f.ventasPorDia = [];
+                        if (!f.ventasAcumuladas) f.ventasAcumuladas = 0;
+                        if (!f.cortesias) f.cortesias = 0;
+                        if (!f.cortesiasEntregadas) f.cortesiasEntregadas = 0;
+                    });
+                }
             } else {
                 appState.salas = [
                     { id: '1', nombre: 'Sala Fanny Mikey', aforo: 222 },
@@ -62,9 +72,9 @@
                 ];
 
                 appState.funciones = [
-                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada', cortesias: 10, cortesiasEntregadas: 0, ventasAcumuladas: 0 },
-                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada', cortesias: 50, cortesiasEntregadas: 0, ventasAcumuladas: 0 },
-                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada', cortesias: 0, cortesiasEntregadas: 0, ventasAcumuladas: 0 }
+                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada', cortesias: 10, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] },
+                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada', cortesias: 50, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] },
+                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada', cortesias: 0, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] }
                 ];
 
                 appState.acciones = [];
@@ -215,15 +225,16 @@
         }
 
         function getVentasPorDiaObra(obraId) {
-            const ventasObra = appState.ventas.filter(v => {
-                const f = appState.funciones.find(x => x.id === v.funcionId);
-                return f?.obraId === obraId;
-            });
-
+            const funciones = getFuncionesObra(obraId);
             const porDia = {};
-            ventasObra.forEach(v => {
-                if (!porDia[v.fecha]) porDia[v.fecha] = 0;
-                porDia[v.fecha] += v.boletas;
+
+            funciones.forEach(f => {
+                if (f.ventasPorDia && Array.isArray(f.ventasPorDia)) {
+                    f.ventasPorDia.forEach(vd => {
+                        if (!porDia[vd.fecha]) porDia[vd.fecha] = 0;
+                        porDia[vd.fecha] += vd.boletas;
+                    });
+                }
             });
 
             const fechas = Object.keys(porDia).sort();
@@ -743,7 +754,11 @@
                 obraId,
                 fecha,
                 hora,
-                estado: 'programada'
+                estado: 'programada',
+                ventasAcumuladas: 0,
+                ventasPorDia: [],
+                cortesias: 0,
+                cortesiasEntregadas: 0
             });
             saveData();
             document.getElementById('funcionFecha').value = '';
@@ -1136,7 +1151,11 @@
                     obraId: obraId,
                     fecha: f.fecha,
                     hora: f.hora,
-                    estado: 'programada'
+                    estado: 'programada',
+                    ventasAcumuladas: 0,
+                    ventasPorDia: [],
+                    cortesias: 0,
+                    cortesiasEntregadas: 0
                 });
             });
 
@@ -1221,6 +1240,11 @@
                     const funcion = appState.funciones.find(f => f.id === funcionId);
                     if (funcion) {
                         funcion.ventasAcumuladas = (funcion.ventasAcumuladas || 0) + boletas;
+                        
+                        // Registrar venta diaria
+                        if (!funcion.ventasPorDia) funcion.ventasPorDia = [];
+                        const hoy = new Date().toISOString().split('T')[0];
+                        funcion.ventasPorDia.push({ fecha: hoy, boletas: boletas });
                         
                         appState.historial.push({
                             id: Date.now().toString(),
