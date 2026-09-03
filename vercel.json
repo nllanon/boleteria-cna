@@ -1,11 +1,7 @@
 {
-  "buildCommand": "echo 'Build skipped - static HTML'",
+  "buildCommand": "",
   "outputDirectory": ".",
-  "public": true,
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }
+
