@@ -1,0 +1,13 @@
+{
+  "name": "boleteria-cna",
+  "version": "1.0.0",
+  "description": "Sistema de Boletería CNA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
