@@ -67,9 +67,9 @@
                 ];
 
                 appState.obras = [
-                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08' },
-                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', temporadaId: '1', tipo: 'boleteria', fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null },
-                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', temporadaId: '1', tipo: 'entrada_libre', fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null }
+                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', temporadaId: '1', tipo: 'boleteria', categoria: 'Teatro', fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08' },
+                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', temporadaId: '1', tipo: 'boleteria', categoria: 'Conciertos Sinfónicos', fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null },
+                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', temporadaId: '1', tipo: 'entrada_libre', categoria: 'Programación Infantil', fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null }
                 ];
 
                 appState.funciones = [
@@ -419,7 +419,7 @@
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Registro de Obras' },
                     { id: 'salas', label: '🏛️ Salas' },
-                    { id: 'ventas', label: '💵 Ventas' },
+                    { id: 'ventas', label: '💵 Registro de Ventas' },
                     { id: 'entrada', label: '🎟️ Entrada' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' },
@@ -429,7 +429,7 @@
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'ventas', label: '💵 Ventas' },
+                    { id: 'ventas', label: '💵 Registro de Ventas' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' }
                 ];
@@ -645,7 +645,8 @@
             html += '<div class="bg-white p-6 rounded shadow mb-6">';
             html += '<div class="flex justify-between items-start mb-4">';
             html += '<div><h2 class="text-2xl font-bold text-gray-800">' + obra.nombre + '</h2>';
-            html += '<p class="text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</p></div>';
+            html += '<p class="text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</p>';
+            html += '<p class="text-sm text-gray-500 mt-2"><strong>Categoría:</strong> ' + (obra.categoria || 'Sin categoría') + '</p></div>';
             html += '<div class="text-right"><span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">' + (obra.tipo === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre') + '</span></div>';
             html += '</div>';
             
@@ -1009,6 +1010,10 @@
             html += '<div class="grid grid-cols-2 gap-4 mb-4">';
             html += '<div><label class="block text-sm font-medium mb-1">Nombre</label><input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Artista</label><input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Categoría</label><select id="obraCategoria" required class="w-full px-3 py-2 border rounded text-sm">';
+            const categorias = ['Teatro', 'Conciertos', 'Exposición', 'Radio en vivo', 'Danza', 'Cuentería', 'Muestra Audiovisual', 'Conciertos Sinfónicos', 'Programación Infantil', 'Conversatorio', 'Música internacional/pop', 'Aniversario', 'Lanzamiento'];
+            categorias.forEach(c => html += '<option value="' + c + '" ' + (obra.categoria === c ? 'selected' : '') + '>' + c + '</option>');
+            html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Sala</label><select id="obraSala" required class="w-full px-3 py-2 border rounded text-sm">';
             appState.salas.forEach(s => html += '<option value="' + s.id + '" ' + (obra.salaId === s.id ? 'selected' : '') + '>' + s.nombre + ' (Aforo: ' + s.aforo + ')</option>');
             html += '</select></div>';
@@ -1163,6 +1168,7 @@
             const data = {
                 nombre: document.getElementById('obraNombre').value,
                 artista: document.getElementById('obraArtista').value,
+                categoria: document.getElementById('obraCategoria').value,
                 salaId: document.getElementById('obraSala').value,
                 tipo: document.getElementById('obraTipo').value,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
@@ -1212,7 +1218,7 @@
 
         function renderVentas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">💵 Corte de Ventas</h2>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">💵 Registro de Ventas</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'boleteria');
 
