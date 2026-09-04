@@ -409,28 +409,39 @@
                         ];
                         
                         lineas.forEach(linea => {
-                            if (!linea.fecha) return;
-                            
+                            if (!linea.fecha || labels.length === 0) return;
+
+                            const fechaNum = new Date(linea.fecha).getTime();
+                            const primerLabelNum = new Date(labels[0]).getTime();
+                            const ultimoLabelNum = new Date(labels[labels.length - 1]).getTime();
                             let x = null;
-                            const labelIndex = labels.indexOf(linea.fecha);
-                            if (labelIndex !== -1) {
-                                x = xScale.getPixelForValue(labelIndex);
+
+                            if (fechaNum <= primerLabelNum) {
+                                // El hito ocurrió antes de que empezaran las ventas registradas —
+                                // se ubica al inicio del gráfico (antes no se dibujaba nada aquí)
+                                x = chartArea.left;
+                            } else if (fechaNum >= ultimoLabelNum) {
+                                // El hito ocurrió después del último día con ventas registradas
+                                x = chartArea.right;
                             } else {
-                                // Interpolar entre fechas
-                                const fechaNum = new Date(linea.fecha).getTime();
-                                for (let i = 0; i < labels.length - 1; i++) {
-                                    const f1 = new Date(labels[i]).getTime();
-                                    const f2 = new Date(labels[i + 1]).getTime();
-                                    if (fechaNum >= f1 && fechaNum <= f2) {
-                                        const p1 = xScale.getPixelForValue(i);
-                                        const p2 = xScale.getPixelForValue(i + 1);
-                                        x = p1 + ((fechaNum - f1) / (f2 - f1)) * (p2 - p1);
-                                        break;
+                                const labelIndex = labels.indexOf(linea.fecha);
+                                if (labelIndex !== -1) {
+                                    x = xScale.getPixelForValue(labelIndex);
+                                } else {
+                                    for (let i = 0; i < labels.length - 1; i++) {
+                                        const f1 = new Date(labels[i]).getTime();
+                                        const f2 = new Date(labels[i + 1]).getTime();
+                                        if (fechaNum >= f1 && fechaNum <= f2) {
+                                            const p1 = xScale.getPixelForValue(i);
+                                            const p2 = xScale.getPixelForValue(i + 1);
+                                            x = p1 + ((fechaNum - f1) / (f2 - f1)) * (p2 - p1);
+                                            break;
+                                        }
                                     }
                                 }
                             }
-                            
-                            if (x === null) return;
+
+                            if (x === null || isNaN(x)) return;
                             
                             ctx.strokeStyle = linea.color;
                             ctx.lineWidth = 2;
