@@ -1209,21 +1209,23 @@
             html += '<div class="space-y-3">';
 
             // Piezas desarrolladas — aplica a ambos tipos
-            html += '<div><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
+            html += '<div><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas — ¿ya están listas?</label>';
+            html += '<p class="text-xs text-gray-600 mb-1">Fecha real en que quedaron entregadas (no la fecha en que se pidieron)</p>';
             html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="w-full mt-1 px-3 py-2 border rounded text-sm bg-white" /></div>';
 
             // Tiquetera — SOLO boletería, no obligatoria
-            html += '<div id="campoTiquetera" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Fecha en Tiquetera</label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div id="campoTiquetera" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Fecha REAL de salida en Tiquetera</label><p class="text-xs text-gray-600 mb-1">Cuándo quedó publicada realmente, no cuándo se solicitó</p><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
 
             // Redes — aplica a ambos tipos
-            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">Activación en Redes</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">Fecha REAL de activación en Redes</label><p class="text-xs text-gray-600 mb-1">Cuándo se publicó realmente, no cuándo se pidió</p><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
 
             // Video para pauta — SOLO boletería
-            html += '<div id="campoVideo" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
+            html += '<div id="campoVideo" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta — ¿ya está listo?</label>';
+            html += '<p class="text-xs text-gray-600 mb-1">Fecha real en que quedó entregado</p>';
             html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="w-full mt-1 px-3 py-2 border rounded text-sm bg-white" /></div>';
 
             // Pauta digital — SOLO boletería
-            html += '<div id="campoPauta" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Activación Pauta Digital</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div id="campoPauta" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Fecha REAL de activación en Pauta Digital</label><p class="text-xs text-gray-600 mb-1">Cuándo se activó realmente, no cuándo se pidió</p><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
 
             html += '</div>';
             html += '</div>';
@@ -1335,18 +1337,23 @@
                 appState.obras.push({ id: obraId, ...data });
             }
 
-            // Guardar funciones
+            // Guardar funciones — preservando el progreso ya registrado
+            // (ventas, cortesías, registrados, asistencia) cuando la función ya existía.
+            // Antes esto se reseteaba a 0 en CADA edición de la obra, sin importar
+            // qué campo se editara — bug corregido el 04/09.
             functionesAGuardar.forEach(f => {
                 appState.funciones.push({
                     id: f.id?.startsWith('temp-') ? ('fn-' + Date.now() + Math.random()).replace('.', '') : (f.id || Date.now().toString()),
                     obraId: obraId,
                     fecha: f.fecha,
                     hora: f.hora,
-                    estado: 'programada',
-                    ventasAcumuladas: 0,
-                    ventasPorDia: [],
-                    cortesias: 0,
-                    cortesiasEntregadas: 0
+                    estado: f.estado || 'programada',
+                    ventasAcumuladas: f.ventasAcumuladas || 0,
+                    ventasPorDia: f.ventasPorDia || [],
+                    cortesias: f.cortesias || 0,
+                    cortesiasEntregadas: f.cortesiasEntregadas || 0,
+                    registrados: f.registrados || 0,
+                    asistenciaTotal: f.asistenciaTotal || 0
                 });
             });
 
