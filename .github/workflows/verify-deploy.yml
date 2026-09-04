@@ -1,0 +1,42 @@
+name: Verify Vercel Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel to pick up the push
+        run: sleep 20
+
+      - name: Poll Vercel deployment status
+        id: check
+        run: |
+          for i in $(seq 1 15); do
+            RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+              "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&limit=1")
+            STATE=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['deployments'][0]['state'])" 2>/dev/null || echo "UNKNOWN")
+            URL=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['deployments'][0]['url'])" 2>/dev/null || echo "unknown")
+            echo "Intento $i: estado=$STATE"
+            if [ "$STATE" = "READY" ]; then
+              echo "state=READY" >> $GITHUB_OUTPUT
+              echo "url=$URL" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            if [ "$STATE" = "ERROR" ]; then
+              echo "state=ERROR" >> $GITHUB_OUTPUT
+              echo "url=$URL" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "state=TIMEOUT" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Report result
+        if: always()
+        run: |
+          echo "Estado final: ${{ steps.check.outputs.state }}"
+          echo "URL: https://${{ steps.check.outputs.url }}"
