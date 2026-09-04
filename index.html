@@ -123,7 +123,7 @@
 
             appState.categorias = (categoriasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
 
-            appState.salas = (salasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre, aforo: r.aforo }));
+            appState.salas = (salasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre, aforo: r.aforo, color: r.color || '#8b5cf6' }));
             appState.obras = (obrasRes.data || []).map(obraFromDb);
             appState.funciones = (funcionesRes.data || []).map(funcionFromDb);
             appState.historial = (historialRes.data || []).map(historialFromDb);
@@ -1800,9 +1800,9 @@
             html += '<div class="bg-white rounded shadow mb-6 p-4">';
             html += '<div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold">🏛️ Salas</h3>';
             html += '<button onclick="openCrearSala()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700">+ Nueva Sala</button></div>';
-            html += '<table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="px-3 py-2 text-left">Nombre</th><th class="px-3 py-2 text-left">Aforo</th><th class="px-3 py-2">Acciones</th></tr></thead><tbody>';
+            html += '<table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="px-3 py-2 text-left">Color</th><th class="px-3 py-2 text-left">Nombre</th><th class="px-3 py-2 text-left">Aforo</th><th class="px-3 py-2">Acciones</th></tr></thead><tbody>';
             appState.salas.forEach(sala => {
-                html += '<tr class="border-b"><td class="px-3 py-2">' + sala.nombre + '</td><td class="px-3 py-2">' + sala.aforo + '</td><td class="px-3 py-2"><button onclick="openEditarSala(\'' + sala.id + '\')" class="text-blue-600 text-xs mr-2">Editar</button><button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
+                html += '<tr class="border-b"><td class="px-3 py-2"><span style="display:inline-block; width:20px; height:20px; border-radius:4px; background:' + (sala.color || '#8b5cf6') + '; border:1px solid #d1d5db;"></span></td><td class="px-3 py-2">' + sala.nombre + '</td><td class="px-3 py-2">' + sala.aforo + '</td><td class="px-3 py-2"><button onclick="openEditarSala(\'' + sala.id + '\')" class="text-blue-600 text-xs mr-2">Editar</button><button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
             });
             html += '</tbody></table></div>';
 
@@ -1878,12 +1878,15 @@
         }
 
         function renderCrearSala() {
-            const sala = appState.editingSala || { nombre: '', aforo: '' };
+            const sala = appState.editingSala || { nombre: '', aforo: '', color: '#8b5cf6' };
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
             html += '<form onsubmit="handleGuardarSala(event)" class="bg-white p-6 rounded shadow">';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Aforo</label><input type="number" id="salaAforo" value="' + sala.aforo + '" required min="1" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Color de la sala (para el calendario)</label>';
+            html += '<div class="flex items-center gap-3"><input type="color" id="salaColor" value="' + (sala.color || '#8b5cf6') + '" class="w-16 h-10 border rounded cursor-pointer" />';
+            html += '<span class="text-xs text-gray-500">Elige un color fuerte para que se distinga bien en el calendario</span></div></div>';
             html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
             html += '<button type="button" onclick="changePage(\'admin\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
             html += '</form></main></div>';
@@ -1894,12 +1897,14 @@
             e.preventDefault();
             const nombre = document.getElementById('salaNombre').value;
             const aforo = parseInt(document.getElementById('salaAforo').value);
+            const color = document.getElementById('salaColor').value;
 
             if (appState.editingSala) {
                 appState.editingSala.nombre = nombre;
                 appState.editingSala.aforo = aforo;
+                appState.editingSala.color = color;
             } else {
-                appState.salas.push({ id: Date.now().toString(), nombre, aforo });
+                appState.salas.push({ id: Date.now().toString(), nombre, aforo, color });
             }
 
             saveData();
@@ -1916,19 +1921,21 @@
             }
         }
 
-        const PALETA_SALAS = [
-            { bg: 'bg-purple-100', text: 'text-purple-900', dot: 'bg-purple-500' },
-            { bg: 'bg-orange-100', text: 'text-orange-900', dot: 'bg-orange-500' },
-            { bg: 'bg-teal-100', text: 'text-teal-900', dot: 'bg-teal-500' },
-            { bg: 'bg-pink-100', text: 'text-pink-900', dot: 'bg-pink-500' },
-            { bg: 'bg-yellow-100', text: 'text-yellow-900', dot: 'bg-yellow-500' },
-            { bg: 'bg-indigo-100', text: 'text-indigo-900', dot: 'bg-indigo-500' },
-            { bg: 'bg-lime-100', text: 'text-lime-900', dot: 'bg-lime-500' },
-            { bg: 'bg-cyan-100', text: 'text-cyan-900', dot: 'bg-cyan-500' }
-        ];
-        function getSalaColorClasses(salaId) {
+        const PALETA_SALAS_FALLBACK = ['#8b5cf6', '#f97316', '#14b8a6', '#ec4899', '#eab308', '#6366f1', '#84cc16', '#06b6d4'];
+        function getColorSala(salaId) {
+            const sala = appState.salas.find(s => s.id === salaId);
+            if (sala && sala.color) return sala.color;
             const idx = appState.salas.findIndex(s => s.id === salaId);
-            return PALETA_SALAS[(idx >= 0 ? idx : 0) % PALETA_SALAS.length];
+            return PALETA_SALAS_FALLBACK[(idx >= 0 ? idx : 0) % PALETA_SALAS_FALLBACK.length];
+        }
+        function colorTextoContraste(hex) {
+            if (!hex) return '#111827';
+            const c = hex.replace('#', '');
+            const r = parseInt(c.substr(0, 2), 16);
+            const g = parseInt(c.substr(2, 2), 16);
+            const b = parseInt(c.substr(4, 2), 16);
+            const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminancia > 0.6 ? '#111827' : '#ffffff';
         }
 
         function cambiarMesCalendario(delta) {
@@ -1994,11 +2001,11 @@
             html += '</select></div>';
             html += '</div>';
 
-            // Leyenda: colores por sala, icono al inicio indica el tipo
-            html += '<div class="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-600">';
+            // Leyenda: colores por sala (mismo tono exacto que en las celdas), icono indica el tipo
+            html += '<div class="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-700 items-center">';
             appState.salas.forEach(s => {
-                const c = getSalaColorClasses(s.id);
-                html += '<span><span class="inline-block w-3 h-3 rounded-sm mr-1 ' + c.dot + '"></span>' + s.nombre + '</span>';
+                const color = getColorSala(s.id);
+                html += '<span style="display:inline-flex; align-items:center;"><span style="display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:5px; background:' + color + ';"></span>' + s.nombre + '</span>';
             });
             html += '<span class="text-gray-400">|</span>';
             html += '<span>💵 Boletería</span><span>🎟️ Entrada Libre</span>';
@@ -2045,9 +2052,10 @@
                 funcionesDia.slice(0, 2).forEach(f => {
                     const obra = appState.obras.find(o => o.id === f.obraId);
                     const sala = getSala(obra.salaId);
-                    const c = getSalaColorClasses(obra.salaId);
+                    const colorFondo = getColorSala(obra.salaId);
+                    const colorTexto = colorTextoContraste(colorFondo);
                     const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-                    html += '<div class="' + c.bg + ' ' + c.text + ' text-xs px-1.5 py-0.5 rounded-sm cursor-pointer hover:shadow-sm truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
+                    html += '<div style="background:' + colorFondo + '; color:' + colorTexto + ';" class="text-xs px-1.5 py-0.5 rounded-sm cursor-pointer hover:opacity-90 truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
                     html += icono + ' ' + f.hora + ' ' + obra.nombre.substring(0, 10);
                     html += '</div>';
                 });
