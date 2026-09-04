@@ -697,13 +697,20 @@
                     html += '<div class="bg-gray-50 p-3 rounded mb-3">';
                     funciones.forEach(f => {
                         const diasPorVender = calcularDiasPorVender(f.fecha);
-                        
+                        const registradosFunc = f.registrados || 0;
+                        const aforoSala = sala?.aforo || 0;
+                        const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
+
                         let colorDias = 'text-red-600';
                         if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
                         else if (diasPorVender >= 60) colorDias = 'text-green-600';
                         else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
-                        
-                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
+
+                        let colorPct = 'text-red-600';
+                        if (pctRegistro >= 70) colorPct = 'text-green-600';
+                        else if (pctRegistro >= 40) colorPct = 'text-yellow-600';
+
+                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorPct + ' font-bold">' + pctRegistro + '%</span> | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
                     });
                     html += '</div>';
                     html += '</div>';
@@ -890,7 +897,10 @@
                             const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
                             html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong class="text-blue-600">' + ventasFunc + ' / ' + disponibleFunc + '</strong> (' + pctFunc + '%)</div>';
                         } else {
-                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong class="text-purple-600">' + (f.registrados || 0) + '</strong></div>';
+                            const registradosFunc = f.registrados || 0;
+                            const aforoSala = sala?.aforo || 0;
+                            const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
+                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong class="text-purple-600">' + registradosFunc + '</strong> (' + pctRegistro + '%)</div>';
                         }
                         html += '</div>';
                         html += '<div class="flex gap-2">';
