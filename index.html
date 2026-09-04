@@ -84,7 +84,8 @@
                 id: r.id, obraId: r.obra_id, fecha: r.fecha, hora: r.hora, estado: r.estado,
                 cortesias: r.cortesias, cortesiasEntregadas: r.cortesias_entregadas,
                 ventasAcumuladas: r.ventas_acumuladas, registrados: r.registrados,
-                asistenciaTotal: r.asistencia_total, ventasPorDia: r.ventas_por_dia || []
+                asistenciaTotal: r.asistencia_total, ventasPorDia: r.ventas_por_dia || [],
+                registrosPorDia: r.registros_por_dia || []
             };
         }
         function funcionToDb(f) {
@@ -92,7 +93,8 @@
                 id: f.id, obra_id: f.obraId, fecha: f.fecha, hora: f.hora, estado: f.estado || 'programada',
                 cortesias: f.cortesias || 0, cortesias_entregadas: f.cortesiasEntregadas || 0,
                 ventas_acumuladas: f.ventasAcumuladas || 0, registrados: f.registrados || 0,
-                asistencia_total: f.asistenciaTotal || 0, ventas_por_dia: f.ventasPorDia || []
+                asistencia_total: f.asistenciaTotal || 0, ventas_por_dia: f.ventasPorDia || [],
+                registros_por_dia: f.registrosPorDia || []
             };
         }
         function accionToDb(a) {
@@ -294,27 +296,27 @@
             return hora;  // Ya viene en formato 24h (HH:MM)
         }
 
-        function getVentasAcumuladasPorDiaObra(obraId) {
+        function getVentasAcumuladasPorDiaObra(obraId, campoArray, campoValor) {
             const funciones = getFuncionesObra(obraId);
             const porDia = {};
 
             funciones.forEach(f => {
-                if (f.ventasPorDia && Array.isArray(f.ventasPorDia)) {
-                    f.ventasPorDia.forEach(vd => {
+                if (f[campoArray] && Array.isArray(f[campoArray])) {
+                    f[campoArray].forEach(vd => {
                         if (!porDia[vd.fecha]) porDia[vd.fecha] = 0;
-                        porDia[vd.fecha] += vd.boletas;
+                        porDia[vd.fecha] += vd[campoValor];
                     });
                 }
             });
 
             const fechas = Object.keys(porDia).sort();
             let acumulado = 0;
-            const boletasAcumuladas = fechas.map(f => {
+            const acumuladas = fechas.map(f => {
                 acumulado += porDia[f];
                 return acumulado;
             });
 
-            return { fechas, boletasAcumuladas };
+            return { fechas, boletasAcumuladas: acumuladas };
         }
 
         function abrirGraficoVentas(obraId) {
@@ -326,20 +328,23 @@
                 if (canvas && window.Chart) {
                     const obra = appState.obras.find(o => o.id === obraId);
                     const funciones = getFuncionesObra(obraId);
-                    
-                    const datos = getVentasAcumuladasPorDiaObra(obraId);
-                    
+                    const esEntradaLibre = obra.tipo === 'entrada_libre';
+
+                    const datos = esEntradaLibre
+                        ? getVentasAcumuladasPorDiaObra(obraId, 'registrosPorDia', 'registrados')
+                        : getVentasAcumuladasPorDiaObra(obraId, 'ventasPorDia', 'boletas');
+
                     if (window.chartInstanceVentas) {
                         window.chartInstanceVentas.destroy();
                     }
 
-                    // Si no hay datos de ventas, mostrar mensaje
+                    // Si no hay datos, mostrar mensaje
                     if (datos.fechas.length === 0) {
                         const ctx = canvas.getContext('2d');
                         ctx.font = '16px Arial';
                         ctx.fillStyle = '#999';
                         ctx.textAlign = 'center';
-                        ctx.fillText('Sin datos de ventas registradas', canvas.width / 2, canvas.height / 2);
+                        ctx.fillText(esEntradaLibre ? 'Sin datos de registros' : 'Sin datos de ventas registradas', canvas.width / 2, canvas.height / 2);
                         return;
                     }
 
@@ -350,7 +355,7 @@
                         data: {
                             labels: datos.fechas,
                             datasets: [{
-                                label: 'Boletas vendidas (acumulado)',
+                                label: esEntradaLibre ? 'Registrados (acumulado)' : 'Boletas vendidas (acumulado)',
                                 data: datos.boletasAcumuladas,
                                 borderColor: '#3b82f6',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -369,7 +374,7 @@
                             plugins: {
                                 title: {
                                     display: true,
-                                    text: 'Ventas diarias: ' + obra.nombre,
+                                    text: (esEntradaLibre ? 'Registros diarios: ' : 'Ventas diarias: ') + obra.nombre,
                                     font: { size: 16, weight: 'bold' }
                                 },
                                 legend: {
@@ -1730,6 +1735,10 @@
                     if (funcion) {
                         funcion.registrados = (funcion.registrados || 0) + cantidad;
 
+                        if (!funcion.registrosPorDia) funcion.registrosPorDia = [];
+                        const hoy = new Date().toISOString().split('T')[0];
+                        funcion.registrosPorDia.push({ fecha: hoy, registrados: cantidad });
+
                         appState.historial.push({
                             id: Date.now().toString() + Math.random().toString(36).slice(2),
                             timestamp: new Date().toISOString(),
@@ -2142,10 +2151,12 @@
                 }
                 
                 if (appState.showGraficoVentas) {
+                    const obraModal = appState.obras.find(o => o.id === appState.graficoVentasObraId);
+                    const tituloModal = (obraModal && obraModal.tipo === 'entrada_libre') ? '📊 Gráfico de Registros Diarios' : '📊 Gráfico de Ventas Diarias';
                     const modalHTML = '<div id="graficoModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">'
                         + '<div style="background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 900px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">'
                         + '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">'
-                        + '<h3 style="margin: 0; font-size: 18px; font-weight: bold;">📊 Gráfico de Ventas Diarias</h3>'
+                        + '<h3 style="margin: 0; font-size: 18px; font-weight: bold;">' + tituloModal + '</h3>'
                         + '<button onclick="cerrarGraficoVentas()" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>'
                         + '</div>'
                         + '<div style="position: relative; width: 100%; height: 400px;">'
