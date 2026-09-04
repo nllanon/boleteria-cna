@@ -201,7 +201,7 @@
 
         function calcularDiasDesde(fecha) {
             if (!fecha) return 0;
-            const hoy = new Date('2026-08-16');
+            const hoy = new Date();
             const inicio = new Date(fecha);
             const diff = Math.floor((hoy - inicio) / (1000 * 60 * 60 * 24));
             return Math.max(0, diff);
@@ -477,7 +477,7 @@
                     { id: 'obras', label: '📚 Registro de Obras' },
                     { id: 'salas', label: '🏛️ Salas' },
                     { id: 'ventas', label: '💵 Registro de Ventas' },
-                    { id: 'entrada', label: '🎟️ Entrada' },
+                    { id: 'entrada', label: '🎟️ Entrada Libre' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' },
                     { id: 'historial', label: '📝 Historial' }
@@ -494,7 +494,7 @@
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'entrada', label: '🎟️ Entrada' },
+                    { id: 'entrada', label: '🎟️ Entrada Libre' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' }
                 ];
@@ -511,6 +511,23 @@
                 html += '<button onclick="changePage(\'' + page.id + '\')" class="px-3 py-2 rounded text-sm font-medium whitespace-nowrap transition ' + (active ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100') + '">' + page.label + '</button>';
             });
             html += '</div></div>';
+            return html;
+        }
+
+        function renderIconosEstado(obra) {
+            const item = (activo, emoji, titulo) => '<span title="' + titulo + (activo ? ' ✓' : ' — pendiente') + '" class="text-lg" style="filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.35)') + '">' + emoji + '</span>';
+            let html = '<div class="flex gap-2 items-center">';
+            html += item(!!obra.piezasDesarrolladas, '🎨', 'Piezas');
+            if (obra.tipo === 'boleteria') {
+                html += item(!!obra.fechaTiquetera, '🎫', 'Tiquetera');
+                html += item(!!obra.fechaRedes, '📱', 'Redes');
+                html += item(!!obra.videoDisponible, '🎬', 'Video');
+                html += item(!!obra.fechaPauta, '📺', 'Pauta');
+            } else {
+                html += item(!!obra.linkRegistro, '🔗', 'Link');
+                html += item(!!obra.fechaRedes, '📱', 'Redes');
+            }
+            html += '</div>';
             return html;
         }
 
@@ -549,6 +566,8 @@
                     html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p></div>';
                     html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg">📊</button>';
                     html += '</div>';
+                    
+                    html += renderIconosEstado(obra);
                     
                     // Total de ventas con disponible
                     html += '<div class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">';
@@ -602,6 +621,8 @@
                     html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg">📊</button>';
                     html += '</div>';
                     
+                    html += renderIconosEstado(obra);
+                    
                     // Funciones
                     html += '<div class="bg-gray-50 p-3 rounded mb-3">';
                     funciones.forEach(f => {
@@ -624,6 +645,17 @@
             return html;
         }
 
+        function obraEstaFinalizada(obra) {
+            if (obra.tipo === 'entrada_libre') {
+                return obra.estadoEnlace === 'Finalizado';
+            }
+            const ultimaFunc = getUltimaFuncion(obra.id);
+            if (!ultimaFunc) return false;
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            return new Date(ultimaFunc.fecha) < hoy;
+        }
+
         function renderObras() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6">';
@@ -633,19 +665,40 @@
             }
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
+
+            // Orden pedido: boletería activa, entrada libre activa, boletería finalizada, entrada libre finalizada
+            const orden = (o) => {
+                const finalizada = obraEstaFinalizada(o);
+                if (o.tipo === 'boleteria' && !finalizada) return 0;
+                if (o.tipo === 'entrada_libre' && !finalizada) return 1;
+                if (o.tipo === 'boleteria' && finalizada) return 2;
+                return 3;
+            };
+            obrasFiltradas = obrasFiltradas.slice().sort((a, b) => orden(a) - orden(b));
+
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
             html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Tiquetera</th><th class="px-4 py-2 text-left">Última Fun.</th><th class="px-4 py-2 text-left">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
 
+            let seccionActual = null;
             obrasFiltradas.forEach(obra => {
+                const finalizada = obraEstaFinalizada(obra);
+                const seccionLabel = obra.tipo === 'boleteria'
+                    ? (finalizada ? 'Boletería — Finalizadas' : 'Boletería — Activas')
+                    : (finalizada ? 'Entrada Libre — Finalizadas' : 'Entrada Libre — Activas');
+                if (seccionLabel !== seccionActual) {
+                    seccionActual = seccionLabel;
+                    html += '<tr class="bg-gray-200"><td colspan="7" class="px-4 py-1 text-xs font-bold text-gray-700">' + seccionLabel + '</td></tr>';
+                }
+
                 const sala = getSala(obra.salaId);
                 const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
                 const accionesCount = getAccionesObra(obra.id).length;
                 const diasTotales = calcularDiasTotalesParaVender(obra.fechaTiquetera, obra.id);
                 const ultimaFunc = getUltimaFuncion(obra.id);
-                html += '<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2 font-medium cursor-pointer text-blue-600" onclick="viewObra(\'' + obra.id + '\')">' + obra.nombre + '</td>';
+                html += '<tr class="border-b hover:bg-gray-50' + (finalizada ? ' opacity-60' : '') + '"><td class="px-4 py-2 font-medium cursor-pointer text-blue-600" onclick="viewObra(\'' + obra.id + '\')">' + obra.nombre + '</td>';
                 html += '<td class="px-4 py-2">' + icono + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + sala?.nombre + '</td>';
-                html += '<td class="px-4 py-2 text-xs">' + formatearFecha(obra.fechaTiquetera) + '</td>';
+                html += '<td class="px-4 py-2 text-xs">' + (obra.fechaTiquetera ? formatearFecha(obra.fechaTiquetera) : 'N/A') + '</td>';
                 html += '<td class="px-4 py-2 text-xs">' + (ultimaFunc ? formatearFecha(ultimaFunc.fecha) : '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs font-bold">' + diasTotales + 'd</td>';
                 html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
@@ -757,7 +810,7 @@
                 html += '<div class="space-y-2">';
                 funciones.forEach(f => {
                     html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500 flex justify-between items-center">';
-                    html += '<div><strong>' + f.fecha + '</strong> a las <strong>' + f.hora + '</strong></div>';
+                    html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
                     if (canEdit) {
                         html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs font-medium">Eliminar</button>';
                     }
@@ -863,7 +916,7 @@
                     html += '<div><strong>' + a.descripcion + '</strong></div>';
                     html += '<button onclick="toggleAccionHecho(\'' + a.id + '\')" class="' + (a.hecho ? 'bg-green-500' : 'bg-gray-400') + ' text-white px-2 py-1 rounded text-xs">' + (a.hecho ? '✅ Hecho' : '❌ Pendiente') + '</button>';
                     html += '</div>';
-                    html += '<p class="text-xs text-gray-600">' + a.fecha + ' por ' + a.usuario + '</p>';
+                    html += '<p class="text-xs text-gray-600">' + formatearFecha(a.fecha) + ' por ' + a.usuario + '</p>';
                     html += '</div>';
                 });
                 html += '</div>';
@@ -941,12 +994,12 @@
         function handleAgregarAccion(e, obraId) {
             e.preventDefault();
             const desc = document.getElementById('accionDesc').value;
-            const hoy = new Date('2026-08-16');
+            const hoy = new Date();
             appState.acciones.push({
                 id: Date.now().toString(),
                 obraId,
                 descripcion: desc,
-                fecha: hoy.toLocaleDateString(),
+                fecha: hoy.toISOString().split('T')[0],
                 usuario: appState.user.email,
                 hecho: false
             });
@@ -982,14 +1035,14 @@
         }
 
         function handleCheckPiezas(e) {
-            const hoy = new Date('2026-08-16').toISOString().split('T')[0];
+            const hoy = new Date().toISOString().split('T')[0];
             if (e.target.checked && !document.getElementById('obraFechaPiezas').value) {
                 document.getElementById('obraFechaPiezas').value = hoy;
             }
         }
 
         function handleCheckVideo(e) {
-            const hoy = new Date('2026-08-16').toISOString().split('T')[0];
+            const hoy = new Date().toISOString().split('T')[0];
             if (e.target.checked && !document.getElementById('obraFechaVideo').value) {
                 document.getElementById('obraFechaVideo').value = hoy;
             }
@@ -1036,7 +1089,7 @@
                     html += '<div class="space-y-2">';
                     appState.editingFunciones.forEach(f => {
                         html += '<div class="p-2 bg-blue-100 rounded border border-blue-300 flex justify-between items-center">';
-                        html += '<div class="text-sm"><strong>' + f.fecha + '</strong> · ' + f.hora + '</div>';
+                        html += '<div class="text-sm"><strong>' + formatearFecha(f.fecha) + '</strong> · ' + formatearHora(f.hora) + '</div>';
                         html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-bold">×</button>';
                         html += '</div>';
                     });
@@ -1080,7 +1133,7 @@
                 html += '<div class="space-y-2">';
                 appState.editingFunciones.forEach(f => {
                     html += '<div class="p-2 bg-blue-100 rounded border border-blue-300 flex justify-between items-center">';
-                    html += '<div class="text-sm"><strong>' + f.fecha + '</strong> · ' + f.hora + '</div>';
+                    html += '<div class="text-sm"><strong>' + formatearFecha(f.fecha) + '</strong> · ' + formatearHora(f.hora) + '</div>';
                     html += '<button type="button" onclick="eliminarFuncionEnFormulario(\'' + f.id + '\')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-bold">×</button>';
                     html += '</div>';
                 });
@@ -1100,7 +1153,14 @@
 
         function toggleCamposTipo() {
             const tipo = document.getElementById('obraTipo').value;
-            document.getElementById('camposEntradaLibre').style.display = tipo === 'entrada_libre' ? 'block' : 'none';
+            const esEntradaLibre = tipo === 'entrada_libre';
+            document.getElementById('camposEntradaLibre').style.display = esEntradaLibre ? 'block' : 'none';
+            const campoTiquetera = document.getElementById('campoTiquetera');
+            const campoVideo = document.getElementById('campoVideo');
+            const campoPauta = document.getElementById('campoPauta');
+            if (campoTiquetera) campoTiquetera.style.display = esEntradaLibre ? 'none' : 'block';
+            if (campoVideo) campoVideo.style.display = esEntradaLibre ? 'none' : 'block';
+            if (campoPauta) campoPauta.style.display = esEntradaLibre ? 'none' : 'block';
         }
 
         function renderCrearObra() {
@@ -1134,26 +1194,9 @@
             html += '</select></div>';
             html += '</div></div>';
 
-            // SECCIÓN DE FECHAS EN ORDEN CRONOLÓGICO
-            html += '<div class="bg-yellow-50 border-2 border-yellow-300 p-4 rounded mb-4">';
-            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📅 Cronología de Fechas</h3>';
-            html += '<div class="space-y-3">';
-            
-            // 1. Tiquetera (obligatoria)
-            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">1️⃣ Fecha Tiquetera <span class="text-red-500">*</span></label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border-2 border-yellow-300 rounded text-sm font-medium" /></div>';
-            
-            // 2. Redes (opcional)
-            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">2️⃣ Activación en Redes (opcional)</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            
-            // 3. Pauta Digital (opcional)
-            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">3️⃣ Activación Pauta Digital (opcional)</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            
-            html += '</div>';
-            html += '</div>';
-
-            // SECCIÓN DE FUNCIONES
-            html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4 mt-6">';
-            html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 4️⃣ Funciones para esta obra <span class="text-red-500">*</span></h3>';
+            // SECCIÓN DE FUNCIONES — PRIMERO, como pidió Nico
+            html += '<div class="bg-blue-50 border-2 border-blue-300 p-4 rounded mb-4">';
+            html += '<h3 class="text-lg font-bold mb-3 text-blue-900">🎬 Funciones para esta obra <span class="text-red-500">*</span></h3>';
             
             // Opción única vs múltiple
             html += '<div class="mb-4 p-3 bg-blue-100 rounded border border-blue-400">';
@@ -1165,14 +1208,28 @@
 
             html += '</div>';
 
-            // SECCIÓN DE DATOS COMPLEMENTARIOS
-            html += '<div class="bg-gray-50 border-2 border-gray-300 p-4 rounded mb-4">';
-            html += '<h3 class="text-lg font-bold mb-3 text-gray-900">📋 Datos Complementarios</h3>';
+            // SECCIÓN DE FECHAS ADICIONALES — condicionales según tipo de obra
+            html += '<div id="camposFechasAdicionales" class="bg-yellow-50 border-2 border-yellow-300 p-4 rounded mb-4">';
+            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📅 Fechas Adicionales</h3>';
             html += '<div class="space-y-3">';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
-            html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="ml-4 mt-1 px-3 py-1 border rounded text-sm bg-white" /></div>';
-            html += '<div><label class="flex items-center text-sm"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
-            html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="ml-4 mt-1 px-3 py-1 border rounded text-sm bg-white" /></div>';
+
+            // Piezas desarrolladas — aplica a ambos tipos
+            html += '<div><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraPiezas" ' + (obra.piezasDesarrolladas ? 'checked' : '') + ' onchange="handleCheckPiezas(event)" class="mr-2" /> Piezas Desarrolladas</label>';
+            html += '<input type="date" id="obraFechaPiezas" value="' + (obra.fechaPiezasDesarrolladas || '') + '" class="w-full mt-1 px-3 py-2 border rounded text-sm bg-white" /></div>';
+
+            // Tiquetera — SOLO boletería, no obligatoria
+            html += '<div id="campoTiquetera" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Fecha en Tiquetera</label><input type="date" id="obraFechaTiquetera" value="' + (obra.fechaTiquetera || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+
+            // Redes — aplica a ambos tipos
+            html += '<div><label class="block text-sm font-bold mb-1 text-yellow-900">Activación en Redes</label><input type="date" id="obraFechaRedes" value="' + (obra.fechaRedes || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+
+            // Video para pauta — SOLO boletería
+            html += '<div id="campoVideo" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="flex items-center text-sm font-bold text-yellow-900"><input type="checkbox" id="obraVideo" ' + (obra.videoDisponible ? 'checked' : '') + ' onchange="handleCheckVideo(event)" class="mr-2" /> Video para Pauta</label>';
+            html += '<input type="date" id="obraFechaVideo" value="' + (obra.fechaVideoPatua || '') + '" class="w-full mt-1 px-3 py-2 border rounded text-sm bg-white" /></div>';
+
+            // Pauta digital — SOLO boletería
+            html += '<div id="campoPauta" style="display:' + (obra.tipo === 'entrada_libre' ? 'none' : 'block') + '"><label class="block text-sm font-bold mb-1 text-yellow-900">Activación Pauta Digital</label><input type="date" id="obraFechaPauta" value="' + (obra.fechaPauta || '') + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+
             html += '</div>';
             html += '</div>';
 
@@ -1225,58 +1282,33 @@
             const primeraFuncion = new Date(Math.min(...fechas));
             const ultimaFuncion = new Date(Math.max(...fechas));
 
-            // Validar que las funciones no sean en el pasado
-            const hoy = new Date('2026-08-16');
+            // Validar que las funciones no sean en el pasado (bloqueante)
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
             for (let f of functionesAGuardar) {
                 const fechaFuncion = new Date(f.fecha);
                 if (fechaFuncion < hoy) {
-                    alert('⚠️ Error: Las funciones no pueden ser en fechas pasadas.\n\nFecha de función: ' + f.fecha + '\nFecha de hoy: ' + hoy.toISOString().split('T')[0]);
+                    alert('⚠️ Error: Las funciones no pueden ser en fechas pasadas.\n\nFecha de función: ' + formatearFecha(f.fecha) + '\nFecha de hoy: ' + formatearFecha(hoy.toISOString().split('T')[0]));
                     return;
                 }
             }
 
-            // Validar orden de fechas: Tiquetera < Redes < Pauta < Funciones
-            const tiquetera = new Date(fechaTiquetera);
-
-            // Tiquetera < Primera función
-            if (tiquetera >= primeraFuncion) {
-                alert('⚠️ Error: Fecha tiquetera debe ser anterior a la primera función.\n\nTiquetera: ' + fechaTiquetera + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
-                return;
+            // Aviso NO bloqueante: si tiquetera/redes/pauta quedan después de la
+            // primera función, o en un orden inusual, solo se advierte — el usuario
+            // decide si es correcto (por ejemplo, obras que ya llevan tiempo en cartelera).
+            const tiquetera = fechaTiquetera ? new Date(fechaTiquetera) : null;
+            const redes = fechaRedes ? new Date(fechaRedes) : null;
+            const pauta = fechaPauta ? new Date(fechaPauta) : null;
+            const avisos = [];
+            if (tiquetera && tiquetera >= primeraFuncion) avisos.push('la fecha en tiquetera es igual o posterior a la primera función');
+            if (redes && redes >= primeraFuncion) avisos.push('la fecha de redes es igual o posterior a la primera función');
+            if (pauta && pauta >= primeraFuncion) avisos.push('la fecha de pauta es igual o posterior a la primera función');
+            if (redes && pauta && redes > pauta) avisos.push('la fecha de redes es posterior a la de pauta');
+            if (avisos.length > 0) {
+                const continuar = confirm('⚠️ Revisa estas fechas, parecen inusuales:\n\n- ' + avisos.join('\n- ') + '\n\n¿Confirmas que son correctas y quieres continuar?');
+                if (!continuar) return;
             }
 
-            // Si redes existe, validar tiquetera < redes
-            if (fechaRedes) {
-                const redes = new Date(fechaRedes);
-                if (tiquetera >= redes) {
-                    alert('⚠️ Error: Fecha tiquetera debe ser anterior a redes.\n\nTiquetera: ' + fechaTiquetera + '\nRedes: ' + fechaRedes);
-                    return;
-                }
-                // Si pauta existe, validar redes < pauta
-                if (fechaPauta) {
-                    const pauta = new Date(fechaPauta);
-                    if (redes >= pauta) {
-                        alert('⚠️ Error: Fecha redes debe ser anterior a pauta.\n\nRedes: ' + fechaRedes + '\nPauta: ' + fechaPauta);
-                        return;
-                    }
-                    // Validar pauta < primera función
-                    if (pauta >= primeraFuncion) {
-                        alert('⚠️ Error: Fecha pauta debe ser anterior a primera función.\n\nPauta: ' + fechaPauta + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
-                        return;
-                    }
-                }
-            } else if (fechaPauta) {
-                // Si hay pauta pero no redes, validar tiquetera < pauta
-                const pauta = new Date(fechaPauta);
-                if (tiquetera >= pauta) {
-                    alert('⚠️ Error: Fecha tiquetera debe ser anterior a pauta.\n\nTiquetera: ' + fechaTiquetera + '\nPauta: ' + fechaPauta);
-                    return;
-                }
-                // Validar pauta < primera función
-                if (pauta >= primeraFuncion) {
-                    alert('⚠️ Error: Fecha pauta debe ser anterior a primera función.\n\nPauta: ' + fechaPauta + '\nPrimera función: ' + primeraFuncion.toISOString().split('T')[0]);
-                    return;
-                }
-            }
 
             const data = {
                 nombre: document.getElementById('obraNombre').value,
@@ -1446,7 +1478,24 @@
                 return html;
             }
 
-            const hoy = new Date('2026-08-27');
+            // Registro rápido diario — lo principal que se usa día a día
+            html += '<form onsubmit="registrarInscritosHoy(event)" class="bg-white p-4 rounded shadow max-w-lg mb-8">';
+            html += '<h3 class="text-base font-bold mb-3">➕ Registrar inscritos de hoy</h3>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Actividad</label>';
+            html += '<select id="entradaFuncionSelect" required class="w-full px-3 py-2 border rounded text-sm"><option value="">Seleccionar...</option>';
+            obras.forEach(obra => {
+                getFuncionesObra(obra.id).forEach(f => {
+                    html += '<option value="' + f.id + '">' + obra.nombre + ' — ' + formatearFecha(f.fecha) + ' ' + f.hora + '</option>';
+                });
+            });
+            html += '</select></div>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Inscritos hoy (se suman al total)</label><input type="number" id="entradaInscritosHoy" min="1" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<button type="submit" class="w-full bg-purple-600 text-white py-2 rounded text-sm font-bold hover:bg-purple-700">Registrar</button>';
+            html += '</form>';
+
+            html += '<h3 class="text-base font-bold mb-3">📋 Reporte Completo</h3>';
+
+            const hoy = new Date();
 
             obras.forEach(obra => {
                 const sala = getSala(obra.salaId);
@@ -1530,6 +1579,29 @@
 
             html += '</main></div>';
             return html;
+        }
+
+        async function registrarInscritosHoy(event) {
+            event.preventDefault();
+            const funcionId = document.getElementById('entradaFuncionSelect').value;
+            const cantidad = parseInt(document.getElementById('entradaInscritosHoy').value) || 0;
+            const funcion = appState.funciones.find(f => f.id === funcionId);
+            if (!funcion || cantidad <= 0) return;
+
+            funcion.registrados = (funcion.registrados || 0) + cantidad;
+            appState.historial.push({
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString(),
+                usuario: appState.user.email,
+                funcionId: funcionId,
+                accion: 'Registro de inscritos',
+                detalles: 'Inscritos: +' + cantidad,
+                _pendingInsert: true
+            });
+
+            await saveData();
+            alert('✅ Registrados actualizados');
+            render();
         }
 
         function guardarRegistrosEntrada(event, obraId) {
@@ -1621,7 +1693,7 @@
         }
 
         function renderCalendario() {
-            const hoy = new Date('2026-08-27');
+            const hoy = new Date();
             const mes = hoy.getMonth();
             const anio = hoy.getFullYear();
             
@@ -1719,6 +1791,43 @@
             return html;
         }
 
+        function renderHistorial() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-4xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📝 Historial de Cambios</h2>';
+
+            if (!appState.historial || appState.historial.length === 0) {
+                html += '<p class="text-gray-500">Sin registros de cambios todavía. Aquí aparecerá quién registró ventas, editó fechas de funciones, o hizo otros cambios.</p>';
+                html += '</main></div>';
+                return html;
+            }
+
+            const ordenado = [...appState.historial].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            html += '<div class="bg-white rounded shadow divide-y">';
+            ordenado.forEach(h => {
+                const obra = h.obraId ? appState.obras.find(o => o.id === h.obraId) : null;
+                const funcion = h.funcionId ? appState.funciones.find(f => f.id === h.funcionId) : null;
+                const obraDeFuncion = funcion ? appState.obras.find(o => o.id === funcion.obraId) : null;
+                const nombreObra = obra?.nombre || obraDeFuncion?.nombre || null;
+                const fecha = new Date(h.timestamp);
+                const fechaFmt = formatearFecha(fecha.toISOString().split('T')[0]);
+                const horaFmt = fecha.toTimeString().slice(0, 5);
+
+                html += '<div class="p-4">';
+                html += '<div class="flex justify-between items-start">';
+                html += '<div>';
+                html += '<p class="text-sm font-medium">' + (h.accion || 'Cambio') + (nombreObra ? ' — ' + nombreObra : '') + '</p>';
+                if (h.detalles) html += '<p class="text-xs text-gray-600">' + h.detalles + '</p>';
+                html += '</div>';
+                html += '<div class="text-right text-xs text-gray-500 whitespace-nowrap ml-3">' + fechaFmt + ' ' + horaFmt + '<br>' + (h.usuario || '') + '</div>';
+                html += '</div></div>';
+            });
+            html += '</div>';
+
+            html += '</main></div>';
+            return html;
+        }
+
         function changePage(page) {
             appState.currentPage = page;
             appState.viewingObraId = null;
@@ -1744,6 +1853,7 @@
                     case 'entrada': app.innerHTML = renderEntrada(); break;
                     case 'calendario': app.innerHTML = renderCalendario(); break;
                     case 'reportes': app.innerHTML = renderReportes(); break;
+                    case 'historial': app.innerHTML = renderHistorial(); break;
                     default: app.innerHTML = renderDashboard();
                 }
                 
