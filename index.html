@@ -35,7 +35,15 @@
             editingMultipleFunciones: false,
             viewingObraId: null,
             showGraficoVentas: false,
-            graficoVentasObraId: null
+            graficoVentasObraId: null,
+            editingFuncionFechaId: null,
+            showHistorialFuncion: false,
+            historialFuncionId: null,
+            sidebarOpen: false,
+            calMes: null,
+            calAnio: null,
+            calFiltroSala: 'todas',
+            calFiltroTipo: 'todas'
         };
 
         const USUARIOS = {
@@ -465,12 +473,20 @@
 
         function renderHeader() {
             let rolTexto = { admin: '👑 Admin', registrador_boleto: '💵 Reg.Boleto', registrador_entrada: '🎟️ Reg.Entrada', visualizador: '👁️ Visualizador' }[appState.user.rol];
-            let html = '<header class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">';
+            let html = '<header class="bg-white shadow"><div class="px-4 py-3 flex justify-between items-center">';
+            html += '<div class="flex items-center gap-3">';
+            html += '<button onclick="toggleSidebar()" class="md:hidden text-2xl leading-none px-1" aria-label="Abrir menú">☰</button>';
             html += '<div><h1 class="text-xl font-bold text-gray-800">🎭 Boletería CNA</h1>';
             html += '<p class="text-xs text-gray-500">' + rolTexto + '</p></div>';
-            html += '<div class="flex items-center gap-3"><span class="text-xs text-gray-600">' + appState.user.email + '</span>';
+            html += '</div>';
+            html += '<div class="flex items-center gap-3"><span class="text-xs text-gray-600 hidden sm:inline">' + appState.user.email + '</span>';
             html += '<button onclick="handleLogout()" class="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600">Salir</button></div></div></header>';
             return html;
+        }
+
+        function toggleSidebar() {
+            appState.sidebarOpen = !appState.sidebarOpen;
+            render();
         }
 
         function renderNav() {
@@ -509,12 +525,22 @@
                     { id: 'calendario', label: '📅 Calendario' }
                 ];
             }
-            let html = '<div class="bg-white border-b"><div class="max-w-7xl mx-auto px-4 flex gap-2 py-3 overflow-x-auto">';
+            const abierto = !!appState.sidebarOpen;
+            let html = '';
+            // Overlay oscuro en móvil cuando el menú está abierto
+            html += '<div onclick="toggleSidebar()" class="fixed inset-0 bg-black/40 z-40 md:hidden" style="display:' + (abierto ? 'block' : 'none') + '"></div>';
+            // Sidebar fijo a la izquierda, siempre visible en desktop, deslizable en móvil
+            html += '<aside class="fixed top-0 left-0 h-full w-64 bg-white border-r z-50 overflow-y-auto transition-transform duration-200 md:translate-x-0 ' + (abierto ? 'translate-x-0' : '-translate-x-full') + '">';
+            html += '<div class="p-4 border-b flex justify-between items-center">';
+            html += '<span class="font-bold text-gray-800">🎭 Menú</span>';
+            html += '<button onclick="toggleSidebar()" class="md:hidden text-xl leading-none px-1" aria-label="Cerrar menú">✕</button>';
+            html += '</div>';
+            html += '<nav class="p-3 space-y-1">';
             items.forEach(page => {
                 const active = appState.currentPage === page.id;
-                html += '<button onclick="changePage(\'' + page.id + '\')" class="px-3 py-2 rounded text-sm font-medium whitespace-nowrap transition ' + (active ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100') + '">' + page.label + '</button>';
+                html += '<button onclick="changePage(\'' + page.id + '\')" class="w-full text-left px-3 py-2 rounded text-sm font-medium transition ' + (active ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100') + '">' + page.label + '</button>';
             });
-            html += '</div></div>';
+            html += '</nav></aside>';
             return html;
         }
 
@@ -536,7 +562,7 @@
         }
 
         function renderDashboard() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📊 Dashboard</h2>';
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
@@ -661,7 +687,7 @@
         }
 
         function renderObras() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6">';
 
             if (tienePermiso('crear_obra')) {
@@ -745,7 +771,7 @@
             const diasPorVender = ultimaFuncion ? calcularDiasPorVender(ultimaFuncion.fecha) : 'N/A';
             const canEdit = tienePermiso('editar_obra');
 
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6">';
             html += '<button onclick="changePage(\'obras\')" class="text-blue-600 text-sm mb-4">← Volver</button>';
             html += '<div class="bg-white p-6 rounded shadow mb-6">';
@@ -805,10 +831,25 @@
             } else {
                 html += '<div class="space-y-2">';
                 funciones.forEach(f => {
-                    html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500 flex justify-between items-center">';
-                    html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
-                    if (canEdit) {
-                        html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs font-medium">Eliminar</button>';
+                    const editando = appState.editingFuncionFechaId === f.id;
+                    html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-orange-500">';
+                    if (editando) {
+                        html += '<form onsubmit="guardarEdicionFechaFuncion(event, \'' + f.id + '\')" class="flex flex-wrap gap-2 items-end">';
+                        html += '<div><label class="block text-xs font-medium mb-1">Fecha</label><input type="date" id="editFuncionFecha" value="' + f.fecha + '" required class="px-2 py-1 border rounded text-sm" /></div>';
+                        html += '<div><label class="block text-xs font-medium mb-1">Hora</label><input type="time" id="editFuncionHora" value="' + f.hora + '" required class="px-2 py-1 border rounded text-sm" /></div>';
+                        html += '<button type="submit" class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-green-700">Guardar</button>';
+                        html += '<button type="button" onclick="cancelarEdicionFechaFuncion()" class="bg-gray-300 px-3 py-1.5 rounded text-xs">Cancelar</button>';
+                        html += '</form>';
+                    } else {
+                        html += '<div class="flex justify-between items-center">';
+                        html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
+                        html += '<div class="flex gap-2">';
+                        html += '<button onclick="verHistorialFuncion(\'' + f.id + '\')" class="text-gray-600 text-xs font-medium" title="Ver historial de cambios">🕐 Historial</button>';
+                        if (canEdit) {
+                            html += '<button onclick="iniciarEdicionFechaFuncion(\'' + f.id + '\')" class="text-blue-600 text-xs font-medium">Editar</button>';
+                            html += '<button onclick="deleteFuncion(\'' + f.id + '\')" class="text-red-600 text-xs font-medium">Eliminar</button>';
+                        }
+                        html += '</div></div>';
                     }
                     html += '</div>';
                 });
@@ -953,6 +994,63 @@
                 alert('✅ Función eliminada');
                 render();
             }
+        }
+
+        function iniciarEdicionFechaFuncion(funcionId) {
+            appState.editingFuncionFechaId = funcionId;
+            render();
+        }
+
+        function cancelarEdicionFechaFuncion() {
+            appState.editingFuncionFechaId = null;
+            render();
+        }
+
+        async function guardarEdicionFechaFuncion(event, funcionId) {
+            event.preventDefault();
+            const nuevaFecha = document.getElementById('editFuncionFecha').value;
+            const nuevaHora = document.getElementById('editFuncionHora').value;
+            const funcion = appState.funciones.find(f => f.id === funcionId);
+            if (!funcion) return;
+
+            const fechaAnterior = funcion.fecha;
+            const horaAnterior = funcion.hora;
+
+            if (fechaAnterior === nuevaFecha && horaAnterior === nuevaHora) {
+                appState.editingFuncionFechaId = null;
+                render();
+                return;
+            }
+
+            funcion.fecha = nuevaFecha;
+            funcion.hora = nuevaHora;
+
+            appState.historial.push({
+                id: Date.now().toString() + Math.random().toString(36).slice(2),
+                timestamp: new Date().toISOString(),
+                usuario: appState.user.email,
+                funcionId: funcionId,
+                accion: 'Cambio de fecha/hora de función',
+                detalles: formatearFecha(fechaAnterior) + ' ' + formatearHora(horaAnterior) + ' → ' + formatearFecha(nuevaFecha) + ' ' + formatearHora(nuevaHora),
+                _pendingInsert: true
+            });
+
+            appState.editingFuncionFechaId = null;
+            await saveData();
+            alert('✅ Fecha/hora actualizada. Quedó registrado en el historial.');
+            render();
+        }
+
+        function verHistorialFuncion(funcionId) {
+            appState.showHistorialFuncion = true;
+            appState.historialFuncionId = funcionId;
+            render();
+        }
+
+        function cerrarHistorialFuncion() {
+            appState.showHistorialFuncion = false;
+            appState.historialFuncionId = null;
+            render();
         }
 
         function guardarBaselineVentas(event, obraId) {
@@ -1161,7 +1259,7 @@
 
         function renderCrearObra() {
             const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
             html += '<div class="bg-white p-6 rounded shadow">';
             html += '<form id="obraForm" onsubmit="handleGuardarObra(event)">';
@@ -1367,7 +1465,7 @@
         }
 
         function renderVentas() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">💵 Registro de Ventas</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'boleteria');
@@ -1470,7 +1568,7 @@
         }
 
         function renderEntrada() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">🎟️ Registro de Entrada Libre</h2>';
 
             const obras = appState.obras.filter(o => o.tipo === 'entrada_libre' && puedeVerObra(o));
@@ -1669,7 +1767,7 @@
         }
 
         function renderAdmin() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-5xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">⚙️ Administración</h2>';
 
             // SALAS
@@ -1729,7 +1827,7 @@
         }
 
         function renderSalas() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🏛️ Gestión de Salas</h2>';
             html += '<button onclick="openCrearSala()" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 mb-4">+ Nueva Sala</button>';
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
@@ -1755,7 +1853,7 @@
 
         function renderCrearSala() {
             const sala = appState.editingSala || { nombre: '', aforo: '' };
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
             html += '<form onsubmit="handleGuardarSala(event)" class="bg-white p-6 rounded shadow">';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
@@ -1792,84 +1890,133 @@
             }
         }
 
+        function cambiarMesCalendario(delta) {
+            const hoyReal = new Date();
+            if (appState.calMes === null) { appState.calMes = hoyReal.getMonth(); appState.calAnio = hoyReal.getFullYear(); }
+            let nuevoMes = appState.calMes + delta;
+            let nuevoAnio = appState.calAnio;
+            if (nuevoMes < 0) { nuevoMes = 11; nuevoAnio--; }
+            if (nuevoMes > 11) { nuevoMes = 0; nuevoAnio++; }
+            appState.calMes = nuevoMes;
+            appState.calAnio = nuevoAnio;
+            render();
+        }
+
+        function irCalendarioHoy() {
+            const hoyReal = new Date();
+            appState.calMes = hoyReal.getMonth();
+            appState.calAnio = hoyReal.getFullYear();
+            render();
+        }
+
+        function aplicarFiltrosCalendario() {
+            appState.calFiltroSala = document.getElementById('calFiltroSala').value;
+            appState.calFiltroTipo = document.getElementById('calFiltroTipo').value;
+            render();
+        }
+
         function renderCalendario() {
-            const hoy = new Date();
-            const mes = hoy.getMonth();
-            const anio = hoy.getFullYear();
-            
+            const hoyReal = new Date();
+            if (appState.calMes === null || appState.calMes === undefined) appState.calMes = hoyReal.getMonth();
+            if (appState.calAnio === null || appState.calAnio === undefined) appState.calAnio = hoyReal.getFullYear();
+            const mes = appState.calMes;
+            const anio = appState.calAnio;
+
             const primerDia = new Date(anio, mes, 1).getDay();
             const diasMes = new Date(anio, mes + 1, 0).getDate();
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
             const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-            
-            let html = '<div class="min-h-screen bg-white">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-8 py-8">';
-            
+
+            let html = '<div class="min-h-screen bg-white md:pl-64">' + renderHeader() + renderNav();
+            html += '<main class="max-w-7xl mx-auto px-4 md:px-8 py-8">';
+
             // Encabezado
-            html += '<div class="flex justify-between items-center mb-8">';
-            html += '<h1 class="text-5xl font-light">' + meses[mes] + ' de ' + anio + ' [NUEVO DISEÑO]</h1>';
-            html += '<div class="flex gap-4">';
-            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded">← Anterior</button>';
-            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded font-medium">Hoy</button>';
-            html += '<button class="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded">Siguiente →</button>';
+            html += '<div class="flex flex-wrap justify-between items-center gap-4 mb-6">';
+            html += '<h1 class="text-3xl md:text-5xl font-light">' + meses[mes] + ' de ' + anio + '</h1>';
+            html += '<div class="flex gap-2">';
+            html += '<button onclick="cambiarMesCalendario(-1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">← Anterior</button>';
+            html += '<button onclick="irCalendarioHoy()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border font-medium">Hoy</button>';
+            html += '<button onclick="cambiarMesCalendario(1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">Siguiente →</button>';
             html += '</div>';
             html += '</div>';
-            
+
+            // Filtros
+            html += '<div class="flex flex-wrap gap-3 mb-6 bg-gray-50 p-3 rounded border">';
+            html += '<div><label class="block text-xs font-medium mb-1 text-gray-600">Sala</label><select id="calFiltroSala" onchange="aplicarFiltrosCalendario()" class="px-3 py-1.5 border rounded text-sm">';
+            html += '<option value="todas"' + (appState.calFiltroSala === 'todas' ? ' selected' : '') + '>Todas las salas</option>';
+            appState.salas.forEach(s => html += '<option value="' + s.id + '"' + (appState.calFiltroSala === s.id ? ' selected' : '') + '>' + s.nombre + '</option>');
+            html += '</select></div>';
+            html += '<div><label class="block text-xs font-medium mb-1 text-gray-600">Tipo</label><select id="calFiltroTipo" onchange="aplicarFiltrosCalendario()" class="px-3 py-1.5 border rounded text-sm">';
+            html += '<option value="todas"' + (appState.calFiltroTipo === 'todas' ? ' selected' : '') + '>Boletería y Entrada Libre</option>';
+            html += '<option value="boleteria"' + (appState.calFiltroTipo === 'boleteria' ? ' selected' : '') + '>Solo Boletería</option>';
+            html += '<option value="entrada_libre"' + (appState.calFiltroTipo === 'entrada_libre' ? ' selected' : '') + '>Solo Entrada Libre</option>';
+            html += '</select></div>';
+            html += '</div>';
+
+            // Leyenda
+            html += '<div class="flex gap-4 mb-4 text-xs text-gray-600"><span><span class="inline-block w-3 h-3 bg-green-500 rounded-sm mr-1"></span>Boletería</span><span><span class="inline-block w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>Entrada Libre</span></div>';
+
             // Encabezado días de semana
             html += '<div class="grid grid-cols-7 gap-px bg-gray-100 border-b border-gray-300 mb-px">';
             diasSemana.forEach(d => {
                 html += '<div class="text-center font-semibold text-gray-700 py-3 text-sm bg-white">' + d + '</div>';
             });
             html += '</div>';
-            
+
             // Grid de fechas
             html += '<div class="grid grid-cols-7 gap-px bg-gray-300">';
-            
-            // Espacios vacíos
+
             for (let i = 0; i < primerDia; i++) {
                 html += '<div class="bg-gray-50 min-h-28 p-2"></div>';
             }
-            
-            // Días del mes
+
             for (let dia = 1; dia <= diasMes; dia++) {
                 const fecha = String(anio) + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
-                const funcionesDia = appState.funciones.filter(f => f.fecha === fecha);
-                const esHoy = fecha === '2026-08-27';
-                
+                let funcionesDia = appState.funciones.filter(f => f.fecha === fecha);
+
+                // Aplicar filtros de sala y tipo
+                funcionesDia = funcionesDia.filter(f => {
+                    const obra = appState.obras.find(o => o.id === f.obraId);
+                    if (!obra) return false;
+                    if (appState.calFiltroTipo !== 'todas' && obra.tipo !== appState.calFiltroTipo) return false;
+                    if (appState.calFiltroSala !== 'todas' && obra.salaId !== appState.calFiltroSala) return false;
+                    return true;
+                });
+
+                const esHoy = fecha === hoyReal.toISOString().split('T')[0];
+
                 html += '<div class="bg-white min-h-28 p-2 hover:bg-gray-50">';
-                
-                // Número día
+
                 if (esHoy) {
                     html += '<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold mb-1">' + dia + '</div>';
                 } else {
                     html += '<div class="text-xl font-light text-gray-900 mb-1">' + dia + '</div>';
                 }
-                
-                // Funciones
+
                 html += '<div class="space-y-0.5">';
                 funcionesDia.slice(0, 2).forEach(f => {
                     const obra = appState.obras.find(o => o.id === f.obraId);
-                    const icono = obra.tipo === 'boleteria' ? '|' : '○';
+                    const sala = getSala(obra.salaId);
                     const colorBg = obra.tipo === 'boleteria' ? 'bg-green-100 text-green-900' : 'bg-blue-100 text-blue-900';
-                    html += '<div class="' + colorBg + ' text-xs px-1.5 py-0.5 rounded-sm cursor-pointer hover:shadow-sm truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + obra.nombre + ' ' + f.hora + '">';
-                    html += icono + ' ' + obra.nombre.substring(0, 14);
+                    html += '<div class="' + colorBg + ' text-xs px-1.5 py-0.5 rounded-sm cursor-pointer hover:shadow-sm truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
+                    html += f.hora + ' ' + obra.nombre.substring(0, 12);
                     html += '</div>';
                 });
                 if (funcionesDia.length > 2) {
                     html += '<div class="text-gray-600 text-xs px-1.5">y ' + (funcionesDia.length - 2) + ' más</div>';
                 }
                 html += '</div>';
-                
+
                 html += '</div>';
             }
-            
+
             html += '</div>';
             html += '</main></div>';
             return html;
         }
 
         function renderReportes() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📈 Reportes</h2>';
             html += '<div class="grid grid-cols-2 gap-4">';
             html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen de Ventas</h3><p class="text-sm text-gray-600">Total ventas: ' + appState.ventas.length + '</p></div>';
@@ -1892,7 +2039,7 @@
         }
 
         function renderHistorial() {
-            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📝 Historial de Cambios</h2>';
 
             if (!appState.historial || appState.historial.length === 0) {
@@ -1971,6 +2118,43 @@
                         + '</div>'
                         + '</div>';
                     app.innerHTML += modalHTML;
+                }
+
+                if (appState.showHistorialFuncion) {
+                    const funcion = appState.funciones.find(f => f.id === appState.historialFuncionId);
+                    const obraDeFuncion = funcion ? appState.obras.find(o => o.id === funcion.obraId) : null;
+                    const registros = appState.historial
+                        .filter(h => h.funcionId === appState.historialFuncionId)
+                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    let contenido = '';
+                    if (registros.length === 0) {
+                        contenido = '<p style="color:#6b7280; font-size:14px;">Sin cambios registrados para esta función todavía.</p>';
+                    } else {
+                        contenido = '<div style="display:flex; flex-direction:column; gap:10px;">';
+                        registros.forEach(h => {
+                            const fecha = new Date(h.timestamp);
+                            const fechaFmt = formatearFecha(fecha.toISOString().split('T')[0]);
+                            const horaFmt = fecha.toTimeString().slice(0, 5);
+                            contenido += '<div style="background:#f9fafb; border-left:4px solid #f97316; padding:10px 12px; border-radius:4px;">';
+                            contenido += '<p style="font-size:13px; font-weight:600; margin:0;">' + (h.accion || 'Cambio') + '</p>';
+                            if (h.detalles) contenido += '<p style="font-size:12px; color:#4b5563; margin:2px 0 0;">' + h.detalles + '</p>';
+                            contenido += '<p style="font-size:11px; color:#9ca3af; margin:4px 0 0;">' + fechaFmt + ' ' + horaFmt + ' — ' + (h.usuario || '') + '</p>';
+                            contenido += '</div>';
+                        });
+                        contenido += '</div>';
+                    }
+
+                    const modalHistorial = '<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">'
+                        + '<div style="background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 500px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.15);">'
+                        + '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">'
+                        + '<h3 style="margin: 0; font-size: 16px; font-weight: bold;">🕐 Historial de la función' + (obraDeFuncion ? ' — ' + obraDeFuncion.nombre : '') + '</h3>'
+                        + '<button onclick="cerrarHistorialFuncion()" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0;">×</button>'
+                        + '</div>'
+                        + contenido
+                        + '</div>'
+                        + '</div>';
+                    app.innerHTML += modalHistorial;
                 }
             }
         }
