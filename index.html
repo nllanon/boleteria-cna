@@ -556,12 +556,12 @@
             html += item(!!obra.piezasDesarrolladas, '🧩', 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
                 html += item(!!obra.fechaTiquetera, '🌐', 'Tiquetera (en línea)');
-                html += item(!!obra.fechaRedes, '📸', 'Redes Sociales');
+                html += item(!!obra.fechaRedes, '📱', 'Redes Sociales');
                 html += item(!!obra.videoDisponible, '🎬', 'Video para Pauta');
                 html += item(!!obra.fechaPauta, '📢', 'Pauta Digital');
             } else {
                 html += item(!!obra.linkRegistro, '🔗', 'Link de Registro');
-                html += item(!!obra.fechaRedes, '📸', 'Redes Sociales');
+                html += item(!!obra.fechaRedes, '📱', 'Redes Sociales');
             }
             html += '</div>';
             return html;
@@ -1371,12 +1371,6 @@
             const fechaTiquetera = document.getElementById('obraFechaTiquetera').value;
             const fechaRedes = document.getElementById('obraFechaRedes').value;
             const fechaPauta = document.getElementById('obraFechaPauta').value;
-
-            // Validar que tiquetera sea obligatoria
-            if (!fechaTiquetera) {
-                alert('⚠️ Fecha de tiquetera es obligatoria');
-                return;
-            }
 
             // Calcular primera y última función
             const fechas = functionesAGuardar.map(f => new Date(f.fecha));
