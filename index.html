@@ -394,10 +394,12 @@
                         const labels = window.chartInstanceVentas.data.labels;
                         
                         const lineas = [
-                            { fecha: obra.fechaTiquetera, color: '#10b981', label: '🎟️ Tiquetera' },
-                            { fecha: obra.fechaRedes, color: '#f59e0b', label: '📱 Redes' },
-                            { fecha: obra.fechaPauta, color: '#8b5cf6', label: '📺 Pauta' },
-                            { fecha: fechaPrimeraFuncion, color: '#ef4444', label: '🎬 Estreno' }
+                            { fecha: obra.fechaPiezasDesarrolladas, color: '#0ea5e9', label: ICONOS.piezas + ' Piezas' },
+                            { fecha: obra.fechaTiquetera, color: '#10b981', label: ICONOS.tiquetera + ' Tiquetera' },
+                            { fecha: obra.fechaRedes, color: '#f59e0b', label: ICONOS.redes + ' Redes' },
+                            { fecha: obra.fechaVideoPatua, color: '#ec4899', label: ICONOS.video + ' Video' },
+                            { fecha: obra.fechaPauta, color: '#8b5cf6', label: ICONOS.pauta + ' Pauta' },
+                            { fecha: fechaPrimeraFuncion, color: '#ef4444', label: ICONOS.estreno + ' Estreno' }
                         ];
                         
                         lineas.forEach(linea => {
@@ -544,6 +546,17 @@
             return html;
         }
 
+        // Un solo lugar para cambiar cualquier icono — usado en dashboard y en el gráfico de ventas
+        const ICONOS = {
+            piezas: '🧩',
+            tiquetera: '🌐',
+            redes: '💬',
+            video: '🎬',
+            pauta: '📢',
+            link: '🔗',
+            estreno: '🎭'
+        };
+
         function renderIconosEstado(obra) {
             const item = (activo, emoji, titulo) => {
                 const badge = activo ? '' : '<span style="position:absolute; top:-4px; right:-4px; font-size:9px; background:#ef4444; color:white; border-radius:9999px; width:14px; height:14px; display:flex; align-items:center; justify-content:center; line-height:1; font-weight:bold;">✕</span>';
@@ -553,15 +566,15 @@
                     + '</span>';
             };
             let html = '<div class="flex gap-3 items-center">';
-            html += item(!!obra.piezasDesarrolladas, '🧩', 'Piezas Desarrolladas');
+            html += item(!!obra.piezasDesarrolladas, ICONOS.piezas, 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
-                html += item(!!obra.fechaTiquetera, '🌐', 'Tiquetera (en línea)');
-                html += item(!!obra.fechaRedes, '📱', 'Redes Sociales');
-                html += item(!!obra.videoDisponible, '🎬', 'Video para Pauta');
-                html += item(!!obra.fechaPauta, '📢', 'Pauta Digital');
+                html += item(!!obra.fechaTiquetera, ICONOS.tiquetera, 'Tiquetera (en línea)');
+                html += item(!!obra.fechaRedes, ICONOS.redes, 'Redes Sociales');
+                html += item(!!obra.videoDisponible, ICONOS.video, 'Video para Pauta');
+                html += item(!!obra.fechaPauta, ICONOS.pauta, 'Pauta Digital');
             } else {
-                html += item(!!obra.linkRegistro, '🔗', 'Link de Registro');
-                html += item(!!obra.fechaRedes, '📱', 'Redes Sociales');
+                html += item(!!obra.linkRegistro, ICONOS.link, 'Link de Registro');
+                html += item(!!obra.fechaRedes, ICONOS.redes, 'Redes Sociales');
             }
             html += '</div>';
             return html;
