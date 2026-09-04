@@ -2139,21 +2139,21 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Se descarga en formato horizontal, listo para enviar por WhatsApp.</p>';
+            html += '<p class="text-xs text-gray-500 mb-4">Formato vertical (1080px de ancho), pensado para compartir como imagen en redes/WhatsApp.</p>';
 
             const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
 
-            // Contenedor que se captura como imagen — ancho fijo para forzar horizontal
-            html += '<div id="reporteParaDescargar" style="background:white; padding:24px; width:1500px; font-family: Arial, sans-serif;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
-            html += '<div style="font-size:24px; font-weight:bold; color:#111827;">🎭 Boletería CNA — Reporte de Avance</div>';
-            html += '<div style="font-size:13px; color:#6b7280;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
+            // Contenedor que se captura como imagen — vertical, ancho tipo post de Instagram
+            html += '<div id="reporteParaDescargar" style="background:white; padding:20px; width:1080px; font-family: Arial, sans-serif;">';
+            html += '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
+            html += '<div style="font-size:20px; font-weight:bold; color:#111827;">🎭 Boletería CNA — Avance</div>';
+            html += '<div style="font-size:12px; color:#6b7280;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
             html += '</div>';
 
             if (obrasActivas.length === 0) {
                 html += '<p style="color:#6b7280; font-size:14px;">No hay obras activas para mostrar.</p>';
             } else {
-                html += '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;">';
+                html += '<div>';
                 obrasActivas.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
@@ -2165,25 +2165,26 @@
                         const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
                         const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
                         metricaPrincipal = totalVentas + ' / ' + totalDisponible;
-                        metricaLabel = 'Vendidas / Disponibles';
+                        metricaLabel = 'Vendidas/Disp.';
                     } else {
                         const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
                         metricaPrincipal = String(totalRegistrados);
-                        metricaLabel = 'Total Registrados';
+                        metricaLabel = 'Registrados';
                     }
 
                     const ultimaFunc = getUltimaFuncion(obra.id);
                     const diasPorVender = ultimaFunc ? calcularDiasPorVender(ultimaFunc.fecha) : 'N/A';
 
-                    html += '<div style="border:1px solid #e5e7eb; border-radius:10px; padding:14px; background:#fafafa;">';
-                    html += '<div style="font-size:14px; font-weight:bold; color:#111827; margin-bottom:2px;">' + icono + ' ' + obra.nombre + '</div>';
-                    html += '<div style="font-size:11px; color:#6b7280; margin-bottom:8px;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + '</div>';
-                    html += '<div style="margin-bottom:8px;">' + renderIconosEstado(obra) + '</div>';
-                    html += '<div style="background:#eff6ff; border-left:4px solid #3b82f6; padding:8px 10px; border-radius:4px;">';
-                    html += '<div style="font-size:10px; color:#6b7280;">' + metricaLabel + '</div>';
-                    html += '<div style="font-size:18px; font-weight:bold; color:#2563eb;">' + metricaPrincipal + '</div>';
+                    html += '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
+                    html += '<div style="flex:1; min-width:0;">';
+                    html += '<div style="font-size:14px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
+                    html += '<div style="font-size:10px; color:#6b7280;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd por vender' : '') + '</div>';
                     html += '</div>';
-                    html += '<div style="font-size:11px; color:#6b7280; margin-top:6px;">Días por vender: <strong>' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</strong></div>';
+                    html += '<div style="flex-shrink:0;">' + renderIconosEstado(obra) + '</div>';
+                    html += '<div style="flex-shrink:0; text-align:right; min-width:90px;">';
+                    html += '<div style="font-size:9px; color:#6b7280;">' + metricaLabel + '</div>';
+                    html += '<div style="font-size:15px; font-weight:bold; color:#2563eb;">' + metricaPrincipal + '</div>';
+                    html += '</div>';
                     html += '</div>';
                 });
                 html += '</div>';
