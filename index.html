@@ -495,12 +495,12 @@
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'admin', label: '⚙️ Administración' },
                     { id: 'ventas', label: '💵 Registro de Ventas' },
                     { id: 'entrada', label: '🎟️ Entrada Libre' },
                     { id: 'calendario', label: '📅 Calendario' },
                     { id: 'reportes', label: '📈 Reportes' },
-                    { id: 'historial', label: '📝 Historial' }
+                    { id: 'historial', label: '📝 Historial' },
+                    { id: 'admin', label: '⚙️ Administración' }
                 ];
             } else if (appState.user.rol === 'registrador_boleto') {
                 items = [
@@ -545,17 +545,23 @@
         }
 
         function renderIconosEstado(obra) {
-            const item = (activo, emoji, titulo) => '<span title="' + titulo + (activo ? ' ✓' : ' — pendiente') + '" class="text-lg" style="filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.35)') + '">' + emoji + '</span>';
-            let html = '<div class="flex gap-2 items-center">';
-            html += item(!!obra.piezasDesarrolladas, '🎨', 'Piezas');
+            const item = (activo, emoji, titulo) => {
+                const badge = activo ? '' : '<span style="position:absolute; top:-4px; right:-4px; font-size:9px; background:#ef4444; color:white; border-radius:9999px; width:14px; height:14px; display:flex; align-items:center; justify-content:center; line-height:1; font-weight:bold;">✕</span>';
+                return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="position:relative; display:inline-block;">'
+                    + '<span style="font-size:1.25rem; filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.4)') + ';">' + emoji + '</span>'
+                    + badge
+                    + '</span>';
+            };
+            let html = '<div class="flex gap-3 items-center">';
+            html += item(!!obra.piezasDesarrolladas, '🧩', 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
-                html += item(!!obra.fechaTiquetera, '🎫', 'Tiquetera');
-                html += item(!!obra.fechaRedes, '📱', 'Redes');
-                html += item(!!obra.videoDisponible, '🎬', 'Video');
-                html += item(!!obra.fechaPauta, '📺', 'Pauta');
+                html += item(!!obra.fechaTiquetera, '🌐', 'Tiquetera (en línea)');
+                html += item(!!obra.fechaRedes, '📸', 'Redes Sociales');
+                html += item(!!obra.videoDisponible, '🎬', 'Video para Pauta');
+                html += item(!!obra.fechaPauta, '📢', 'Pauta Digital');
             } else {
-                html += item(!!obra.linkRegistro, '🔗', 'Link');
-                html += item(!!obra.fechaRedes, '📱', 'Redes');
+                html += item(!!obra.linkRegistro, '🔗', 'Link de Registro');
+                html += item(!!obra.fechaRedes, '📸', 'Redes Sociales');
             }
             html += '</div>';
             return html;
