@@ -1888,16 +1888,43 @@
             render();
         }
 
+        const PALETA_COLORES_SALA = [
+            { hex: '#ef4444', nombre: 'Rojo' }, { hex: '#f97316', nombre: 'Naranja' },
+            { hex: '#f59e0b', nombre: 'Ámbar' }, { hex: '#eab308', nombre: 'Amarillo' },
+            { hex: '#84cc16', nombre: 'Lima' }, { hex: '#22c55e', nombre: 'Verde' },
+            { hex: '#10b981', nombre: 'Esmeralda' }, { hex: '#14b8a6', nombre: 'Verde azulado' },
+            { hex: '#06b6d4', nombre: 'Cian' }, { hex: '#0ea5e9', nombre: 'Celeste' },
+            { hex: '#3b82f6', nombre: 'Azul' }, { hex: '#6366f1', nombre: 'Índigo' },
+            { hex: '#8b5cf6', nombre: 'Violeta' }, { hex: '#a855f7', nombre: 'Púrpura' },
+            { hex: '#d946ef', nombre: 'Fucsia' }, { hex: '#ec4899', nombre: 'Rosa' },
+            { hex: '#f43f5e', nombre: 'Rosado fuerte' }, { hex: '#65a30d', nombre: 'Oliva' },
+            { hex: '#0891b2', nombre: 'Cian oscuro' }, { hex: '#db2777', nombre: 'Magenta' }
+        ];
+
+        function seleccionarColorSala(hex) {
+            document.getElementById('salaColor').value = hex;
+            document.querySelectorAll('.swatch-color-sala').forEach(el => {
+                el.style.outline = el.getAttribute('data-hex') === hex ? '3px solid #111827' : 'none';
+                el.style.outlineOffset = '2px';
+            });
+        }
+
         function renderCrearSala() {
             const sala = appState.editingSala || { nombre: '', aforo: '', color: '#8b5cf6' };
+            const colorActual = sala.color || '#8b5cf6';
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingSala ? 'Editar Sala' : 'Nueva Sala') + '</h2>';
             html += '<form onsubmit="handleGuardarSala(event)" class="bg-white p-6 rounded shadow">';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Aforo</label><input type="number" id="salaAforo" value="' + sala.aforo + '" required min="1" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Color de la sala (para el calendario)</label>';
-            html += '<div class="flex items-center gap-3"><input type="color" id="salaColor" value="' + (sala.color || '#8b5cf6') + '" class="w-16 h-10 border rounded cursor-pointer" />';
-            html += '<span class="text-xs text-gray-500">Elige un color fuerte para que se distinga bien en el calendario</span></div></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium mb-2">Color de la sala (para el calendario)</label>';
+            html += '<input type="hidden" id="salaColor" value="' + colorActual + '" />';
+            html += '<div class="flex flex-wrap gap-2">';
+            PALETA_COLORES_SALA.forEach(c => {
+                const seleccionado = c.hex.toLowerCase() === colorActual.toLowerCase();
+                html += '<button type="button" onclick="seleccionarColorSala(\'' + c.hex + '\')" title="' + c.nombre + '" data-hex="' + c.hex + '" class="swatch-color-sala" style="width:32px; height:32px; border-radius:6px; background:' + c.hex + '; outline:' + (seleccionado ? '3px solid #111827' : 'none') + '; outline-offset:2px; cursor:pointer; border:none;"></button>';
+            });
+            html += '</div></div>';
             html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
             html += '<button type="button" onclick="changePage(\'admin\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
             html += '</form></main></div>';
