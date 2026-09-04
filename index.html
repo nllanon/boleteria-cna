@@ -1445,7 +1445,7 @@
                         funcion.ventasPorDia.push({ fecha: hoy, boletas: boletas });
                         
                         appState.historial.push({
-                            id: Date.now().toString(),
+                            id: Date.now().toString() + Math.random().toString(36).slice(2),
                             timestamp: new Date().toISOString(),
                             usuario: appState.user.email,
                             funcionId: funcionId,
@@ -1480,19 +1480,41 @@
                 return html;
             }
 
-            // Registro rápido diario — lo principal que se usa día a día
-            html += '<form onsubmit="registrarInscritosHoy(event)" class="bg-white p-4 rounded shadow max-w-lg mb-8">';
-            html += '<h3 class="text-base font-bold mb-3">➕ Registrar inscritos de hoy</h3>';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Actividad</label>';
-            html += '<select id="entradaFuncionSelect" required class="w-full px-3 py-2 border rounded text-sm"><option value="">Seleccionar...</option>';
+            // Registro rápido diario — igual esquema que Registro de Ventas:
+            // todas las actividades visibles en pantalla, sin tener que elegir en un dropdown.
+            html += '<form onsubmit="guardarInscritosHoy(event)">';
             obras.forEach(obra => {
-                getFuncionesObra(obra.id).forEach(f => {
-                    html += '<option value="' + f.id + '">' + obra.nombre + ' — ' + formatearFecha(f.fecha) + ' ' + f.hora + '</option>';
+                const funciones = getFuncionesObra(obra.id);
+                if (funciones.length === 0) return;
+                const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
+
+                html += '<div class="bg-white rounded shadow mb-6">';
+                html += '<div class="bg-purple-50 p-4 border-b-2 border-purple-300">';
+                html += '<h3 class="text-lg font-bold text-gray-800">' + obra.nombre + '</h3>';
+                html += '<p class="text-sm text-gray-600">' + obra.artista + '</p>';
+                html += '<p class="text-sm font-medium text-purple-700 mt-2">Total registrados: <strong>' + totalRegistrados + '</strong></p>';
+                html += '</div>';
+
+                html += '<div class="overflow-x-auto"><table class="w-full text-sm">';
+                html += '<thead class="bg-gray-100 border-b"><tr>';
+                html += '<th class="px-4 py-2 text-left">Fecha</th>';
+                html += '<th class="px-4 py-2 text-left">Hora</th>';
+                html += '<th class="px-4 py-2 text-left">Registrados Acumulados</th>';
+                html += '<th class="px-4 py-2 text-left">Registro de Hoy</th>';
+                html += '</tr></thead><tbody>';
+
+                funciones.forEach(f => {
+                    html += '<tr class="border-b hover:bg-gray-50">';
+                    html += '<td class="px-4 py-2">' + formatearFecha(f.fecha) + '</td>';
+                    html += '<td class="px-4 py-2">' + formatearHora(f.hora) + '</td>';
+                    html += '<td class="px-4 py-2 font-bold">' + (f.registrados || 0) + '</td>';
+                    html += '<td class="px-4 py-2"><input type="number" class="w-24 px-2 py-1 border rounded text-sm" data-entrada-funcion-id="' + f.id + '" value="0" min="0" /></td>';
+                    html += '</tr>';
                 });
+
+                html += '</tbody></table></div></div>';
             });
-            html += '</select></div>';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Inscritos hoy (se suman al total)</label><input type="number" id="entradaInscritosHoy" min="1" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<button type="submit" class="w-full bg-purple-600 text-white py-2 rounded text-sm font-bold hover:bg-purple-700">Registrar</button>';
+            html += '<button type="submit" class="w-full bg-purple-600 text-white py-3 rounded font-bold hover:bg-purple-700 mb-8">✅ Guardar Registro</button>';
             html += '</form>';
 
             html += '<h3 class="text-base font-bold mb-3">📋 Reporte Completo</h3>';
@@ -1583,27 +1605,43 @@
             return html;
         }
 
-        async function registrarInscritosHoy(event) {
+        async function guardarInscritosHoy(event) {
             event.preventDefault();
-            const funcionId = document.getElementById('entradaFuncionSelect').value;
-            const cantidad = parseInt(document.getElementById('entradaInscritosHoy').value) || 0;
-            const funcion = appState.funciones.find(f => f.id === funcionId);
-            if (!funcion || cantidad <= 0) return;
+            const inputs = document.querySelectorAll('input[data-entrada-funcion-id]');
+            let guardados = 0;
 
-            funcion.registrados = (funcion.registrados || 0) + cantidad;
-            appState.historial.push({
-                id: Date.now().toString(),
-                timestamp: new Date().toISOString(),
-                usuario: appState.user.email,
-                funcionId: funcionId,
-                accion: 'Registro de inscritos',
-                detalles: 'Inscritos: +' + cantidad,
-                _pendingInsert: true
+            inputs.forEach(input => {
+                const funcionId = input.getAttribute('data-entrada-funcion-id');
+                const cantidad = parseInt(input.value) || 0;
+
+                if (cantidad > 0) {
+                    const funcion = appState.funciones.find(f => f.id === funcionId);
+                    if (funcion) {
+                        funcion.registrados = (funcion.registrados || 0) + cantidad;
+
+                        appState.historial.push({
+                            id: Date.now().toString() + Math.random().toString(36).slice(2),
+                            timestamp: new Date().toISOString(),
+                            usuario: appState.user.email,
+                            funcionId: funcionId,
+                            accion: 'Registro de inscritos',
+                            detalles: 'Inscritos: +' + cantidad,
+                            _pendingInsert: true
+                        });
+
+                        guardados++;
+                        input.value = '0';
+                    }
+                }
             });
 
-            await saveData();
-            alert('✅ Registrados actualizados');
-            render();
+            if (guardados > 0) {
+                await saveData();
+                alert('✅ ' + guardados + ' actividad(es) actualizada(s)');
+                render();
+            } else {
+                alert('⚠️ No hay registros para guardar');
+            }
         }
 
         function guardarRegistrosEntrada(event, obraId) {
