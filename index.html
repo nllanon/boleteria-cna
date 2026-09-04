@@ -7,11 +7,16 @@
     <title>Boletería CNA - Sistema Completo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <div id="app"></div>
 
     <script>
+        const SUPABASE_URL = 'https://wfzmpdcxyuskfyjnwmme.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indmem1wZGN4eXVza2Z5am53bW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NjkwNzcsImV4cCI6MjEwMDI0NTA3N30.GTHGpL156U1VwmeuECQxS2-0vghmb8YVHi4YCmsRH-U';
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         let appState = {
             user: null,
             temporadas: [],
@@ -39,63 +44,115 @@
             'visualizador@test.com': { password: '123456', nombre: 'Visualizador', rol: 'visualizador' }
         };
 
-        function initData() {
-            const saved = localStorage.getItem('boleteria-data');
-            if (saved) {
-                const data = JSON.parse(saved);
-                Object.assign(appState, data);
-                
-                // Migración: asegurar que todas las funciones tengan ventasPorDia
-                if (appState.funciones) {
-                    appState.funciones.forEach(f => {
-                        if (!f.ventasPorDia) f.ventasPorDia = [];
-                        if (!f.ventasAcumuladas) f.ventasAcumuladas = 0;
-                        if (!f.cortesias) f.cortesias = 0;
-                        if (!f.cortesiasEntregadas) f.cortesiasEntregadas = 0;
-                    });
-                }
-            } else {
-                appState.salas = [
+        // ============================================
+        // MAPEO camelCase (JS) <-> snake_case (Supabase)
+        // ============================================
+        function obraFromDb(r) {
+            return {
+                id: r.id, nombre: r.nombre, artista: r.artista, categoria: r.categoria,
+                salaId: r.sala_id, tipo: r.tipo, cortesias: r.cortesias,
+                fechaTiquetera: r.fecha_tiquetera, fechaUltimaFuncion: r.fecha_ultima_funcion,
+                fechaRedes: r.fecha_redes, fechaPauta: r.fecha_pauta,
+                piezasDesarrolladas: r.piezas_desarrolladas, fechaPiezasDesarrolladas: r.fecha_piezas_desarrolladas,
+                videoDisponible: r.video_disponible, fechaVideoPatua: r.fecha_video_pauta,
+                linkRegistro: r.link_registro, fechaCreacionLink: r.fecha_creacion_link, estadoEnlace: r.estado_enlace
+            };
+        }
+        function obraToDb(o) {
+            return {
+                id: o.id, nombre: o.nombre, artista: o.artista, categoria: o.categoria,
+                sala_id: o.salaId, tipo: o.tipo, cortesias: o.cortesias,
+                fecha_tiquetera: o.fechaTiquetera || null, fecha_ultima_funcion: o.fechaUltimaFuncion || null,
+                fecha_redes: o.fechaRedes || null, fecha_pauta: o.fechaPauta || null,
+                piezas_desarrolladas: o.piezasDesarrolladas, fecha_piezas_desarrolladas: o.fechaPiezasDesarrolladas || null,
+                video_disponible: o.videoDisponible, fecha_video_pauta: o.fechaVideoPatua || null,
+                link_registro: o.linkRegistro || null, fecha_creacion_link: o.fechaCreacionLink || null,
+                estado_enlace: o.estadoEnlace || 'Activo'
+            };
+        }
+        function funcionFromDb(r) {
+            return {
+                id: r.id, obraId: r.obra_id, fecha: r.fecha, hora: r.hora, estado: r.estado,
+                cortesias: r.cortesias, cortesiasEntregadas: r.cortesias_entregadas,
+                ventasAcumuladas: r.ventas_acumuladas, registrados: r.registrados,
+                asistenciaTotal: r.asistencia_total, ventasPorDia: r.ventas_por_dia || []
+            };
+        }
+        function funcionToDb(f) {
+            return {
+                id: f.id, obra_id: f.obraId, fecha: f.fecha, hora: f.hora, estado: f.estado || 'programada',
+                cortesias: f.cortesias || 0, cortesias_entregadas: f.cortesiasEntregadas || 0,
+                ventas_acumuladas: f.ventasAcumuladas || 0, registrados: f.registrados || 0,
+                asistencia_total: f.asistenciaTotal || 0, ventas_por_dia: f.ventasPorDia || []
+            };
+        }
+        function accionToDb(a) {
+            return { id: a.id, obra_id: a.obraId, descripcion: a.descripcion, fecha: a.fecha, usuario: a.usuario, hecho: a.hecho || false };
+        }
+        function accionFromDb(r) {
+            return { id: r.id, obraId: r.obra_id, descripcion: r.descripcion, fecha: r.fecha, usuario: r.usuario, hecho: r.hecho };
+        }
+        function historialToDb(h) {
+            return { id: h.id, timestamp: h.timestamp, usuario: h.usuario, obra_id: h.obraId || null, funcion_id: h.funcionId || null, accion: h.accion, detalles: h.detalles };
+        }
+        function historialFromDb(r) {
+            return { id: r.id, timestamp: r.timestamp, usuario: r.usuario, obraId: r.obra_id, funcionId: r.funcion_id, accion: r.accion, detalles: r.detalles };
+        }
+
+        async function initData() {
+            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes] = await Promise.all([
+                db.from('boleteria_salas').select('*').order('id'),
+                db.from('boleteria_obras').select('*'),
+                db.from('boleteria_funciones').select('*'),
+                db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(50),
+                db.from('boleteria_acciones').select('*')
+            ]);
+
+            appState.salas = (salasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre, aforo: r.aforo }));
+            appState.obras = (obrasRes.data || []).map(obraFromDb);
+            appState.funciones = (funcionesRes.data || []).map(funcionFromDb);
+            appState.historial = (historialRes.data || []).map(historialFromDb);
+            appState.acciones = (accionesRes.data || []).map(accionFromDb);
+
+            // Primera vez: sembrar salas por defecto si la base está vacía
+            if (appState.salas.length === 0) {
+                const defaultSalas = [
                     { id: '1', nombre: 'Sala Fanny Mikey', aforo: 222 },
                     { id: '2', nombre: 'Teatro Colón', aforo: 720 },
                     { id: '3', nombre: 'Sala Delia Zapata Olivella', aforo: 300 },
                     { id: '4', nombre: 'Auditorio Principal', aforo: 450 }
                 ];
-
-                appState.temporadas = [
-                    { id: '1', nombre: 'Agosto 2026', fechaInicio: '2026-08-01', fechaFin: '2026-08-31' }
-                ];
-
-                appState.obras = [
-                    { id: '1', nombre: 'De la Raíz al Viento', artista: 'Compañía Teatral', salaId: '1', temporadaId: '1', tipo: 'boleteria', categoria: 'Teatro', fechaTiquetera: '2026-08-10', fechaUltimaFuncion: '2026-08-20', fechaRedes: '2026-08-10', fechaPauta: '2026-08-15', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-05', videoDisponible: true, fechaVideoPatua: '2026-08-08' },
-                    { id: '2', nombre: 'Louis: Michael Varekamp', artista: 'Músicos Clásicos', salaId: '2', temporadaId: '1', tipo: 'boleteria', categoria: 'Conciertos Sinfónicos', fechaTiquetera: '2026-08-05', fechaUltimaFuncion: '2026-08-21', fechaRedes: '2026-08-05', fechaPauta: '2026-08-12', piezasDesarrolladas: true, fechaPiezasDesarrolladas: '2026-08-02', videoDisponible: false, fechaVideoPatua: null },
-                    { id: '3', nombre: 'Entrada Libre CNA', artista: 'Diversos', salaId: '3', temporadaId: '1', tipo: 'entrada_libre', categoria: 'Programación Infantil', fechaTiquetera: '2026-08-14', fechaUltimaFuncion: '2026-08-22', fechaRedes: '2026-08-14', fechaPauta: null, piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null }
-                ];
-
-                appState.funciones = [
-                    { id: '1', obraId: '1', fecha: '2026-08-20', hora: '19:00', estado: 'programada', cortesias: 10, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] },
-                    { id: '2', obraId: '2', fecha: '2026-08-21', hora: '20:00', estado: 'programada', cortesias: 50, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] },
-                    { id: '3', obraId: '3', fecha: '2026-08-22', hora: '18:00', estado: 'programada', cortesias: 0, cortesiasEntregadas: 0, ventasAcumuladas: 0, ventasPorDia: [] }
-                ];
-
-                appState.acciones = [];
-
-                saveData();
+                await db.from('boleteria_salas').insert(defaultSalas);
+                appState.salas = defaultSalas;
             }
         }
 
-        function saveData() {
-            localStorage.setItem('boleteria-data', JSON.stringify({
-                temporadas: appState.temporadas,
-                obras: appState.obras,
-                funciones: appState.funciones,
-                ventas: appState.ventas,
-                entrada_libre: appState.entrada_libre,
-                salas: appState.salas,
-                acciones: appState.acciones,
-                historial: appState.historial
-            }));
+        // saveData sincroniza TODO el estado actual con Supabase (upsert).
+        // Es una sync completa en cada llamada — adecuado para el volumen
+        // de datos de este sistema (decenas de obras/funciones, no miles).
+        async function saveData() {
+            try {
+                if (appState.salas.length) await db.from('boleteria_salas').upsert(appState.salas);
+                if (appState.obras.length) await db.from('boleteria_obras').upsert(appState.obras.map(obraToDb));
+                if (appState.funciones.length) await db.from('boleteria_funciones').upsert(appState.funciones.map(funcionToDb));
+                if (appState.acciones.length) await db.from('boleteria_acciones').upsert(appState.acciones.map(accionToDb));
+                if (appState.historial.length) {
+                    const nuevos = appState.historial.filter(h => h._pendingInsert);
+                    if (nuevos.length) {
+                        await db.from('boleteria_historial').insert(nuevos.map(historialToDb));
+                        nuevos.forEach(h => delete h._pendingInsert);
+                    }
+                }
+            } catch (err) {
+                console.error('Error guardando en Supabase:', err);
+                alert('⚠️ Error al guardar en la base de datos. Revisa tu conexión e intenta de nuevo.');
+            }
         }
+
+        async function deleteFuncionDb(funcionId) {
+            await db.from('boleteria_funciones').delete().eq('id', funcionId);
+        }
+
 
         function handleLogin(e) {
             e.preventDefault();
@@ -840,12 +897,10 @@
             document.getElementById('funcionFecha').focus();
         }
 
-        function deleteFuncion(funcionId) {
+        async function deleteFuncion(funcionId) {
             if (confirm('¿Eliminar esta función?')) {
                 appState.funciones = appState.funciones.filter(f => f.id !== funcionId);
-                appState.ventas = appState.ventas.filter(v => v.funcionId !== funcionId);
-                appState.entrada_libre = appState.entrada_libre.filter(v => v.funcionId !== funcionId);
-                saveData();
+                await deleteFuncionDb(funcionId);
                 alert('✅ Función eliminada');
                 render();
             }
@@ -1361,7 +1416,8 @@
                             usuario: appState.user.email,
                             funcionId: funcionId,
                             accion: 'Registro de ventas',
-                            detalles: 'Boletas: +' + boletas
+                            detalles: 'Boletas: +' + boletas,
+                            _pendingInsert: true
                         });
                         
                         guardadas++;
@@ -1708,8 +1764,9 @@
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            initData();
+        window.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('app').innerHTML = '<div class="min-h-screen flex items-center justify-center bg-gray-50"><p class="text-gray-500">Cargando datos...</p></div>';
+            await initData();
             const savedUser = localStorage.getItem('boleteria-user');
             if (savedUser) appState.user = JSON.parse(savedUser);
             render();
