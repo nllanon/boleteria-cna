@@ -25,6 +25,7 @@
             ventas: [],
             entrada_libre: [],
             salas: [],
+            categorias: [],
             acciones: [],
             historial: [],
             currentPage: 'dashboard',
@@ -100,13 +101,16 @@
         }
 
         async function initData() {
-            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes] = await Promise.all([
+            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes] = await Promise.all([
                 db.from('boleteria_salas').select('*').order('id'),
                 db.from('boleteria_obras').select('*'),
                 db.from('boleteria_funciones').select('*'),
                 db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(50),
-                db.from('boleteria_acciones').select('*')
+                db.from('boleteria_acciones').select('*'),
+                db.from('boleteria_categorias').select('*').order('nombre')
             ]);
+
+            appState.categorias = (categoriasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
 
             appState.salas = (salasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre, aforo: r.aforo }));
             appState.obras = (obrasRes.data || []).map(obraFromDb);
@@ -475,7 +479,7 @@
                 items = [
                     { id: 'dashboard', label: '📊 Dashboard' },
                     { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'salas', label: '🏛️ Salas' },
+                    { id: 'admin', label: '⚙️ Administración' },
                     { id: 'ventas', label: '💵 Registro de Ventas' },
                     { id: 'entrada', label: '🎟️ Entrada Libre' },
                     { id: 'calendario', label: '📅 Calendario' },
@@ -711,20 +715,12 @@
             return html;
         }
 
-        function deleteObra(obraId) {
-            if (confirm('¿Eliminar esta obra? Se borrarán todas sus acciones y registros.')) {
+        async function deleteObra(obraId) {
+            if (confirm('¿Eliminar esta obra? Se borrarán todas sus funciones y acciones.')) {
                 appState.obras = appState.obras.filter(o => o.id !== obraId);
                 appState.acciones = appState.acciones.filter(a => a.obraId !== obraId);
-                appState.ventas = appState.ventas.filter(v => {
-                    const f = appState.funciones.find(x => x.id === v.funcionId);
-                    return f?.obraId !== obraId;
-                });
-                appState.entrada_libre = appState.entrada_libre.filter(v => {
-                    const f = appState.funciones.find(x => x.id === v.funcionId);
-                    return f?.obraId !== obraId;
-                });
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
-                saveData();
+                await db.from('boleteria_obras').delete().eq('id', obraId); // cascada borra funciones/acciones en la BD
                 alert('✅ Obra eliminada');
                 render();
             }
@@ -1173,8 +1169,7 @@
             html += '<div><label class="block text-sm font-medium mb-1">Nombre</label><input type="text" id="obraNombre" value="' + obra.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Artista</label><input type="text" id="obraArtista" value="' + obra.artista + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Categoría</label><select id="obraCategoria" required class="w-full px-3 py-2 border rounded text-sm">';
-            const categorias = ['Teatro', 'Conciertos', 'Exposición', 'Radio en vivo', 'Danza', 'Cuentería', 'Muestra Audiovisual', 'Conciertos Sinfónicos', 'Programación Infantil', 'Conversatorio', 'Música internacional/pop', 'Aniversario', 'Lanzamiento'];
-            categorias.forEach(c => html += '<option value="' + c + '" ' + (obra.categoria === c ? 'selected' : '') + '>' + c + '</option>');
+            appState.categorias.forEach(c => html += '<option value="' + c.nombre + '" ' + (obra.categoria === c.nombre ? 'selected' : '') + '>' + c.nombre + '</option>');
             html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Sala</label><select id="obraSala" required class="w-full px-3 py-2 border rounded text-sm">';
             appState.salas.forEach(s => html += '<option value="' + s.id + '" ' + (obra.salaId === s.id ? 'selected' : '') + '>' + s.nombre + ' (Aforo: ' + s.aforo + ')</option>');
@@ -1628,6 +1623,66 @@
             }
         }
 
+        function renderAdmin() {
+            let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
+            html += '<main class="max-w-5xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">⚙️ Administración</h2>';
+
+            // SALAS
+            html += '<div class="bg-white rounded shadow mb-6 p-4">';
+            html += '<div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold">🏛️ Salas</h3>';
+            html += '<button onclick="openCrearSala()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700">+ Nueva Sala</button></div>';
+            html += '<table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="px-3 py-2 text-left">Nombre</th><th class="px-3 py-2 text-left">Aforo</th><th class="px-3 py-2">Acciones</th></tr></thead><tbody>';
+            appState.salas.forEach(sala => {
+                html += '<tr class="border-b"><td class="px-3 py-2">' + sala.nombre + '</td><td class="px-3 py-2">' + sala.aforo + '</td><td class="px-3 py-2"><button onclick="openEditarSala(\'' + sala.id + '\')" class="text-blue-600 text-xs mr-2">Editar</button><button onclick="deleteSala(\'' + sala.id + '\')" class="text-red-600 text-xs">Eliminar</button></td></tr>';
+            });
+            html += '</tbody></table></div>';
+
+            // CATEGORÍAS
+            html += '<div class="bg-white rounded shadow p-4">';
+            html += '<h3 class="text-lg font-bold mb-3">🏷️ Categorías de Obras</h3>';
+            html += '<form onsubmit="agregarCategoria(event)" class="flex gap-2 mb-4">';
+            html += '<input type="text" id="nuevaCategoriaNombre" placeholder="Nombre de la categoría" required class="flex-1 px-3 py-2 border rounded text-sm" />';
+            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar</button>';
+            html += '</form>';
+            html += '<div class="flex flex-wrap gap-2">';
+            appState.categorias.forEach(c => {
+                html += '<span class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-sm">' + c.nombre + ' <button onclick="eliminarCategoria(\'' + c.id + '\', \'' + c.nombre.replace(/'/g, "\\'") + '\')" class="text-red-500 hover:text-red-700 font-bold">×</button></span>';
+            });
+            html += '</div></div>';
+
+            html += '</main></div>';
+            return html;
+        }
+
+        async function agregarCategoria(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('nuevaCategoriaNombre').value.trim();
+            if (!nombre) return;
+            if (appState.categorias.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())) {
+                alert('⚠️ Esa categoría ya existe');
+                return;
+            }
+            const nueva = { id: Date.now().toString(), nombre };
+            appState.categorias.push(nueva);
+            const { error } = await db.from('boleteria_categorias').insert(nueva);
+            if (error) {
+                alert('⚠️ Error al guardar la categoría');
+                console.error(error);
+            }
+            render();
+        }
+
+        async function eliminarCategoria(id, nombre) {
+            const enUso = appState.obras.some(o => o.categoria === nombre);
+            if (enUso && !confirm('⚠️ Esta categoría está en uso por alguna obra. Las obras que la usan la conservarán como texto, pero ya no podrás elegirla en obras nuevas. ¿Eliminar de todas formas?')) {
+                return;
+            }
+            if (!enUso && !confirm('¿Eliminar la categoría "' + nombre + '"?')) return;
+            appState.categorias = appState.categorias.filter(c => c.id !== id);
+            await db.from('boleteria_categorias').delete().eq('id', id);
+            render();
+        }
+
         function renderSalas() {
             let html = '<div class="min-h-screen bg-gray-50">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">🏛️ Gestión de Salas</h2>';
@@ -1661,7 +1716,7 @@
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Nombre de la Sala</label><input type="text" id="salaNombre" value="' + sala.nombre + '" required class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div class="mb-4"><label class="block text-sm font-medium mb-1">Aforo</label><input type="number" id="salaAforo" value="' + sala.aforo + '" required min="1" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 mr-2">Guardar</button>';
-            html += '<button type="button" onclick="changePage(\'salas\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
+            html += '<button type="button" onclick="changePage(\'admin\')" class="bg-gray-400 text-white px-4 py-2 rounded text-sm">Cancelar</button>';
             html += '</form></main></div>';
             return html;
         }
@@ -1679,15 +1734,15 @@
             }
 
             saveData();
-            appState.currentPage = 'salas';
+            appState.currentPage = 'admin';
             appState.editingSala = null;
             render();
         }
 
-        function deleteSala(id) {
+        async function deleteSala(id) {
             if (confirm('¿Eliminar esta sala?')) {
                 appState.salas = appState.salas.filter(s => s.id !== id);
-                saveData();
+                await db.from('boleteria_salas').delete().eq('id', id);
                 render();
             }
         }
@@ -1848,6 +1903,7 @@
                         setTimeout(() => updateFunctionsSectionDisplay(), 0);
                         break;
                     case 'salas': app.innerHTML = renderSalas(); break;
+                    case 'admin': app.innerHTML = renderAdmin(); break;
                     case 'crear-sala': app.innerHTML = renderCrearSala(); break;
                     case 'ventas': app.innerHTML = renderVentas(); break;
                     case 'entrada': app.innerHTML = renderEntrada(); break;
