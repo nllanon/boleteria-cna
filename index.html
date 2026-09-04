@@ -642,7 +642,7 @@
                     // Total de ventas con disponible
                     html += '<div class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">';
                     html += '<p class="text-xs text-gray-600">Total Vendido / Disponible</p>';
-                    html += '<p class="text-2xl font-bold text-blue-600">' + totalVentas + ' / ' + totalDisponible + ' boletas</p>';
+                    html += '<p class="text-sm font-bold text-blue-600">' + totalVentas + ' / ' + totalDisponible + ' boletas</p>';
                     html += '</div>';
                     
                     // Funciones con su % individual
@@ -703,7 +703,7 @@
                         else if (diasPorVender >= 60) colorDias = 'text-green-600';
                         else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
                         
-                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorDias + ' font-bold">' + diasPorVender + 'd por vender</span></div>';
+                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
                     });
                     html += '</div>';
                     html += '</div>';
@@ -2340,7 +2340,7 @@
                     html += '<div class="fila-reporte" style="display:table; width:100%; table-layout:fixed; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
                     html += '<div style="display:table-cell; width:68%; vertical-align:middle; padding-right:10px;">';
                     html += '<div style="font-size:15px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
-                    html += '<div style="font-size:10px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd por vender' : '') + '</div>';
+                    html += '<div style="font-size:10px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</div>';
                     html += renderIconosEstado(obra);
                     html += '</div>';
                     html += '<div style="display:table-cell; width:32%; vertical-align:middle; text-align:right;">' + colDerecha + '</div>';
