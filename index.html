@@ -1974,15 +1974,30 @@
             return luminancia > 0.6 ? '#111827' : '#ffffff';
         }
 
-        function cambiarMesCalendario(delta) {
+        function cambiarPeriodoCalendario(delta) {
             const hoyReal = new Date();
-            if (appState.calMes === null) { appState.calMes = hoyReal.getMonth(); appState.calAnio = hoyReal.getFullYear(); }
-            let nuevoMes = appState.calMes + delta;
-            let nuevoAnio = appState.calAnio;
-            if (nuevoMes < 0) { nuevoMes = 11; nuevoAnio--; }
-            if (nuevoMes > 11) { nuevoMes = 0; nuevoAnio++; }
-            appState.calMes = nuevoMes;
-            appState.calAnio = nuevoAnio;
+            if (appState.calMes === null || appState.calMes === undefined) appState.calMes = hoyReal.getMonth();
+            if (appState.calAnio === null || appState.calAnio === undefined) appState.calAnio = hoyReal.getFullYear();
+            if (appState.calDia === null || appState.calDia === undefined) appState.calDia = hoyReal.getDate();
+
+            if (appState.calVista === 'dia') {
+                const d = new Date(appState.calAnio, appState.calMes, appState.calDia);
+                d.setDate(d.getDate() + delta);
+                appState.calAnio = d.getFullYear(); appState.calMes = d.getMonth(); appState.calDia = d.getDate();
+            } else if (appState.calVista === 'semana') {
+                const d = new Date(appState.calAnio, appState.calMes, appState.calDia);
+                d.setDate(d.getDate() + delta * 7);
+                appState.calAnio = d.getFullYear(); appState.calMes = d.getMonth(); appState.calDia = d.getDate();
+            } else if (appState.calVista === 'anio') {
+                appState.calAnio += delta;
+            } else {
+                let nuevoMes = appState.calMes + delta;
+                let nuevoAnio = appState.calAnio;
+                if (nuevoMes < 0) { nuevoMes = 11; nuevoAnio--; }
+                if (nuevoMes > 11) { nuevoMes = 0; nuevoAnio++; }
+                appState.calMes = nuevoMes;
+                appState.calAnio = nuevoAnio;
+            }
             render();
         }
 
@@ -1990,6 +2005,12 @@
             const hoyReal = new Date();
             appState.calMes = hoyReal.getMonth();
             appState.calAnio = hoyReal.getFullYear();
+            appState.calDia = hoyReal.getDate();
+            render();
+        }
+
+        function cambiarVistaCalendario(vista) {
+            appState.calVista = vista;
             render();
         }
 
@@ -1999,32 +2020,82 @@
             render();
         }
 
+        function getFuncionesFiltradasFecha(fecha) {
+            return appState.funciones.filter(f => {
+                if (f.fecha !== fecha) return false;
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                if (!obra) return false;
+                if (appState.calFiltroTipo !== 'todas' && obra.tipo !== appState.calFiltroTipo) return false;
+                if (appState.calFiltroSala !== 'todas' && obra.salaId !== appState.calFiltroSala) return false;
+                return true;
+            });
+        }
+
+        function renderEventoCalendario(f, compacto) {
+            const obra = appState.obras.find(o => o.id === f.obraId);
+            const sala = getSala(obra.salaId);
+            const colorFondo = getColorSala(obra.salaId);
+            const colorTexto = colorTextoContraste(colorFondo);
+            const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
+            const limite = compacto ? 20 : 60;
+            const nombreCorto = obra.nombre.length > limite ? obra.nombre.substring(0, limite) + '…' : obra.nombre;
+            const fontSize = compacto ? '10px' : '12px';
+            let html = '<div style="background:' + colorFondo + '; color:' + colorTexto + '; font-size:' + fontSize + '; line-height:1.3;" class="px-1.5 py-1 rounded-sm cursor-pointer hover:opacity-90 truncate mb-0.5" onclick="viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
+            html += icono + ' ' + nombreCorto + ' · ' + f.hora;
+            html += '</div>';
+            return html;
+        }
+
         function renderCalendario() {
             const hoyReal = new Date();
             if (appState.calMes === null || appState.calMes === undefined) appState.calMes = hoyReal.getMonth();
             if (appState.calAnio === null || appState.calAnio === undefined) appState.calAnio = hoyReal.getFullYear();
-            const mes = appState.calMes;
-            const anio = appState.calAnio;
+            if (appState.calDia === null || appState.calDia === undefined) appState.calDia = hoyReal.getDate();
+            if (!appState.calVista) appState.calVista = 'mes';
 
-            const primerDia = new Date(anio, mes, 1).getDay();
-            const diasMes = new Date(anio, mes + 1, 0).getDate();
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-            const diasSemana = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+            const diasSemanaCortos = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
             let html = '<div class="min-h-screen bg-white md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 md:px-8 py-8">';
 
+            // Título dinámico según la vista
+            let titulo = '';
+            if (appState.calVista === 'dia') {
+                const d = new Date(appState.calAnio, appState.calMes, appState.calDia);
+                titulo = d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
+            } else if (appState.calVista === 'semana') {
+                const base = new Date(appState.calAnio, appState.calMes, appState.calDia);
+                const inicioSemana = new Date(base);
+                inicioSemana.setDate(base.getDate() - base.getDay());
+                const finSemana = new Date(inicioSemana);
+                finSemana.setDate(inicioSemana.getDate() + 6);
+                titulo = inicioSemana.getDate() + ' - ' + finSemana.getDate() + ' de ' + meses[finSemana.getMonth()] + ' de ' + finSemana.getFullYear();
+            } else if (appState.calVista === 'anio') {
+                titulo = String(appState.calAnio);
+            } else {
+                titulo = meses[appState.calMes] + ' de ' + appState.calAnio;
+            }
+
             // Encabezado
-            html += '<div class="flex flex-wrap justify-between items-center gap-4 mb-6">';
-            html += '<h1 class="text-3xl md:text-5xl font-light">' + meses[mes] + ' de ' + anio + '</h1>';
+            html += '<div class="flex flex-wrap justify-between items-center gap-4 mb-4">';
+            html += '<h1 class="text-2xl md:text-4xl font-light">' + titulo + '</h1>';
             html += '<div class="flex gap-2">';
-            html += '<button onclick="cambiarMesCalendario(-1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">← Anterior</button>';
+            html += '<button onclick="cambiarPeriodoCalendario(-1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">← Anterior</button>';
             html += '<button onclick="irCalendarioHoy()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border font-medium">Hoy</button>';
-            html += '<button onclick="cambiarMesCalendario(1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">Siguiente →</button>';
+            html += '<button onclick="cambiarPeriodoCalendario(1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">Siguiente →</button>';
             html += '</div>';
             html += '</div>';
 
-            // Filtros
+            // Pestañas de vista
+            html += '<div class="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">';
+            [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['anio', 'Año']].forEach(([id, label]) => {
+                const activo = appState.calVista === id;
+                html += '<button onclick="cambiarVistaCalendario(\'' + id + '\')" class="px-4 py-1.5 rounded-md text-sm font-medium transition ' + (activo ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900') + '">' + label + '</button>';
+            });
+            html += '</div>';
+
+            // Filtros (aplican a todas las vistas)
             html += '<div class="flex flex-wrap gap-3 mb-6 bg-gray-50 p-3 rounded border">';
             html += '<div><label class="block text-xs font-medium mb-1 text-gray-600">Sala</label><select id="calFiltroSala" onchange="aplicarFiltrosCalendario()" class="px-3 py-1.5 border rounded text-sm">';
             html += '<option value="todas"' + (appState.calFiltroSala === 'todas' ? ' selected' : '') + '>Todas las salas</option>';
@@ -2037,7 +2108,7 @@
             html += '</select></div>';
             html += '</div>';
 
-            // Leyenda: colores por sala (mismo tono exacto que en las celdas), icono indica el tipo
+            // Leyenda
             html += '<div class="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-700 items-center">';
             appState.salas.forEach(s => {
                 const color = getColorSala(s.id);
@@ -2047,66 +2118,157 @@
             html += '<span>💵 Boletería</span><span>🎟️ Entrada Libre</span>';
             html += '</div>';
 
-            // Encabezado días de semana
-            html += '<div class="grid grid-cols-7 gap-px bg-gray-100 border-b border-gray-300 mb-px">';
-            diasSemana.forEach(d => {
-                html += '<div class="text-center font-semibold text-gray-700 py-3 text-sm bg-white">' + d + '</div>';
-            });
-            html += '</div>';
-
-            // Grid de fechas
-            html += '<div class="grid grid-cols-7 gap-px bg-gray-300">';
-
-            for (let i = 0; i < primerDia; i++) {
-                html += '<div class="bg-gray-50 min-h-32 p-2"></div>';
+            // Cuerpo según la vista seleccionada
+            if (appState.calVista === 'dia') {
+                html += renderVistaDiaCalendario();
+            } else if (appState.calVista === 'semana') {
+                html += renderVistaSemanaCalendario(diasSemanaCortos);
+            } else if (appState.calVista === 'anio') {
+                html += renderVistaAnioCalendario(meses);
+            } else {
+                html += renderVistaMesCalendario(meses, diasSemanaCortos);
             }
 
-            for (let dia = 1; dia <= diasMes; dia++) {
-                const fecha = String(anio) + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
-                let funcionesDia = appState.funciones.filter(f => f.fecha === fecha);
+            html += '</main></div>';
+            return html;
+        }
 
-                // Aplicar filtros de sala y tipo
-                funcionesDia = funcionesDia.filter(f => {
-                    const obra = appState.obras.find(o => o.id === f.obraId);
-                    if (!obra) return false;
-                    if (appState.calFiltroTipo !== 'todas' && obra.tipo !== appState.calFiltroTipo) return false;
-                    if (appState.calFiltroSala !== 'todas' && obra.salaId !== appState.calFiltroSala) return false;
-                    return true;
-                });
+        function renderVistaDiaCalendario() {
+            const hoyReal = new Date();
+            const fecha = String(appState.calAnio) + '-' + String(appState.calMes + 1).padStart(2, '0') + '-' + String(appState.calDia).padStart(2, '0');
+            const esHoy = fecha === hoyReal.toISOString().split('T')[0];
+            const funciones = getFuncionesFiltradasFecha(fecha).sort((a, b) => a.hora.localeCompare(b.hora));
 
-                const esHoy = fecha === hoyReal.toISOString().split('T')[0];
-
-                html += '<div class="bg-white min-h-32 p-2 hover:bg-gray-50">';
-
-                if (esHoy) {
-                    html += '<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold mb-1">' + dia + '</div>';
-                } else {
-                    html += '<div class="text-xl font-light text-gray-900 mb-1">' + dia + '</div>';
-                }
-
-                html += '<div class="space-y-0.5">';
-                funcionesDia.slice(0, 2).forEach(f => {
+            let html = '<div class="bg-white border rounded-lg p-4">';
+            if (esHoy) html += '<p class="text-sm text-red-600 font-bold mb-3">● Hoy</p>';
+            if (funciones.length === 0) {
+                html += '<p class="text-gray-500 text-sm">Sin funciones/actividades este día.</p>';
+            } else {
+                funciones.forEach(f => {
                     const obra = appState.obras.find(o => o.id === f.obraId);
                     const sala = getSala(obra.salaId);
                     const colorFondo = getColorSala(obra.salaId);
                     const colorTexto = colorTextoContraste(colorFondo);
                     const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-                    const nombreCorto = obra.nombre.length > 20 ? obra.nombre.substring(0, 20) + '…' : obra.nombre;
-                    html += '<div style="background:' + colorFondo + '; color:' + colorTexto + '; font-size:10px; line-height:1.3;" class="px-1.5 py-0.5 rounded-sm cursor-pointer hover:opacity-90 truncate" onclick="viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
-                    html += icono + ' ' + nombreCorto + ' · ' + f.hora;
+                    html += '<div style="border-left:6px solid ' + colorFondo + ';" class="flex justify-between items-center bg-gray-50 rounded p-3 mb-2 cursor-pointer hover:bg-gray-100" onclick="viewObra(\'' + obra.id + '\')">';
+                    html += '<div><div class="font-bold text-sm">' + icono + ' ' + obra.nombre + '</div><div class="text-xs text-gray-600">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + '</div></div>';
+                    html += '<div class="text-right"><div class="font-bold text-lg">' + f.hora + '</div></div>';
                     html += '</div>';
                 });
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderVistaSemanaCalendario(diasSemanaCortos) {
+            const hoyReal = new Date();
+            const base = new Date(appState.calAnio, appState.calMes, appState.calDia);
+            const inicioSemana = new Date(base);
+            inicioSemana.setDate(base.getDate() - base.getDay());
+
+            let html = '<div class="grid grid-cols-7 gap-px bg-gray-300 border border-gray-300">';
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(inicioSemana);
+                d.setDate(inicioSemana.getDate() + i);
+                const fecha = d.toISOString().split('T')[0];
+                const esHoy = fecha === hoyReal.toISOString().split('T')[0];
+                const funciones = getFuncionesFiltradasFecha(fecha);
+
+                html += '<div class="bg-white min-h-64 p-2">';
+                html += '<div class="text-center mb-2 pb-1 border-b"><div class="text-xs text-gray-500">' + diasSemanaCortos[i] + '</div>';
+                html += esHoy
+                    ? '<div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-500 text-white font-bold text-sm">' + d.getDate() + '</div>'
+                    : '<div class="text-lg font-light">' + d.getDate() + '</div>';
+                html += '</div>';
+                funciones.forEach(f => { html += renderEventoCalendario(f, true); });
+                if (funciones.length === 0) html += '<p class="text-xs text-gray-300 text-center mt-2">—</p>';
+                html += '</div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderVistaMesCalendario(meses, diasSemanaCortos) {
+            const hoyReal = new Date();
+            const mes = appState.calMes;
+            const anio = appState.calAnio;
+            const primerDia = new Date(anio, mes, 1).getDay();
+            const diasMes = new Date(anio, mes + 1, 0).getDate();
+
+            let html = '<div class="grid grid-cols-7 gap-px bg-gray-100 border-b border-gray-300 mb-px">';
+            diasSemanaCortos.forEach(d => {
+                html += '<div class="text-center font-semibold text-gray-700 py-3 text-sm bg-white">' + d + '</div>';
+            });
+            html += '</div>';
+
+            html += '<div class="grid grid-cols-7 gap-px bg-gray-300">';
+            for (let i = 0; i < primerDia; i++) {
+                html += '<div class="bg-gray-50 min-h-32 p-2"></div>';
+            }
+            for (let dia = 1; dia <= diasMes; dia++) {
+                const fecha = String(anio) + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+                const funcionesDia = getFuncionesFiltradasFecha(fecha);
+                const esHoy = fecha === hoyReal.toISOString().split('T')[0];
+
+                html += '<div class="bg-white min-h-32 p-2 hover:bg-gray-50 cursor-pointer" onclick="irADiaCalendario(' + anio + ',' + mes + ',' + dia + ')">';
+                html += esHoy
+                    ? '<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold mb-1">' + dia + '</div>'
+                    : '<div class="text-xl font-light text-gray-900 mb-1">' + dia + '</div>';
+
+                html += '<div class="space-y-0.5">';
+                funcionesDia.slice(0, 2).forEach(f => { html += renderEventoCalendario(f, true); });
                 if (funcionesDia.length > 2) {
                     html += '<div class="text-gray-600 text-xs px-1.5">y ' + (funcionesDia.length - 2) + ' más</div>';
                 }
-                html += '</div>';
-
-                html += '</div>';
+                html += '</div></div>';
             }
-
             html += '</div>';
-            html += '</main></div>';
             return html;
+        }
+
+        function renderVistaAnioCalendario(meses) {
+            const hoyReal = new Date();
+            const anio = appState.calAnio;
+            let html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">';
+
+            for (let m = 0; m < 12; m++) {
+                const primerDia = new Date(anio, m, 1).getDay();
+                const diasMes = new Date(anio, m + 1, 0).getDate();
+
+                html += '<div class="border rounded-lg p-3">';
+                html += '<div class="text-center font-bold mb-2 cursor-pointer hover:text-blue-600" onclick="irAMesCalendario(' + anio + ',' + m + ')">' + meses[m] + '</div>';
+                html += '<div class="grid grid-cols-7 gap-0.5 text-[10px] text-gray-400 mb-1">';
+                ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach(d => html += '<div class="text-center">' + d + '</div>');
+                html += '</div>';
+                html += '<div class="grid grid-cols-7 gap-0.5">';
+                for (let i = 0; i < primerDia; i++) html += '<div></div>';
+                for (let dia = 1; dia <= diasMes; dia++) {
+                    const fecha = String(anio) + '-' + String(m + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+                    const tieneEventos = getFuncionesFiltradasFecha(fecha).length > 0;
+                    const esHoy = fecha === hoyReal.toISOString().split('T')[0];
+                    html += '<div onclick="irADiaCalendario(' + anio + ',' + m + ',' + dia + ')" class="text-center text-[11px] py-0.5 rounded cursor-pointer hover:bg-gray-100 ' + (esHoy ? 'bg-red-500 text-white font-bold' : '') + '">' + dia;
+                    if (tieneEventos && !esHoy) html += '<div style="width:4px; height:4px; border-radius:50%; background:#3b82f6; margin:0 auto;"></div>';
+                    html += '</div>';
+                }
+                html += '</div></div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function irADiaCalendario(anio, mes, dia) {
+            appState.calAnio = anio;
+            appState.calMes = mes;
+            appState.calDia = dia;
+            appState.calVista = 'dia';
+            render();
+        }
+
+        function irAMesCalendario(anio, mes) {
+            appState.calAnio = anio;
+            appState.calMes = mes;
+            appState.calVista = 'mes';
+            render();
         }
 
         function renderReportes() {
@@ -2139,13 +2301,12 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Formato vertical (1080px de ancho), pensado para compartir como imagen en redes/WhatsApp.</p>';
+            html += '<p class="text-xs text-gray-500 mb-4">Formato 1080×1920 (historia de Instagram/WhatsApp). Si no caben todas las obras en una imagen, se descargan varias páginas automáticamente.</p>';
 
             const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
 
-            // Contenedor que se captura como imagen — vertical, ancho tipo post de Instagram
             html += '<div id="reporteParaDescargar" style="background:white; padding:20px; width:1080px; font-family: Arial, sans-serif;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
+            html += '<div class="reporte-header" style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
             html += '<div style="font-size:20px; font-weight:bold; color:#111827;">🎭 Boletería CNA — Avance</div>';
             html += '<div style="font-size:12px; color:#6b7280;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
             html += '</div>';
@@ -2153,7 +2314,7 @@
             if (obrasActivas.length === 0) {
                 html += '<p style="color:#6b7280; font-size:14px;">No hay obras activas para mostrar.</p>';
             } else {
-                html += '<div>';
+                html += '<div id="filasReporte">';
                 obrasActivas.forEach(obra => {
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
@@ -2175,7 +2336,7 @@
                     const ultimaFunc = getUltimaFuncion(obra.id);
                     const diasPorVender = ultimaFunc ? calcularDiasPorVender(ultimaFunc.fecha) : 'N/A';
 
-                    html += '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
+                    html += '<div class="fila-reporte" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
                     html += '<div style="flex:1; min-width:0;">';
                     html += '<div style="font-size:14px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
                     html += '<div style="font-size:10px; color:#6b7280;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd por vender' : '') + '</div>';
@@ -2195,22 +2356,77 @@
             return html;
         }
 
-        function descargarReportePNG() {
-            const elemento = document.getElementById('reporteParaDescargar');
-            if (!elemento || !window.html2canvas) {
+        async function descargarReportePNG() {
+            const contenedorOriginal = document.getElementById('reporteParaDescargar');
+            if (!contenedorOriginal || !window.html2canvas) {
                 alert('⚠️ No se pudo generar la imagen. Recarga la página e intenta de nuevo.');
                 return;
             }
-            html2canvas(elemento, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
-                const link = document.createElement('a');
-                const fecha = new Date().toISOString().split('T')[0];
-                link.download = 'reporte-avance-cna-' + fecha + '.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            }).catch(err => {
-                console.error(err);
-                alert('⚠️ Error generando la imagen');
+
+            const ANCHO = 1080;
+            const ALTO = 1920;
+            const PADDING = 20;
+
+            const headerEl = contenedorOriginal.querySelector('.reporte-header');
+            const filas = Array.from(contenedorOriginal.querySelectorAll('.fila-reporte'));
+            const headerHeight = headerEl ? headerEl.offsetHeight : 0;
+            const disponible = ALTO - (PADDING * 2) - headerHeight - 20;
+
+            // Agrupar filas en páginas según su altura real ya renderizada en pantalla
+            const paginas = [];
+            let filasActuales = [];
+            let alturaAcumulada = 0;
+            filas.forEach(fila => {
+                const alturaFila = fila.offsetHeight;
+                if (alturaAcumulada + alturaFila > disponible && filasActuales.length > 0) {
+                    paginas.push(filasActuales);
+                    filasActuales = [];
+                    alturaAcumulada = 0;
+                }
+                filasActuales.push(fila);
+                alturaAcumulada += alturaFila;
             });
+            if (filasActuales.length > 0 || paginas.length === 0) paginas.push(filasActuales);
+
+            const fecha = new Date().toISOString().split('T')[0];
+            const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+
+            for (let i = 0; i < paginas.length; i++) {
+                const pagina = document.createElement('div');
+                pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px; width:' + ANCHO + 'px; height:' + ALTO + 'px; background:white; padding:' + PADDING + 'px; font-family: Arial, sans-serif; box-sizing:border-box; overflow:hidden;';
+
+                const headerClone = headerEl.cloneNode(true);
+                if (paginas.length > 1) {
+                    const badge = document.createElement('div');
+                    badge.style.cssText = 'font-size:11px; color:#9ca3af; white-space:nowrap; margin-left:10px;';
+                    badge.textContent = 'Pág. ' + (i + 1) + '/' + paginas.length;
+                    headerClone.appendChild(badge);
+                }
+                pagina.appendChild(headerClone);
+
+                const listaDiv = document.createElement('div');
+                paginas[i].forEach(fila => listaDiv.appendChild(fila.cloneNode(true)));
+                pagina.appendChild(listaDiv);
+
+                document.body.appendChild(pagina);
+
+                try {
+                    const canvas = await html2canvas(pagina, { backgroundColor: '#ffffff', scale: 2, width: ANCHO, height: ALTO });
+                    const link = document.createElement('a');
+                    link.download = 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    await new Promise(r => setTimeout(r, 300));
+                } catch (err) {
+                    console.error(err);
+                    alert('⚠️ Error generando la imagen ' + (i + 1));
+                } finally {
+                    document.body.removeChild(pagina);
+                }
+            }
+
+            if (btn) { btn.disabled = false; btn.textContent = '📥 Descargar PNG'; }
         }
 
         function renderHistorial() {
