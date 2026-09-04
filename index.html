@@ -882,7 +882,17 @@
                         html += '</form>';
                     } else {
                         html += '<div class="flex justify-between items-center">';
+                        html += '<div>';
                         html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
+                        if (obra.tipo === 'boleteria') {
+                            const ventasFunc = f.ventasAcumuladas || 0;
+                            const disponibleFunc = Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                            const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
+                            html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong class="text-blue-600">' + ventasFunc + ' / ' + disponibleFunc + '</strong> (' + pctFunc + '%)</div>';
+                        } else {
+                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong class="text-purple-600">' + (f.registrados || 0) + '</strong></div>';
+                        }
+                        html += '</div>';
                         html += '<div class="flex gap-2">';
                         html += '<button onclick="verHistorialFuncion(\'' + f.id + '\')" class="text-gray-600 text-xs font-medium" title="Ver historial de cambios">🕐 Historial</button>';
                         if (canEdit) {
