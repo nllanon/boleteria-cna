@@ -2306,9 +2306,9 @@
             const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
 
             html += '<div id="reporteParaDescargar" style="background:white; padding:20px; width:1080px; font-family: Arial, sans-serif;">';
-            html += '<div class="reporte-header" style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
-            html += '<div style="font-size:20px; font-weight:bold; color:#111827;">🎭 Boletería CNA — Avance</div>';
-            html += '<div style="font-size:12px; color:#6b7280;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
+            html += '<div class="reporte-header" style="display:table; width:100%; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
+            html += '<div style="display:table-cell; font-size:20px; font-weight:bold; color:#111827; vertical-align:bottom;">🎭 Boletería CNA — Avance</div>';
+            html += '<div style="display:table-cell; font-size:32px; font-weight:bold; color:#111827; text-align:right; vertical-align:bottom;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
             html += '</div>';
 
             if (obrasActivas.length === 0) {
@@ -2320,32 +2320,29 @@
                     const funciones = getFuncionesObra(obra.id);
                     const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
 
-                    let metricaPrincipal = '';
-                    let metricaLabel = '';
+                    let colDerecha = '';
                     if (obra.tipo === 'boleteria') {
                         const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
                         const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
-                        metricaPrincipal = totalVentas + ' / ' + totalDisponible;
-                        metricaLabel = 'Vendidas/Disp.';
+                        const pctVenta = totalDisponible > 0 ? Math.round((totalVentas / totalDisponible) * 100) : 0;
+                        colDerecha = '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + totalVentas + '/' + totalDisponible + ' vendidas</div>';
+                        colDerecha += '<div style="font-size:22px; font-weight:bold; color:#2563eb; line-height:1.2;">' + pctVenta + '%</div>';
                     } else {
                         const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
-                        metricaPrincipal = String(totalRegistrados);
-                        metricaLabel = 'Registrados';
+                        colDerecha = '<div style="font-size:9px; color:#6b7280;">Registrados</div>';
+                        colDerecha += '<div style="font-size:22px; font-weight:bold; color:#2563eb; line-height:1.2;">' + totalRegistrados + '</div>';
                     }
 
                     const ultimaFunc = getUltimaFuncion(obra.id);
                     const diasPorVender = ultimaFunc ? calcularDiasPorVender(ultimaFunc.fecha) : 'N/A';
 
-                    html += '<div class="fila-reporte" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
-                    html += '<div style="flex:1; min-width:0;">';
-                    html += '<div style="font-size:14px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
-                    html += '<div style="font-size:10px; color:#6b7280;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd por vender' : '') + '</div>';
+                    html += '<div class="fila-reporte" style="display:table; width:100%; table-layout:fixed; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
+                    html += '<div style="display:table-cell; width:68%; vertical-align:middle; padding-right:10px;">';
+                    html += '<div style="font-size:15px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
+                    html += '<div style="font-size:10px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd por vender' : '') + '</div>';
+                    html += renderIconosEstado(obra);
                     html += '</div>';
-                    html += '<div style="flex-shrink:0;">' + renderIconosEstado(obra) + '</div>';
-                    html += '<div style="flex-shrink:0; text-align:right; min-width:90px;">';
-                    html += '<div style="font-size:9px; color:#6b7280;">' + metricaLabel + '</div>';
-                    html += '<div style="font-size:15px; font-weight:bold; color:#2563eb;">' + metricaPrincipal + '</div>';
-                    html += '</div>';
+                    html += '<div style="display:table-cell; width:32%; vertical-align:middle; text-align:right;">' + colDerecha + '</div>';
                     html += '</div>';
                 });
                 html += '</div>';
