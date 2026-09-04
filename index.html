@@ -2318,25 +2318,107 @@
 
         function renderReportes() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
-            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📈 Reportes</h2>';
-            html += '<div class="grid grid-cols-2 gap-4">';
-            html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen de Ventas</h3><p class="text-sm text-gray-600">Total ventas: ' + appState.ventas.length + '</p></div>';
-            html += '<div class="bg-white p-4 rounded shadow"><h3 class="font-bold mb-2">Resumen Entrada Libre</h3><p class="text-sm text-gray-600">Total registros: ' + appState.entrada_libre.length + '</p></div>';
-            html += '<div class="bg-white p-4 rounded shadow col-span-2"><h3 class="font-bold mb-3">Detalles por Obra</h3>';
-            let obras_filtradas = appState.obras.filter(o => puedeVerObra(o));
-            obras_filtradas.forEach(o => {
-                const ventasObra = appState.ventas.filter(v => {
-                    const f = appState.funciones.find(x => x.id === v.funcionId);
-                    return f?.obraId === o.id;
-                });
-                const entradaObra = appState.entrada_libre.filter(v => {
-                    const f = appState.funciones.find(x => x.id === v.funcionId);
-                    return f?.obraId === o.id;
-                });
-                html += '<div class="mb-3 pb-3 border-b"><strong>' + o.nombre + '</strong>: Ventas: ' + ventasObra.length + ' | Entrada: ' + entradaObra.length + '</div>';
-            });
-            html += '</div></div></main></div>';
+            html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">📈 Reportes</h2>';
+
+            const obrasVisibles = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const obrasBoleto = obrasVisibles.filter(o => o.tipo === 'boleteria');
+            const obrasEntrada = obrasVisibles.filter(o => o.tipo === 'entrada_libre');
+
+            html += '<div class="bg-white p-4 rounded shadow mb-6">';
+            html += '<h3 class="font-bold mb-3">💵 % de Venta por Obra (Boletería)</h3>';
+            if (obrasBoleto.length === 0) {
+                html += '<p class="text-sm text-gray-500">Sin obras de boletería activas.</p>';
+            } else {
+                html += '<div style="position:relative; height:' + Math.max(250, obrasBoleto.length * 45) + 'px;"><canvas id="chartPctVentas"></canvas></div>';
+            }
+            html += '</div>';
+
+            html += '<div class="bg-white p-4 rounded shadow mb-6">';
+            html += '<h3 class="font-bold mb-3">🎟️ % de Registrados por Obra (Entrada Libre)</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Puede superar el 100% — no todo el que se registra asiste.</p>';
+            if (obrasEntrada.length === 0) {
+                html += '<p class="text-sm text-gray-500">Sin obras de entrada libre activas.</p>';
+            } else {
+                html += '<div style="position:relative; height:' + Math.max(250, obrasEntrada.length * 45) + 'px;"><canvas id="chartPctRegistrados"></canvas></div>';
+            }
+            html += '</div>';
+
+            html += '</main></div>';
+
+            setTimeout(() => renderGraficosReportes(obrasBoleto, obrasEntrada), 50);
+
             return html;
+        }
+
+        function renderGraficosReportes(obrasBoleto, obrasEntrada) {
+            if (!window.Chart) return;
+
+            if (window.chartPctVentasInstance) window.chartPctVentasInstance.destroy();
+            if (window.chartPctRegistradosInstance) window.chartPctRegistradosInstance.destroy();
+
+            const canvasVentas = document.getElementById('chartPctVentas');
+            if (canvasVentas && obrasBoleto.length > 0) {
+                const datos = obrasBoleto.map(obra => {
+                    const sala = getSala(obra.salaId);
+                    const funciones = getFuncionesObra(obra.id);
+                    const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
+                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
+                    const pct = totalDisponible > 0 ? Math.round((totalVentas / totalDisponible) * 100) : 0;
+                    return { nombre: obra.nombre, pct };
+                }).sort((a, b) => b.pct - a.pct);
+
+                window.chartPctVentasInstance = new Chart(canvasVentas, {
+                    type: 'bar',
+                    data: {
+                        labels: datos.map(d => d.nombre),
+                        datasets: [{
+                            label: '% de venta',
+                            data: datos.map(d => d.pct),
+                            backgroundColor: datos.map(d => d.pct >= 70 ? '#22c55e' : d.pct >= 40 ? '#eab308' : '#ef4444'),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { callback: v => v + '%' } } }
+                    }
+                });
+            }
+
+            const canvasRegistros = document.getElementById('chartPctRegistrados');
+            if (canvasRegistros && obrasEntrada.length > 0) {
+                const datos = obrasEntrada.map(obra => {
+                    const sala = getSala(obra.salaId);
+                    const funciones = getFuncionesObra(obra.id);
+                    const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
+                    const aforoTotal = (sala?.aforo || 0) * funciones.length;
+                    const pct = aforoTotal > 0 ? Math.round((totalRegistrados / aforoTotal) * 100) : 0;
+                    return { nombre: obra.nombre, pct };
+                }).sort((a, b) => b.pct - a.pct);
+
+                window.chartPctRegistradosInstance = new Chart(canvasRegistros, {
+                    type: 'bar',
+                    data: {
+                        labels: datos.map(d => d.nombre),
+                        datasets: [{
+                            label: '% de registrados',
+                            data: datos.map(d => d.pct),
+                            backgroundColor: '#8b5cf6',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { callback: v => v + '%' } } }
+                    }
+                });
+            }
         }
 
         function renderReporteDiario() {
