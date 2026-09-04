@@ -44,7 +44,8 @@
             calMes: null,
             calAnio: null,
             calFiltroSala: 'todas',
-            calFiltroTipo: 'todas'
+            calFiltroTipo: 'todas',
+            dashboardBusqueda: ''
         };
 
         const USUARIOS = {
@@ -601,6 +602,11 @@
             return html;
         }
 
+        function filtrarDashboard() {
+            appState.dashboardBusqueda = document.getElementById('dashboardBuscador').value;
+            render();
+        }
+
         function renderDashboard() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📊 Dashboard</h2>';
@@ -616,8 +622,26 @@
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Temporada</p><p class="text-2xl font-bold text-purple-600">1</p></div>';
             html += '</div>';
 
+            // Buscador
+            html += '<div class="mb-6"><div class="relative max-w-md">';
+            html += '<input type="text" id="dashboardBuscador" oninput="filtrarDashboard()" value="' + (appState.dashboardBusqueda || '') + '" placeholder="🔍 Buscar obra por nombre, artista o categoría..." class="w-full px-4 py-2 border rounded-lg text-sm shadow-sm" />';
+            html += '</div></div>';
+
+            const busqueda = (appState.dashboardBusqueda || '').toLowerCase().trim();
+            if (busqueda) {
+                obrasFiltradas = obrasFiltradas.filter(o =>
+                    (o.nombre || '').toLowerCase().includes(busqueda) ||
+                    (o.artista || '').toLowerCase().includes(busqueda) ||
+                    (o.categoria || '').toLowerCase().includes(busqueda)
+                );
+            }
+
             const obrasBoleto = obrasFiltradas.filter(o => o.tipo === 'boleteria');
             const obrasEntrada = obrasFiltradas.filter(o => o.tipo === 'entrada_libre');
+
+            if (busqueda && obrasBoleto.length === 0 && obrasEntrada.length === 0) {
+                html += '<p class="text-gray-500 text-sm mb-6">Sin resultados para "' + (appState.dashboardBusqueda || '') + '"</p>';
+            }
 
             html += '<div class="grid grid-cols-2 gap-6">';
 
