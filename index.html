@@ -592,13 +592,11 @@
 
         function renderIconosEstado(obra) {
             const item = (activo, emoji, titulo) => {
-                const badge = activo ? '' : '<span style="position:absolute; top:-4px; right:-4px; font-size:9px; background:#ef4444; color:white; border-radius:9999px; width:14px; height:14px; display:flex; align-items:center; justify-content:center; line-height:1; font-weight:bold;">✕</span>';
-                return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="position:relative; display:inline-block;">'
-                    + '<span style="font-size:1.25rem; filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.4)') + ';">' + emoji + '</span>'
-                    + badge
+                return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="display:inline-block;">'
+                    + '<span style="font-size:1.1rem; filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.35)') + ';">' + emoji + '</span>'
                     + '</span>';
             };
-            let html = '<div class="flex gap-3 items-center">';
+            let html = '<div class="flex gap-1.5 items-center flex-wrap">';
             html += item(!!obra.piezasDesarrolladas, ICONOS.piezas, 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
                 html += item(!!obra.fechaTiquetera, ICONOS.tiquetera, 'Tiquetera (en línea)');
@@ -632,10 +630,19 @@
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
 
             const totalVentas = appState.funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-            html += '<div class="grid grid-cols-3 gap-2 mb-6">';
+            const totalDisponibleGlobal = appState.funciones.reduce((sum, f) => {
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                if (!obra || obra.tipo !== 'boleteria') return sum;
+                const sala = getSala(obra.salaId);
+                return sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+            }, 0);
+            const pctGlobal = totalDisponibleGlobal > 0 ? Math.round((totalVentas / totalDisponibleGlobal) * 100) : 0;
+
+            html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Boletas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Boletas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">% Total</p><span style="' + estiloPctBadge(pctGlobal) + ' font-size:20px; font-weight:bold;">' + pctGlobal + '%</span></div>';
             html += '</div>';
 
             // Buscador
@@ -680,12 +687,39 @@
                 const grupo = grupos[key];
                 if (grupo.obras.length === 0) return;
 
-                html += '<div class="mb-8">';
-                html += '<h3 class="text-lg font-bold mb-3 flex items-center gap-2">🎪 ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></h3>';
-                html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                // Total agregado del grupo (separado por tipo, ya que boletería y
+                // entrada libre miden cosas distintas)
+                let numB = 0, denB = 0, numE = 0, denE = 0;
+                grupo.obras.forEach(obra => {
+                    const sala = getSala(obra.salaId);
+                    getFuncionesObra(obra.id).forEach(f => {
+                        if (obra.tipo === 'boleteria') {
+                            numB += f.ventasAcumuladas || 0;
+                            denB += Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                        } else {
+                            numE += f.registrados || 0;
+                            denE += sala?.aforo || 0;
+                        }
+                    });
+                });
+                const pctB = denB > 0 ? Math.round((numB / denB) * 100) : null;
+                const pctE = denE > 0 ? Math.round((numE / denE) * 100) : null;
+
+                html += '<details open class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
+                html += '<summary style="cursor:pointer; list-style:none;" class="p-4 flex flex-wrap items-center justify-between gap-2">';
+                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> 🎪 ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
+                html += '<span class="flex items-center gap-2">';
+                if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-size:14px; font-weight:bold;">💵 ' + pctB + '%</span>';
+                if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold;">🎟️ ' + pctE + '%</span>';
+                html += '</span>';
+                html += '</summary>';
+                html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3">';
                 grupo.obras.forEach(obra => { html += renderTarjetaDashboard(obra); });
                 html += '</div></div>';
+                html += '</details>';
             });
+
+            html += '<style>details[open] > summary .triangulo-cascada { transform: rotate(90deg); } summary::-webkit-details-marker { display:none; } summary { list-style:none; }</style>';
 
             html += '</main></div>';
             return html;
@@ -727,27 +761,25 @@
 
             const pctTotal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : 0;
 
-            let html = '<div onclick="viewObra(\'' + obra.id + '\')" style="display:flex; flex-direction:column; height:340px;" class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg">';
+            let html = '<div onclick="viewObra(\'' + obra.id + '\')" style="display:flex; flex-direction:column; height:340px;" class="bg-white p-3 rounded shadow cursor-pointer hover:shadow-lg">';
 
-            // Encabezado fijo
-            html += '<div class="flex justify-between items-start mb-1">';
-            html += '<h4 class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:80%;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</h4>';
-            html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-base flex-shrink-0">📊</button>';
+            // Encabezado fijo — nombre + TOTAL de la obra (ya no al final de la tarjeta)
+            html += '<div class="flex justify-between items-start gap-2 mb-1">';
+            html += '<h4 class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</h4>';
+            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-size:12px; font-weight:bold; flex-shrink:0;">' + pctTotal + '%</span>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-2">' + (sala?.nombre || '') + '</p>';
-            html += '<div class="mb-2">' + renderIconosEstado(obra) + '</div>';
+            html += '<div class="flex justify-between items-center mb-2">';
+            html += '<p class="text-xs text-gray-500">' + (sala?.nombre || '') + '</p>';
+            html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-sm flex-shrink-0">📊</button>';
+            html += '</div>';
 
             // Lista de funciones (scrollable si hay muchas, para mantener tarjeta uniforme)
             html += '<div style="flex:1; overflow-y:auto; min-height:0;">';
             html += filasFunciones || '<p class="text-xs text-gray-400">Sin funciones</p>';
             html += '</div>';
 
-            // Total fijo abajo
-            html += '<div style="border-top:2px solid #e5e7eb; padding-top:8px; margin-top:8px;" class="flex justify-between items-center">';
-            html += '<span class="text-xs font-bold text-gray-600">TOTAL</span>';
-            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-size:13px; font-weight:bold;">' + pctTotal + '%</span>';
-            html += '</div>';
-            html += '<div class="text-xs text-gray-500 mt-1">' + totalNum + ' / ' + totalDen + (esBoleteria ? ' boletas' : ' cupos') + '</div>';
+            // Iconos de estado — debajo de vendidas/por vender, al pie de la tarjeta
+            html += '<div style="border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px;">' + renderIconosEstado(obra) + '</div>';
 
             html += '</div>';
             return html;
