@@ -2577,6 +2577,25 @@
             return html;
         }
 
+        function renderFilaReportePreviewHTML(item) {
+            if (item.tipo === 'mes') {
+                return '<div style="font-size:13px; font-weight:bold; color:#374151; background:#f3f4f6; padding:6px 8px; margin-top:4px; margin-bottom:2px; border-radius:4px;">📅 ' + item.label + '</div>';
+            }
+            if (item.tipo === 'subtipo') {
+                return '<div style="font-size:10px; font-weight:bold; color:#6b7280; padding:3px 6px 1px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
+            }
+            let html = '<div style="display:flex; align-items:center; padding:6px 4px; border-bottom:1px solid #e5e7eb;">';
+            html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
+            html += '<strong>' + item.icono + ' ' + item.nombre + '</strong>';
+            html += ' <span style="color:#6b7280; font-size:11px;">· ' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</span>';
+            html += '</div>';
+            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
+            html += '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
+            html += '<div style="font-size:13px; font-weight:bold; color:' + item.metricaColor + '; white-space:nowrap;">' + item.metricaValor + '</div>';
+            html += '</div></div>';
+            return html;
+        }
+
         function renderReporteDiario() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-full mx-auto px-4 py-6">';
@@ -2593,7 +2612,7 @@
             if (items.filter(i => i.tipo === 'funcion').length === 0) {
                 html += '<p style="color:#6b7280; font-size:14px;">No hay funciones activas para mostrar.</p>';
             } else {
-                items.forEach(item => { html += renderFilaReporteHTML(item); });
+                items.forEach(item => { html += renderFilaReportePreviewHTML(item); });
             }
             html += '</div></div>';
 
