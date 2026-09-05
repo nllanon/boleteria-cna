@@ -632,7 +632,6 @@
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
 
             const totalVentas = appState.funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-            const totalMembresia = appState.obras.reduce((sum, o) => sum + (o.totalMembresia || 0), 0);
             html += '<div class="grid grid-cols-3 gap-2 mb-6">';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Boletas</p><p class="text-2xl font-bold text-green-600">' + totalVentas + '</p></div>';
@@ -653,105 +652,97 @@
                 );
             }
 
-            const obrasBoleto = obrasFiltradas.filter(o => o.tipo === 'boleteria');
-            const obrasEntrada = obrasFiltradas.filter(o => o.tipo === 'entrada_libre');
-
-            if (busqueda && obrasBoleto.length === 0 && obrasEntrada.length === 0) {
+            if (busqueda && obrasFiltradas.length === 0) {
                 html += '<p class="text-gray-500 text-sm mb-6">Sin resultados para "' + (appState.dashboardBusqueda || '') + '"</p>';
+                html += '</main></div>';
+                return html;
             }
 
-            html += '<div class="grid grid-cols-2 gap-6">';
+            // Agrupar por Temporada/Festival/Encuentro
+            const grupos = {};
+            const ordenGrupos = [];
+            appState.agrupadores.forEach(a => { grupos[a.id] = { nombre: a.nombre, obras: [] }; ordenGrupos.push(a.id); });
+            grupos['__sin_agrupar__'] = { nombre: 'Sin Temporada / Festival / Encuentro asignado', obras: [] };
+            ordenGrupos.push('__sin_agrupar__');
 
-            if (obrasBoleto.length > 0) {
-                html += '<div><h3 class="text-lg font-bold mb-3">💵 Obras con Boletería</h3>';
-                html += '<div class="grid grid-cols-1 gap-4">';
-                obrasBoleto.forEach(obra => {
-                    const sala = getSala(obra.salaId);
-                    const funciones = getFuncionesObra(obra.id);
-                    const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
-                    
-                    html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
-                    html += '<div class="flex justify-between items-start mb-3">';
-                    html += '<div><h4 class="font-bold text-base text-gray-800">' + obra.nombre + '</h4>';
-                    html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p></div>';
-                    html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg">📊</button>';
-                    html += '</div>';
-                    
-                    html += renderIconosEstado(obra);
-                    
-                    // Total de ventas con disponible
-                    html += '<div class="bg-blue-50 p-3 rounded mb-3 border-l-4 border-blue-500">';
-                    html += '<p class="text-xs text-gray-600">Total Vendido / Disponible</p>';
-                    html += '<p class="text-sm font-bold text-blue-600">' + totalVentas + ' / ' + totalDisponible + ' boletas</p>';
-                    html += '</div>';
-                    
-                    // Funciones con su % individual
-                    html += '<div class="bg-gray-50 p-3 rounded">';
-                    funciones.forEach(f => {
-                        const ventasFunc = (f.ventasAcumuladas || 0);
-                        const aforo = sala?.aforo || 1;
-                        const cortesiasEntregadas = f.cortesiasEntregadas || 0;
-                        const disponible = Math.max(1, aforo - cortesiasEntregadas);
-                        const porcenVenta = Math.round((ventasFunc / disponible) * 100);
-                        
-                        const diasPorVender = calcularDiasPorVender(f.fecha);
-                        
-                        let colorDias = 'text-red-600';
-                        if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
-                        else if (diasPorVender >= 60) colorDias = 'text-green-600';
-                        else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
-                        
-                        html += '<div class="text-xs mb-2">';
-                        html += '<strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | ';
-                        html += '<span style="' + estiloPctBadge(porcenVenta) + ' font-size:11px;" class="font-bold">' + porcenVenta + '%</span> | ';
-                        html += '<span class="' + colorDias + ' font-bold">' + diasPorVender + 'd</span>';
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                    html += '</div>';
-                });
+            obrasFiltradas.forEach(o => {
+                const key = (o.agrupadorId && grupos[o.agrupadorId]) ? o.agrupadorId : '__sin_agrupar__';
+                grupos[key].obras.push(o);
+            });
+
+            ordenGrupos.forEach(key => {
+                const grupo = grupos[key];
+                if (grupo.obras.length === 0) return;
+
+                html += '<div class="mb-8">';
+                html += '<h3 class="text-lg font-bold mb-3 flex items-center gap-2">🎪 ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></h3>';
+                html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                grupo.obras.forEach(obra => { html += renderTarjetaDashboard(obra); });
                 html += '</div></div>';
-            }
+            });
 
-            if (obrasEntrada.length > 0) {
-                html += '<div><h3 class="text-lg font-bold mb-3">🎟️ Obras con Entrada Libre</h3>';
-                html += '<div class="grid grid-cols-1 gap-4">';
-                obrasEntrada.forEach(obra => {
-                    const sala = getSala(obra.salaId);
-                    const funciones = getFuncionesObra(obra.id);
-                    
-                    html += '<div class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg" onclick="viewObra(\'' + obra.id + '\')">';
-                    html += '<div class="flex justify-between items-start mb-3">';
-                    html += '<div><h4 class="font-bold text-base text-gray-800">' + obra.nombre + '</h4>';
-                    html += '<p class="text-xs text-gray-600">' + obra.artista + ' | ' + sala?.nombre + '</p></div>';
-                    html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-lg">📊</button>';
-                    html += '</div>';
-                    
-                    html += renderIconosEstado(obra);
-                    
-                    // Funciones
-                    html += '<div class="bg-gray-50 p-3 rounded mb-3">';
-                    funciones.forEach(f => {
-                        const diasPorVender = calcularDiasPorVender(f.fecha);
-                        const registradosFunc = f.registrados || 0;
-                        const aforoSala = sala?.aforo || 0;
-                        const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
+            html += '</main></div>';
+            return html;
+        }
 
-                        let colorDias = 'text-red-600';
-                        if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
-                        else if (diasPorVender >= 60) colorDias = 'text-green-600';
-                        else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
+        function renderTarjetaDashboard(obra) {
+            const sala = getSala(obra.salaId);
+            const funciones = getFuncionesObra(obra.id);
+            const esBoleteria = obra.tipo === 'boleteria';
 
-                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span style="' + estiloPctBadge(pctRegistro) + ' font-size:11px;" class="font-bold">' + pctRegistro + '%</span> | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
-                    });
-                    html += '</div>';
-                    html += '</div>';
-                });
-                html += '</div></div>';
-            }
+            let totalNum = 0, totalDen = 0;
 
-            html += '</div></main></div>';
+            let filasFunciones = '';
+            funciones.forEach(f => {
+                let numerador, denominador, etiquetaIzq, etiquetaDer;
+                if (esBoleteria) {
+                    numerador = f.ventasAcumuladas || 0;
+                    denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                    etiquetaIzq = numerador + ' vendidas';
+                    etiquetaDer = Math.max(0, denominador - numerador) + ' por vender';
+                } else {
+                    numerador = f.registrados || 0;
+                    denominador = sala?.aforo || 0;
+                    etiquetaIzq = numerador + ' registrados';
+                    etiquetaDer = Math.max(0, denominador - numerador) + ' cupos libres';
+                }
+                totalNum += numerador;
+                totalDen += denominador;
+                const pct = denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
+
+                filasFunciones += '<div style="padding:6px 0; border-bottom:1px solid #f3f4f6;">';
+                filasFunciones += '<div class="flex justify-between items-center">';
+                filasFunciones += '<div class="text-xs text-gray-700">' + formatearFecha(f.fecha) + ' <span class="text-gray-400">' + formatearHora(f.hora) + '</span></div>';
+                filasFunciones += '<span style="' + estiloPctBadge(pct) + ' font-size:11px; font-weight:bold;">' + pct + '%</span>';
+                filasFunciones += '</div>';
+                filasFunciones += '<div class="text-xs text-gray-500 mt-0.5">' + etiquetaIzq + ' · ' + etiquetaDer + '</div>';
+                filasFunciones += '</div>';
+            });
+
+            const pctTotal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : 0;
+
+            let html = '<div onclick="viewObra(\'' + obra.id + '\')" style="display:flex; flex-direction:column; height:340px;" class="bg-white p-4 rounded shadow cursor-pointer hover:shadow-lg">';
+
+            // Encabezado fijo
+            html += '<div class="flex justify-between items-start mb-1">';
+            html += '<h4 class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:80%;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</h4>';
+            html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-base flex-shrink-0">📊</button>';
+            html += '</div>';
+            html += '<p class="text-xs text-gray-500 mb-2">' + (sala?.nombre || '') + '</p>';
+
+            // Lista de funciones (scrollable si hay muchas, para mantener tarjeta uniforme)
+            html += '<div style="flex:1; overflow-y:auto; min-height:0;">';
+            html += filasFunciones || '<p class="text-xs text-gray-400">Sin funciones</p>';
+            html += '</div>';
+
+            // Total fijo abajo
+            html += '<div style="border-top:2px solid #e5e7eb; padding-top:8px; margin-top:8px;" class="flex justify-between items-center">';
+            html += '<span class="text-xs font-bold text-gray-600">TOTAL</span>';
+            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-size:13px; font-weight:bold;">' + pctTotal + '%</span>';
+            html += '</div>';
+            html += '<div class="text-xs text-gray-500 mt-1">' + totalNum + ' / ' + totalDen + (esBoleteria ? ' boletas' : ' cupos') + '</div>';
+
+            html += '</div>';
             return html;
         }
 
