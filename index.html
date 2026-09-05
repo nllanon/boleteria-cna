@@ -735,6 +735,7 @@
             html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-base flex-shrink-0">📊</button>';
             html += '</div>';
             html += '<p class="text-xs text-gray-500 mb-2">' + (sala?.nombre || '') + '</p>';
+            html += '<div class="mb-2">' + renderIconosEstado(obra) + '</div>';
 
             // Lista de funciones (scrollable si hay muchas, para mantener tarjeta uniforme)
             html += '<div style="flex:1; overflow-y:auto; min-height:0;">';
