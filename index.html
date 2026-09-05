@@ -721,7 +721,7 @@
                 html += '<summary style="cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap;" class="p-4">';
                 html += '<span style="display:flex; align-items:center; gap:8px; min-width:0; flex:1; overflow:hidden;">';
                 html += '<span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s; flex-shrink:0;">▶</span>';
-                html += '<span style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:bold; font-size:1.125rem;">' + grupo.nombre + '</span>';
+                html += '<span style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:bold; font-size:1.125rem;">' + truncarTexto(grupo.nombre, 26) + '</span>';
                 html += '<span style="flex-shrink:0; font-size:0.75rem; font-weight:normal; color:#6b7280;">(' + grupo.obras.length + ')</span>';
                 html += '</span>';
                 html += '<span style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
