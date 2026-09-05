@@ -3034,7 +3034,7 @@
             }
 
             const meses = construirMesesReporte();
-            const totalFunciones = meses.reduce((s, m) => s + m.boleteria.length + m.entrada.length, 0);
+            const totalFunciones = meses.reduce((s, m) => s + m.temporadas.reduce((s2, t) => s2 + t.obras.reduce((s3, o) => s3 + o.funciones.length, 0), 0), 0);
             if (totalFunciones === 0) {
                 alert('⚠️ No hay funciones activas para incluir en el reporte.');
                 return;
