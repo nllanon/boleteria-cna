@@ -2420,6 +2420,125 @@
             }
         }
 
+        const REPORTE_ALTO_ROW = 50;
+        const REPORTE_ALTO_MES = 42;
+        const REPORTE_ALTO_HEADER = 80;
+        const REPORTE_ANCHO = 1080;
+        const REPORTE_ALTO_TOTAL = 1920;
+        const REPORTE_PADDING = 20;
+
+        const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        function construirItemsReporte() {
+            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const filas = [];
+
+            obrasActivas.forEach(obra => {
+                const sala = getSala(obra.salaId);
+                const funciones = getFuncionesObra(obra.id);
+                funciones.forEach(f => {
+                    const d = new Date(f.fecha);
+                    let metricaTexto, metricaValor, metricaColor;
+                    if (obra.tipo === 'boleteria') {
+                        const disponible = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                        const pct = Math.round(((f.ventasAcumuladas || 0) / disponible) * 100);
+                        metricaTexto = (f.ventasAcumuladas || 0) + '/' + disponible;
+                        metricaValor = pct + '%';
+                        metricaColor = '#2563eb';
+                    } else {
+                        const aforo = sala?.aforo || 0;
+                        const pct = aforo > 0 ? Math.round(((f.registrados || 0) / aforo) * 100) : 0;
+                        metricaTexto = 'Registrados';
+                        metricaValor = (f.registrados || 0) + ' (' + pct + '%)';
+                        metricaColor = '#7c3aed';
+                    }
+                    filas.push({
+                        tipo: 'funcion',
+                        mesKey: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+                        mesLabel: MESES_REPORTE[d.getMonth()] + ' ' + d.getFullYear(),
+                        icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
+                        nombre: obra.nombre,
+                        sala: sala?.nombre || '',
+                        fecha: f.fecha,
+                        hora: f.hora,
+                        metricaTexto, metricaValor, metricaColor
+                    });
+                });
+            });
+
+            filas.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+
+            // Insertar encabezados de mes (agrupación — sustituye a "temporadas",
+            // que todavía no es un dato real en el sistema)
+            const items = [];
+            let mesActual = null;
+            filas.forEach(f => {
+                if (f.mesKey !== mesActual) {
+                    items.push({ tipo: 'mes', label: f.mesLabel });
+                    mesActual = f.mesKey;
+                }
+                items.push(f);
+            });
+            return items;
+        }
+
+        function alturaItemReporte(item) {
+            return item.tipo === 'mes' ? REPORTE_ALTO_MES : REPORTE_ALTO_ROW;
+        }
+
+        function paginarItemsReporte(items, disponiblePx) {
+            const paginas = [];
+            let actual = [];
+            let alturaAcumulada = 0;
+            items.forEach(item => {
+                const h = alturaItemReporte(item);
+                const seEstariaQuedandoSolo = item.tipo === 'mes' && (alturaAcumulada + h + REPORTE_ALTO_ROW) > disponiblePx;
+                if (seEstariaQuedandoSolo && actual.length > 0) {
+                    paginas.push(actual);
+                    actual = [];
+                    alturaAcumulada = 0;
+                }
+                if (alturaAcumulada + h > disponiblePx && actual.length > 0) {
+                    paginas.push(actual);
+                    actual = [];
+                    alturaAcumulada = 0;
+                }
+                actual.push(item);
+                alturaAcumulada += h;
+            });
+            if (actual.length > 0) paginas.push(actual);
+            return paginas.length > 0 ? paginas : [[]];
+        }
+
+        function renderFilaReporteHTML(item) {
+            if (item.tipo === 'mes') {
+                return '<div style="font-size:16px; font-weight:bold; color:#374151; background:#f3f4f6; padding:8px 10px; margin-top:6px; margin-bottom:2px; border-radius:4px;">📅 ' + item.label + '</div>';
+            }
+            let html = '<div style="display:table; width:100%; table-layout:fixed; padding:6px 4px; border-bottom:1px solid #e5e7eb;">';
+            html += '<div style="display:table-cell; width:60%; vertical-align:middle; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
+            html += '<strong>' + item.icono + ' ' + item.nombre + '</strong> <span style="color:#6b7280; font-size:11px;">· ' + item.sala + '</span>';
+            html += '</div>';
+            html += '<div style="display:table-cell; width:18%; vertical-align:middle; text-align:center; font-size:12px; color:#374151;">' + formatearFecha(item.fecha) + '<br><span style="font-size:10px; color:#6b7280;">' + item.hora + '</span></div>';
+            html += '<div style="display:table-cell; width:22%; vertical-align:middle; text-align:right;">';
+            html += '<div style="font-size:9px; color:#6b7280;">' + item.metricaTexto + '</div>';
+            html += '<div style="font-size:16px; font-weight:bold; color:' + item.metricaColor + ';">' + item.metricaValor + '</div>';
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderPaginaReporteHTML(paginaItems, numPagina, totalPaginas) {
+            let html = '<div style="background:white; padding:' + REPORTE_PADDING + 'px; width:' + REPORTE_ANCHO + 'px; height:' + REPORTE_ALTO_TOTAL + 'px; font-family: Arial, sans-serif; box-sizing:border-box; overflow:hidden;">';
+            html += '<div style="display:table; width:100%; margin-bottom:10px; border-bottom:3px solid #1f2937; padding-bottom:8px;">';
+            html += '<div style="display:table-cell; font-size:20px; font-weight:bold; color:#111827; vertical-align:bottom;">🎭 Boletería CNA — Avance</div>';
+            html += '<div style="display:table-cell; text-align:right; vertical-align:bottom;">';
+            html += '<div style="font-size:30px; font-weight:bold; color:#111827;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
+            if (totalPaginas > 1) html += '<div style="font-size:11px; color:#9ca3af;">Página ' + numPagina + ' de ' + totalPaginas + '</div>';
+            html += '</div></div>';
+            paginaItems.forEach(item => { html += renderFilaReporteHTML(item); });
+            html += '</div>';
+            return html;
+        }
+
         function renderReporteDiario() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-full mx-auto px-4 py-6">';
@@ -2427,115 +2546,50 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Formato 1080×1920 (historia de Instagram/WhatsApp). Si no caben todas las obras en una imagen, se descargan varias páginas automáticamente.</p>';
+            html += '<p class="text-xs text-gray-500 mb-4">Se descargan una o más imágenes de 1080×1920 (según cuántas funciones haya), agrupadas por mes. Cada fila es una función individual, no un total de obra.</p>';
 
-            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const items = construirItemsReporte();
 
-            html += '<div id="reporteParaDescargar" style="background:white; padding:20px; width:1080px; font-family: Arial, sans-serif;">';
-            html += '<div class="reporte-header" style="display:table; width:100%; margin-bottom:14px; border-bottom:3px solid #1f2937; padding-bottom:10px;">';
-            html += '<div style="display:table-cell; font-size:20px; font-weight:bold; color:#111827; vertical-align:bottom;">🎭 Boletería CNA — Avance</div>';
-            html += '<div style="display:table-cell; font-size:32px; font-weight:bold; color:#111827; text-align:right; vertical-align:bottom;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
-            html += '</div>';
-
-            if (obrasActivas.length === 0) {
-                html += '<p style="color:#6b7280; font-size:14px;">No hay obras activas para mostrar.</p>';
+            html += '<div style="background:white; max-width:700px; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1);">';
+            html += '<div style="padding:16px;">';
+            if (items.filter(i => i.tipo === 'funcion').length === 0) {
+                html += '<p style="color:#6b7280; font-size:14px;">No hay funciones activas para mostrar.</p>';
             } else {
-                html += '<div id="filasReporte">';
-                obrasActivas.forEach(obra => {
-                    const sala = getSala(obra.salaId);
-                    const funciones = getFuncionesObra(obra.id);
-                    const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-
-                    let colDerecha = '';
-                    if (obra.tipo === 'boleteria') {
-                        const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-                        const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
-                        const pctVenta = totalDisponible > 0 ? Math.round((totalVentas / totalDisponible) * 100) : 0;
-                        colDerecha = '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + totalVentas + '/' + totalDisponible + ' vendidas</div>';
-                        colDerecha += '<div style="font-size:22px; font-weight:bold; color:#2563eb; line-height:1.2;">' + pctVenta + '%</div>';
-                    } else {
-                        const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
-                        colDerecha = '<div style="font-size:9px; color:#6b7280;">Registrados</div>';
-                        colDerecha += '<div style="font-size:22px; font-weight:bold; color:#2563eb; line-height:1.2;">' + totalRegistrados + '</div>';
-                    }
-
-                    const ultimaFunc = getUltimaFuncion(obra.id);
-                    const diasPorVender = ultimaFunc ? calcularDiasPorVender(ultimaFunc.fecha) : 'N/A';
-
-                    html += '<div class="fila-reporte" style="display:table; width:100%; table-layout:fixed; padding:10px 4px; border-bottom:1px solid #e5e7eb;">';
-                    html += '<div style="display:table-cell; width:68%; vertical-align:middle; padding-right:10px;">';
-                    html += '<div style="font-size:15px; font-weight:bold; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + icono + ' ' + obra.nombre + '</div>';
-                    html += '<div style="font-size:10px; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;">' + (sala?.nombre || '') + ' · ' + (obra.categoria || '') + ' · ' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</div>';
-                    html += renderIconosEstado(obra);
-                    html += '</div>';
-                    html += '<div style="display:table-cell; width:32%; vertical-align:middle; text-align:right;">' + colDerecha + '</div>';
-                    html += '</div>';
-                });
-                html += '</div>';
+                items.forEach(item => { html += renderFilaReporteHTML(item); });
             }
+            html += '</div></div>';
 
-            html += '</div>'; // fin reporteParaDescargar
             html += '</main></div>';
             return html;
         }
 
         async function descargarReportePNG() {
-            const contenedorOriginal = document.getElementById('reporteParaDescargar');
-            if (!contenedorOriginal || !window.html2canvas) {
+            if (!window.html2canvas) {
                 alert('⚠️ No se pudo generar la imagen. Recarga la página e intenta de nuevo.');
                 return;
             }
 
-            const ANCHO = 1080;
-            const ALTO = 1920;
-            const PADDING = 20;
+            const items = construirItemsReporte();
+            if (items.filter(i => i.tipo === 'funcion').length === 0) {
+                alert('⚠️ No hay funciones activas para incluir en el reporte.');
+                return;
+            }
 
-            const headerEl = contenedorOriginal.querySelector('.reporte-header');
-            const filas = Array.from(contenedorOriginal.querySelectorAll('.fila-reporte'));
-            const headerHeight = headerEl ? headerEl.offsetHeight : 0;
-            const disponible = ALTO - (PADDING * 2) - headerHeight - 20;
-
-            // Agrupar filas en páginas según su altura real ya renderizada en pantalla
-            const paginas = [];
-            let filasActuales = [];
-            let alturaAcumulada = 0;
-            filas.forEach(fila => {
-                const alturaFila = fila.offsetHeight;
-                if (alturaAcumulada + alturaFila > disponible && filasActuales.length > 0) {
-                    paginas.push(filasActuales);
-                    filasActuales = [];
-                    alturaAcumulada = 0;
-                }
-                filasActuales.push(fila);
-                alturaAcumulada += alturaFila;
-            });
-            if (filasActuales.length > 0 || paginas.length === 0) paginas.push(filasActuales);
-
+            const disponible = REPORTE_ALTO_TOTAL - (REPORTE_PADDING * 2) - REPORTE_ALTO_HEADER;
+            const paginas = paginarItemsReporte(items, disponible);
             const fecha = new Date().toISOString().split('T')[0];
+
             const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando ' + paginas.length + ' imagen(es)...'; }
 
             for (let i = 0; i < paginas.length; i++) {
                 const pagina = document.createElement('div');
-                pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px; width:' + ANCHO + 'px; height:' + ALTO + 'px; background:white; padding:' + PADDING + 'px; font-family: Arial, sans-serif; box-sizing:border-box; overflow:hidden;';
-
-                const headerClone = headerEl.cloneNode(true);
-                if (paginas.length > 1) {
-                    const badge = document.createElement('div');
-                    badge.style.cssText = 'font-size:11px; color:#9ca3af; white-space:nowrap; margin-left:10px;';
-                    badge.textContent = 'Pág. ' + (i + 1) + '/' + paginas.length;
-                    headerClone.appendChild(badge);
-                }
-                pagina.appendChild(headerClone);
-
-                const listaDiv = document.createElement('div');
-                paginas[i].forEach(fila => listaDiv.appendChild(fila.cloneNode(true)));
-                pagina.appendChild(listaDiv);
-
+                pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px;';
+                pagina.innerHTML = renderPaginaReporteHTML(paginas[i], i + 1, paginas.length);
                 document.body.appendChild(pagina);
 
                 try {
-                    const canvas = await html2canvas(pagina, { backgroundColor: '#ffffff', scale: 2, width: ANCHO, height: ALTO });
+                    const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 2, width: REPORTE_ANCHO, height: REPORTE_ALTO_TOTAL });
                     const link = document.createElement('a');
                     link.download = 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png';
                     link.href = canvas.toDataURL('image/png');
