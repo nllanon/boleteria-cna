@@ -2776,10 +2776,11 @@
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
             const salaLlenaTotal = esSalaLlena(grupo.tipoObra, mTotal.pct);
-            html += '<div style="display:flex; align-items:center; justify-content:flex-end; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
+            html += '<div style="display:flex; align-items:center; justify-content:space-between; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
+            html += '<span style="font-size:15px; font-weight:bold; color:#6b7280;">Total</span>';
             html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
-            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' font-weight:bold;">🎉 SALA LLENA</span>';
-            html += '<div style="font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
+            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + '">🎉 SALA LLENA</span>';
+            html += '<div style="' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
         }
