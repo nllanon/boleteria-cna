@@ -697,7 +697,7 @@
                 if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold;">🎟️ ' + pctE + '%</span>';
                 html += '</span>';
                 html += '</summary>';
-                html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3">';
+                html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 items-start">';
                 grupo.obras.forEach(obra => { html += renderTarjetaDashboard(obra); });
                 html += '</div></div>';
                 html += '</details>';
@@ -745,27 +745,32 @@
 
             const pctTotal = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : 0;
 
-            let html = '<div onclick="viewObra(\'' + obra.id + '\')" style="display:flex; flex-direction:column; height:340px;" class="bg-white p-3 rounded shadow cursor-pointer hover:shadow-lg">';
-
-            // Encabezado fijo — nombre + TOTAL de la obra (ya no al final de la tarjeta)
-            html += '<div class="flex justify-between items-start gap-2 mb-1">';
-            html += '<h4 class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</h4>';
-            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-size:12px; font-weight:bold; flex-shrink:0;">' + pctTotal + '%</span>';
+            // Indicador general: nombre, sala y % — lo único visible de entrada,
+            // pensado para ver de un vistazo si vamos bien o no. El detalle por
+            // función queda un clic más adentro (desplegable), sin salir del Dashboard.
+            let html = '<details class="bg-white rounded shadow" style="overflow:hidden;">';
+            html += '<summary style="cursor:pointer; list-style:none;" class="p-3">';
+            html += '<div class="flex justify-between items-center gap-2">';
+            html += '<div style="min-width:0;">';
+            html += '<div class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</div>';
+            html += '<div class="text-xs text-gray-500">' + (sala?.nombre || '') + '</div>';
             html += '</div>';
-            html += '<div class="flex justify-between items-center mb-2">';
-            html += '<p class="text-xs text-gray-500">' + (sala?.nombre || '') + '</p>';
-            html += '<button onclick="event.stopPropagation(); abrirGraficoVentas(\'' + obra.id + '\')" class="text-blue-600 hover:text-blue-800 text-sm flex-shrink-0">📊</button>';
+            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-size:16px; font-weight:bold; flex-shrink:0;">' + pctTotal + '%</span>';
             html += '</div>';
+            html += '</summary>';
 
-            // Lista de funciones (scrollable si hay muchas, para mantener tarjeta uniforme)
-            html += '<div style="flex:1; overflow-y:auto; min-height:0;">';
+            html += '<div class="px-3 pb-3" style="border-top:1px solid #f3f4f6;">';
+            html += '<div style="max-height:220px; overflow-y:auto; margin-top:8px;">';
             html += filasFunciones || '<p class="text-xs text-gray-400">Sin funciones</p>';
             html += '</div>';
-
-            // Iconos de estado — debajo de vendidas/por vender, al pie de la tarjeta
-            html += '<div style="border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px;">' + renderIconosEstado(obra) + '</div>';
-
+            html += '<div style="padding-top:8px; margin-top:4px; border-top:1px solid #e5e7eb;">' + renderIconosEstado(obra) + '</div>';
+            html += '<div class="flex gap-3 mt-3">';
+            html += '<button onclick="viewObra(\'' + obra.id + '\')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">👁️ Ver detalle completo</button>';
+            html += '<button onclick="abrirGraficoVentas(\'' + obra.id + '\')" class="text-xs text-blue-600 hover:text-blue-800 font-medium">📊 Ver gráfico</button>';
             html += '</div>';
+            html += '</div>';
+            html += '</details>';
+
             return html;
         }
 
