@@ -1702,6 +1702,31 @@
         function guardarCortesVentasFunciones(event) {
             event.preventDefault();
             const inputs = document.querySelectorAll('input[data-funcion-id]');
+
+            // Validar ANTES de guardar nada: no se puede vender más boletas de
+            // las que hay disponibles (aforo - cortesías) en ninguna función.
+            const errores = [];
+            inputs.forEach(input => {
+                const boletas = parseInt(input.value) || 0;
+                if (boletas <= 0) return;
+                const funcionId = input.getAttribute('data-funcion-id');
+                const funcion = appState.funciones.find(f => f.id === funcionId);
+                if (!funcion) return;
+                const obra = appState.obras.find(o => o.id === funcion.obraId);
+                const sala = obra ? getSala(obra.salaId) : null;
+                const disponible = Math.max(0, (sala?.aforo || 0) - (funcion.cortesias || 0));
+                const nuevoTotal = (funcion.ventasAcumuladas || 0) + boletas;
+                if (nuevoTotal > disponible) {
+                    const maxPermitido = Math.max(0, disponible - (funcion.ventasAcumuladas || 0));
+                    errores.push('"' + (obra?.nombre || 'Obra') + '" (' + formatearFecha(funcion.fecha) + ' ' + funcion.hora + '): intentas registrar ' + boletas + ', pero solo quedan ' + maxPermitido + ' boletas disponibles.');
+                }
+            });
+
+            if (errores.length > 0) {
+                alert('⚠️ No se puede vender más boletas de las disponibles:\n\n' + errores.join('\n'));
+                return;
+            }
+
             let guardadas = 0;
             
             inputs.forEach(input => {
@@ -2474,6 +2499,7 @@
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
             html += '<h3 class="font-bold mb-3">💵 % de Venta por Obra (Boletería)</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Nunca supera el 100% — no se pueden vender más boletas que las disponibles.</p>';
             if (obrasBoleto.length === 0) {
                 html += '<p class="text-sm text-gray-500">Sin obras de boletería activas.</p>';
             } else {
@@ -2518,7 +2544,7 @@
                 window.chartPctVentasInstance = new Chart(canvasVentas, {
                     type: 'bar',
                     data: {
-                        labels: datos.map(d => d.nombre),
+                        labels: datos.map(d => d.nombre + (d.pct >= 100 ? ' 🎉 SALA LLENA' : '')),
                         datasets: [{
                             label: '% de venta',
                             data: datos.map(d => d.pct),
