@@ -2677,10 +2677,47 @@
             return '#DC2626';
         }
 
-        function renderBadgePct(pct, contenidoHTML) {
+        let registroBadgesPendientes = [];
+
+        function renderBadgePct(pct, contenidoTexto) {
             const bg = colorPctHex(pct);
-            return '<div style="display:inline-table; border-radius:5px; background:' + bg + ';">' +
-                '<div style="display:table-cell; vertical-align:middle; text-align:center; height:32px; min-width:58px; padding:0 8px; box-sizing:border-box; color:#ffffff; font-size:16px; font-weight:bold; white-space:nowrap;">' + contenidoHTML + '</div></div>';
+            const id = 'badge-' + registroBadgesPendientes.length + '-' + Math.random().toString(36).slice(2, 8);
+            const anchoEstimado = Math.max(58, contenidoTexto.length * 10 + 24);
+            registroBadgesPendientes.push({ id, bg, texto: contenidoTexto, ancho: anchoEstimado, alto: 32 });
+            return '<canvas id="' + id + '" width="' + anchoEstimado + '" height="32" style="display:inline-block; vertical-align:middle;"></canvas>';
+        }
+
+        function dibujarBadgesPendientesEnCanvas() {
+            const FACTOR = 3;
+            registroBadgesPendientes.forEach(b => {
+                const canvas = document.getElementById(b.id);
+                if (!canvas) return;
+                const wCss = b.ancho, hCss = b.alto;
+                canvas.width = wCss * FACTOR;
+                canvas.height = hCss * FACTOR;
+                canvas.style.width = wCss + 'px';
+                canvas.style.height = hCss + 'px';
+                const ctx = canvas.getContext('2d');
+                ctx.scale(FACTOR, FACTOR);
+
+                const r = 5;
+                ctx.fillStyle = b.bg;
+                ctx.beginPath();
+                ctx.moveTo(r, 0);
+                ctx.arcTo(wCss, 0, wCss, hCss, r);
+                ctx.arcTo(wCss, hCss, 0, hCss, r);
+                ctx.arcTo(0, hCss, 0, 0, r);
+                ctx.arcTo(0, 0, wCss, 0, r);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(b.texto, wCss / 2, hCss / 2 + 1);
+            });
+            registroBadgesPendientes = [];
         }
 
         function esSalaLlena(tipoObra, pct) {
@@ -3000,6 +3037,7 @@
                 pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px;';
                 pagina.innerHTML = renderPaginaReporteHTML(paginas[i], i + 1, paginas.length, altoPagina);
                 document.body.appendChild(pagina);
+                dibujarBadgesPendientesEnCanvas();
 
                 try {
                     const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 2, width: REPORTE_ANCHO, height: altoPagina });
@@ -3096,6 +3134,7 @@
                     case 'reporte-diario': app.innerHTML = renderReporteDiario(); break;
                     default: app.innerHTML = renderDashboard();
                 }
+                dibujarBadgesPendientesEnCanvas();
                 
                 if (appState.showGraficoVentas) {
                     const obraModal = appState.obras.find(o => o.id === appState.graficoVentasObraId);
