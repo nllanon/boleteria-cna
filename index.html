@@ -2529,11 +2529,13 @@
                     }
                     const bucket = obra.tipo === 'boleteria' ? mesesMap[mesKey].boleteria : mesesMap[mesKey].entrada;
                     if (!bucket.has(obra.id)) {
+                        const agrupador = appState.agrupadores.find(a => a.id === obra.agrupadorId);
                         bucket.set(obra.id, {
                             obraId: obra.id,
                             icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
                             nombre: obra.nombre,
                             sala: sala?.nombre || '',
+                            agrupadorNombre: agrupador ? agrupador.nombre : 'Sin Temporada/Festival',
                             tipoObra: obra.tipo,
                             metricaColor,
                             funciones: []
@@ -2567,7 +2569,7 @@
             else if (pct >= 70) bg = '#4ADE80';
             else if (pct >= 40) bg = '#EAB308';
             else bg = '#DC2626';
-            return 'background:' + bg + '; color:#ffffff; padding:2px 7px; border-radius:5px; display:inline-block; line-height:1.4;';
+            return 'background:' + bg + '; color:#ffffff; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; min-width:56px; height:30px; padding:0 10px; box-sizing:border-box;';
         }
 
         function esSalaLlena(tipoObra, pct) {
@@ -2628,15 +2630,14 @@
             let html = '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_ROW - 2) + 'px; padding:0 4px 0 ' + (indentado ? '26px' : '4px') + '; border-bottom:1px solid #e5e7eb; box-sizing:border-box;">';
             html += '<div style="flex:1; min-width:0;">';
             html += '<div style="white-space:nowrap; font-size:23px; line-height:1.3; font-weight:normal; color:#111827;">' + (icono ? icono + ' ' : '') + truncarTexto(nombrePrincipal, 30) + '</div>';
-            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 36) + '</div>';
+            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 60) + '</div>';
             html += '</div>';
-            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
-            html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:4px;">' + metricaTexto + '</div>';
+            html += '<div style="flex-shrink:0; margin-left:10px;">';
+            html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; text-align:right; margin-bottom:4px;">' + metricaTexto + '</div>';
+            html += '<div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">';
+            if (salaLlena) html += '<span style="' + estiloPctBadge(pct) + ' font-size:12px; font-weight:bold; white-space:nowrap;">🎉 SALA LLENA</span>';
             html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(pct) + '">' + metricaValor + '</div>';
-            html += '</div></div>';
-            if (salaLlena) {
-                html += '<div style="display:flex; justify-content:flex-end; padding:0 4px 8px ' + (indentado ? '26px' : '4px') + ';"><span style="' + estiloPctBadge(pct) + ' padding:3px 10px; font-size:12px; font-weight:bold;">🎉 SALA LLENA</span></div>';
-            }
+            html += '</div></div></div>';
             return html;
         }
 
@@ -2644,7 +2645,7 @@
             if (grupo.funciones.length === 1) {
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora;
+                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · 🎪 ' + truncarTexto(grupo.agrupadorNombre, 20);
                 return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false);
             }
 
@@ -2655,7 +2656,7 @@
             grupo.funciones.forEach((f, idx) => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 if (idx === 0) {
-                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora;
+                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · 🎪 ' + truncarTexto(grupo.agrupadorNombre, 20);
                     html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false);
                 } else {
                     html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
@@ -2667,7 +2668,7 @@
             const salaLlenaTotal = esSalaLlena(grupo.tipoObra, mTotal.pct);
             html += '<div style="display:flex; align-items:center; justify-content:flex-end; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
             html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
-            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' padding:3px 10px; font-size:12px; font-weight:bold;">🎉 SALA LLENA</span>';
+            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' font-size:12px; font-weight:bold;">🎉 SALA LLENA</span>';
             html += '<div style="font-size:28px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
@@ -2690,7 +2691,7 @@
         }
 
         function renderMesBloqueHTML(mesBloque) {
-            let html = '<div style="font-size:22px; font-weight:bold; color:#374151; background:#f3f4f6; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
+            let html = '<div style="font-size:22px; font-weight:bold; color:#ffffff; background:#808080; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
             html += '<div style="display:grid; grid-template-columns:1fr 2px 1fr; gap:20px; align-items:start;">';
             html += renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería');
             html += '<div style="background:#d1d5db; align-self:stretch;"></div>';
