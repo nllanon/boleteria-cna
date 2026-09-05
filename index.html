@@ -27,6 +27,7 @@
             entrada_libre: [],
             salas: [],
             categorias: [],
+            agrupadores: [],
             acciones: [],
             historial: [],
             currentPage: 'dashboard',
@@ -67,7 +68,8 @@
                 fechaRedes: r.fecha_redes, fechaPauta: r.fecha_pauta,
                 piezasDesarrolladas: r.piezas_desarrolladas, fechaPiezasDesarrolladas: r.fecha_piezas_desarrolladas,
                 videoDisponible: r.video_disponible, fechaVideoPatua: r.fecha_video_pauta,
-                linkRegistro: r.link_registro, fechaCreacionLink: r.fecha_creacion_link, estadoEnlace: r.estado_enlace
+                linkRegistro: r.link_registro, fechaCreacionLink: r.fecha_creacion_link, estadoEnlace: r.estado_enlace,
+                agrupadorId: r.agrupador_id
             };
         }
         function obraToDb(o) {
@@ -79,7 +81,8 @@
                 piezas_desarrolladas: o.piezasDesarrolladas, fecha_piezas_desarrolladas: o.fechaPiezasDesarrolladas || null,
                 video_disponible: o.videoDisponible, fecha_video_pauta: o.fechaVideoPatua || null,
                 link_registro: o.linkRegistro || null, fecha_creacion_link: o.fechaCreacionLink || null,
-                estado_enlace: o.estadoEnlace || 'Activo'
+                estado_enlace: o.estadoEnlace || 'Activo',
+                agrupador_id: o.agrupadorId || null
             };
         }
         function funcionFromDb(r) {
@@ -114,16 +117,18 @@
         }
 
         async function initData() {
-            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes] = await Promise.all([
+            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes, agrupadoresRes] = await Promise.all([
                 db.from('boleteria_salas').select('*').order('id'),
                 db.from('boleteria_obras').select('*'),
                 db.from('boleteria_funciones').select('*'),
                 db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(50),
                 db.from('boleteria_acciones').select('*'),
-                db.from('boleteria_categorias').select('*').order('nombre')
+                db.from('boleteria_categorias').select('*').order('nombre'),
+                db.from('boleteria_agrupadores').select('*').order('nombre')
             ]);
 
             appState.categorias = (categoriasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
+            appState.agrupadores = (agrupadoresRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
 
             appState.salas = (salasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre, aforo: r.aforo, color: r.color || '#8b5cf6' }));
             appState.obras = (obrasRes.data || []).map(obraFromDb);
@@ -237,7 +242,7 @@
         }
 
         function getFuncionesObra(obraId) {
-            return appState.funciones.filter(f => f.obraId === obraId).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            return appState.funciones.filter(f => f.obraId === obraId).sort((a, b) => (a.fecha + ' ' + (a.hora || '00:00')).localeCompare(b.fecha + ' ' + (b.hora || '00:00')));
         }
 
         function getPrimeraFuncion(obraId) {
@@ -782,7 +787,13 @@
                 if (o.tipo === 'boleteria' && finalizada) return 2;
                 return 3;
             };
-            obrasFiltradas = obrasFiltradas.slice().sort((a, b) => orden(a) - orden(b));
+            obrasFiltradas = obrasFiltradas.slice().sort((a, b) => {
+                const diff = orden(a) - orden(b);
+                if (diff !== 0) return diff;
+                const fA = getUltimaFuncion(a.id)?.fecha || '9999-99-99';
+                const fB = getUltimaFuncion(b.id)?.fecha || '9999-99-99';
+                return fA.localeCompare(fB);
+            });
 
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
             html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Tiquetera</th><th class="px-4 py-2 text-left">Última Fun.</th><th class="px-4 py-2 text-left">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
@@ -1365,6 +1376,9 @@
             html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" onchange="toggleCamposTipo()" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Temporada / Festival / Encuentro (opcional)</label><select id="obraAgrupador" class="w-full px-3 py-2 border rounded text-sm"><option value="">— Ninguno —</option>';
+            appState.agrupadores.forEach(a => html += '<option value="' + a.id + '" ' + (obra.agrupadorId === a.id ? 'selected' : '') + '>' + a.nombre + '</option>');
+            html += '</select></div>';
             html += '</div>';
 
             // CAMPOS EXCLUSIVOS DE ENTRADA LIBRE
@@ -1496,6 +1510,7 @@
                 categoria: document.getElementById('obraCategoria').value,
                 salaId: document.getElementById('obraSala').value,
                 tipo: document.getElementById('obraTipo').value,
+                agrupadorId: document.getElementById('obraAgrupador').value || null,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
                 fechaTiquetera: fechaTiquetera,
                 fechaUltimaFuncion: ultimaFuncion.toISOString().split('T')[0],
@@ -1882,8 +1897,58 @@
             });
             html += '</div></div>';
 
+            // AGRUPADORES: temporadas, festivales, encuentros — obras de boletería y entrada libre pueden pertenecer a uno
+            html += '<div class="bg-white rounded shadow p-4 mt-6">';
+            html += '<h3 class="text-lg font-bold mb-1">🎪 Temporadas, Festivales y Encuentros</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Agrupa varias obras (de Boletería y/o Entrada Libre) bajo un mismo evento o temporada. Cada obra puede pertenecer a uno.</p>';
+            html += '<form onsubmit="agregarAgrupador(event)" class="flex gap-2 mb-4">';
+            html += '<input type="text" id="nuevoAgrupadorNombre" placeholder="Ej: Festival de Teatro 2026, Temporada Septiembre..." required class="flex-1 px-3 py-2 border rounded text-sm" />';
+            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar</button>';
+            html += '</form>';
+            if (appState.agrupadores.length === 0) {
+                html += '<p class="text-sm text-gray-500">Sin agrupadores creados todavía.</p>';
+            } else {
+                html += '<div class="flex flex-wrap gap-2">';
+                appState.agrupadores.forEach(a => {
+                    const enUso = appState.obras.filter(o => o.agrupadorId === a.id).length;
+                    html += '<span class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-sm">' + a.nombre + (enUso > 0 ? ' <span class="text-xs text-gray-500">(' + enUso + ')</span>' : '') + ' <button onclick="eliminarAgrupador(\'' + a.id + '\', \'' + a.nombre.replace(/'/g, "\\'") + '\')" class="text-red-500 hover:text-red-700 font-bold">×</button></span>';
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+
             html += '</main></div>';
             return html;
+        }
+
+        async function agregarAgrupador(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('nuevoAgrupadorNombre').value.trim();
+            if (!nombre) return;
+            if (appState.agrupadores.some(a => a.nombre.toLowerCase() === nombre.toLowerCase())) {
+                alert('⚠️ Ya existe un agrupador con ese nombre');
+                return;
+            }
+            const nuevo = { id: Date.now().toString(), nombre };
+            appState.agrupadores.push(nuevo);
+            const { error } = await db.from('boleteria_agrupadores').insert(nuevo);
+            if (error) {
+                alert('⚠️ Error al guardar');
+                console.error(error);
+            }
+            render();
+        }
+
+        async function eliminarAgrupador(id, nombre) {
+            const enUso = appState.obras.filter(o => o.agrupadorId === id).length;
+            if (enUso > 0 && !confirm('⚠️ "' + nombre + '" tiene ' + enUso + ' obra(s) asignada(s). Al eliminarlo, esas obras quedarán sin agrupador. ¿Continuar?')) {
+                return;
+            }
+            if (enUso === 0 && !confirm('¿Eliminar "' + nombre + '"?')) return;
+            appState.agrupadores = appState.agrupadores.filter(a => a.id !== id);
+            appState.obras.forEach(o => { if (o.agrupadorId === id) o.agrupadorId = null; });
+            await db.from('boleteria_agrupadores').delete().eq('id', id);
+            render();
         }
 
         async function agregarCategoria(event) {
