@@ -646,13 +646,13 @@
             html += '<div class="bg-white p-3 rounded shadow flex items-center gap-3">';
             html += '<div style="width:64px; height:64px; flex-shrink:0;"><canvas id="donaBoleteria"></canvas></div>';
             html += '<div style="min-width:0;">';
-            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">💵 Boletería</p><span style="' + estiloPctBadge(pctBoleteria) + ' font-weight:bold;">' + pctBoleteria + '%</span></div>';
+            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">💵 Boletería</p>' + renderBadgePct(pctBoleteria, pctBoleteria + '%') + '</div>';
             html += '<p class="text-sm whitespace-nowrap"><span class="text-lg font-bold text-green-600">' + totalVentas + '</span> <span class="text-gray-500">vendidas</span> · <span class="text-lg font-bold text-gray-700">' + porVenderBoleteria + '</span> <span class="text-gray-500">por vender</span></p>';
             html += '</div></div>';
             html += '<div class="bg-white p-3 rounded shadow flex items-center gap-3">';
             html += '<div style="width:64px; height:64px; flex-shrink:0;"><canvas id="donaEntrada"></canvas></div>';
             html += '<div style="min-width:0;">';
-            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">🎟️ Entrada Libre</p><span style="' + estiloPctBadge(pctEntrada) + ' font-weight:bold;">' + pctEntrada + '%</span></div>';
+            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">🎟️ Entrada Libre</p>' + renderBadgePct(pctEntrada, pctEntrada + '%') + '</div>';
             html += '<p class="text-sm whitespace-nowrap"><span class="text-lg font-bold text-purple-600">' + totalRegistrados + '</span> <span class="text-gray-500">registradas</span> · <span class="text-lg font-bold text-gray-700">' + porOcuparEntrada + '</span> <span class="text-gray-500">por ocupar</span></p>';
             html += '</div></div>';
             html += '</div>';
@@ -725,8 +725,8 @@
                 html += '<span style="flex-shrink:0; font-size:0.75rem; font-weight:normal; color:#6b7280;">(' + grupo.obras.length + ')</span>';
                 html += '</span>';
                 html += '<span style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
-                if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-weight:bold; white-space:nowrap;">💵 ' + pctB + '%</span>';
-                if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-weight:bold; white-space:nowrap;">🎟️ ' + pctE + '%</span>';
+                if (pctB !== null) html += renderBadgePct(pctB, '💵 ' + pctB + '%');
+                if (pctE !== null) html += renderBadgePct(pctE, '🎟️ ' + pctE + '%');
                 html += '</span>';
                 html += '</summary>';
                 html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 items-start">';
@@ -797,7 +797,7 @@
                 filasFunciones += '<div style="padding:6px 0; border-bottom:1px solid #f3f4f6;">';
                 filasFunciones += '<div class="flex justify-between items-center">';
                 filasFunciones += '<div class="text-xs text-gray-700">' + formatearFecha(f.fecha) + ' <span class="text-gray-400">' + formatearHora(f.hora) + '</span></div>';
-                filasFunciones += '<span style="' + estiloPctBadge(pct) + ' font-weight:bold;">' + pct + '%</span>';
+                filasFunciones += renderBadgePct(pct, pct + '%');
                 filasFunciones += '</div>';
                 filasFunciones += '<div class="text-xs text-gray-500 mt-0.5">' + etiquetaIzq + ' · ' + etiquetaDer + '</div>';
                 filasFunciones += '</div>';
@@ -815,7 +815,7 @@
             html += '<div class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</div>';
             html += '<div class="text-xs text-gray-500">' + (sala?.nombre || '') + '</div>';
             html += '</div>';
-            html += '<span style="' + estiloPctBadge(pctTotal) + ' font-weight:bold; flex-shrink:0;">' + pctTotal + '%</span>';
+            html += renderBadgePct(pctTotal, pctTotal + '%');
             html += '</div>';
             html += '</summary>';
 
@@ -1013,12 +1013,12 @@
                             const ventasFunc = f.ventasAcumuladas || 0;
                             const disponibleFunc = Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
                             const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
-                            html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong>' + ventasFunc + ' / ' + disponibleFunc + '</strong> <span style="' + estiloPctBadge(pctFunc) + '">' + pctFunc + '%</span></div>';
+                            html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong>' + ventasFunc + ' / ' + disponibleFunc + '</strong> ' + renderBadgePct(pctFunc, pctFunc + '%') + '</div>';
                         } else {
                             const registradosFunc = f.registrados || 0;
                             const aforoSala = sala?.aforo || 0;
                             const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
-                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong>' + registradosFunc + '</strong> <span style="' + estiloPctBadge(pctRegistro) + '">' + pctRegistro + '%</span></div>';
+                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong>' + registradosFunc + '</strong> ' + renderBadgePct(pctRegistro, pctRegistro + '%') + '</div>';
                         }
                         html += '</div>';
                         html += '<div class="flex gap-2">';
@@ -1878,7 +1878,7 @@
                     html += '<td class="px-3 py-2">' + disponible + '</td>';
                     html += '<td class="px-3 py-2">' + aforo + '</td>';
                     html += '<td class="px-3 py-2 font-bold">' + asistencia + '</td>';
-                    html += '<td class="px-3 py-2"><span style="' + estiloPctBadge(pctOcupacion) + ' font-weight:bold;">' + pctOcupacion + '%</span></td>';
+                    html += '<td class="px-3 py-2">' + renderBadgePct(pctOcupacion, pctOcupacion + '%') + '</td>';
                     html += '</tr>';
                 });
 
@@ -2677,9 +2677,10 @@
             return '#DC2626';
         }
 
-        function estiloPctBadge(pct) {
+        function renderBadgePct(pct, contenidoHTML) {
             const bg = colorPctHex(pct);
-            return 'background:' + bg + '; color:#ffffff; border-radius:5px; display:inline-block; text-align:center; min-width:58px; padding:9px 8px; box-sizing:border-box; font-size:16px; font-weight:bold; white-space:nowrap; line-height:1;';
+            return '<div style="display:inline-table; border-radius:5px; background:' + bg + ';">' +
+                '<div style="display:table-cell; vertical-align:middle; text-align:center; height:32px; min-width:58px; padding:0 8px; box-sizing:border-box; color:#ffffff; font-size:16px; font-weight:bold; white-space:nowrap;">' + contenidoHTML + '</div></div>';
         }
 
         function esSalaLlena(tipoObra, pct) {
@@ -2745,8 +2746,8 @@
             html += '<div style="flex-shrink:0; margin-left:10px;">';
             html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; text-align:right; margin-bottom:4px;">' + metricaTexto + '</div>';
             html += '<div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">';
-            if (salaLlena) html += '<span style="' + estiloPctBadge(pct) + ' font-weight:bold; white-space:nowrap;">🎉 SALA LLENA</span>';
-            html += '<div style="font-weight:bold; white-space:nowrap; ' + estiloPctBadge(pct) + '">' + metricaValor + '</div>';
+            if (salaLlena) html += renderBadgePct(pct, '🎉 SALA LLENA');
+            html += renderBadgePct(pct, metricaValor);
             html += '</div></div></div>';
             return html;
         }
@@ -2779,8 +2780,8 @@
             html += '<div style="display:flex; align-items:center; justify-content:space-between; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
             html += '<span style="font-size:15px; font-weight:bold; color:#6b7280;">Total</span>';
             html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
-            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + '">🎉 SALA LLENA</span>';
-            html += '<div style="' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
+            if (salaLlenaTotal) html += renderBadgePct(mTotal.pct, '🎉 SALA LLENA');
+            html += renderBadgePct(mTotal.pct, mTotal.valor);
             html += '</div></div>';
             return html;
         }
@@ -2794,7 +2795,7 @@
             let html = '<div style="min-width:0; overflow:hidden;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 12px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
             html += '<span style="font-size:28px; font-weight:bold; color:#374151;">' + etiqueta + '</span>';
-            html += '<span style="font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '%</span>';
+            html += renderBadgePct(pctMes, pctMes + '%');
             html += '</div>';
             lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
             html += '</div>';
@@ -2856,13 +2857,13 @@
             html += '<div style="display:table-cell; width:48%; padding-right:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
             html += renderDonaSVG(r.ventas, r.ventas + r.porVender, '#16A34A', 56);
             html += '<div style="min-width:0;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">💵 Boletería</span><span style="' + estiloPctBadge(r.pctB) + ' font-weight:bold;">' + r.pctB + '%</span></div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">💵 Boletería</span>' + renderBadgePct(r.pctB, r.pctB + '%') + '</div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#16A34A;">' + r.ventas + '</strong> vendidas · <strong>' + r.porVender + '</strong> por vender</div>';
             html += '</div></div></div>';
             html += '<div style="display:table-cell; width:48%; padding-left:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
             html += renderDonaSVG(r.registrados, r.registrados + r.porOcupar, '#7c3aed', 56);
             html += '<div style="min-width:0;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">🎟️ Entrada Libre</span><span style="' + estiloPctBadge(r.pctE) + ' font-weight:bold;">' + r.pctE + '%</span></div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">🎟️ Entrada Libre</span>' + renderBadgePct(r.pctE, r.pctE + '%') + '</div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#7c3aed;">' + r.registrados + '</strong> registradas · <strong>' + r.porOcupar + '</strong> por ocupar</div>';
             html += '</div></div></div>';
             html += '</div></div>';
@@ -2929,7 +2930,7 @@
             html += '</div>';
             html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
             html += '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
-            html += '<div style="font-weight:bold; white-space:nowrap; ' + estiloPctBadge(item.metricaPct || 0) + '">' + item.metricaValor + '</div>';
+            html += renderBadgePct(item.metricaPct || 0, item.metricaValor);
             html += '</div></div>';
             return html;
         }
