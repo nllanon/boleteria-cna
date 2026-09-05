@@ -2653,7 +2653,7 @@
 
         function estiloPctBadge(pct) {
             const bg = colorPctHex(pct);
-            return 'background:' + bg + '; color:#ffffff; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; min-width:56px; height:30px; padding:0 10px; box-sizing:border-box;';
+            return 'background:' + bg + '; color:#ffffff; border-radius:5px; display:inline-block; text-align:center; min-width:56px; height:30px; line-height:30px; padding:0 10px; box-sizing:border-box;';
         }
 
         function esSalaLlena(tipoObra, pct) {
@@ -2776,11 +2776,12 @@
 
         function renderMesBloqueHTML(mesBloque) {
             let html = '<div style="font-size:22px; font-weight:bold; color:#ffffff; background:#808080; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
-            html += '<div style="display:grid; grid-template-columns:1fr 2px 1fr; gap:20px; align-items:start;">';
-            html += renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería');
-            html += '<div style="background:#d1d5db; align-self:stretch;"></div>';
-            html += renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre');
-            html += '</div>';
+            html += '<div style="display:table; width:100%; table-layout:fixed; border-spacing:0;">';
+            html += '<div style="display:table-row;">';
+            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-right:14px;">' + renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería') + '</div>';
+            html += '<div style="display:table-cell; width:4%; vertical-align:top;"><div style="width:2px; background:#d1d5db; height:100%; margin:0 auto;">&nbsp;</div></div>';
+            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-left:14px;">' + renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre') + '</div>';
+            html += '</div></div>';
             return html;
         }
 
@@ -2811,16 +2812,17 @@
 
         function renderResumenGeneralReporteHTML() {
             const r = calcularResumenGeneralReporte();
-            let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; padding-bottom:14px; border-bottom:2px solid #e5e7eb;">';
-            html += '<div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
+            let html = '<div style="display:table; width:100%; table-layout:fixed; margin-bottom:14px; padding-bottom:14px; border-bottom:2px solid #e5e7eb;">';
+            html += '<div style="display:table-row;">';
+            html += '<div style="display:table-cell; width:48%; padding-right:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">💵 Boletería</span><span style="' + estiloPctBadge(r.pctB) + ' font-size:13px; font-weight:bold;">' + r.pctB + '%</span></div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#16A34A;">' + r.ventas + '</strong> vendidas · <strong>' + r.porVender + '</strong> por vender</div>';
-            html += '</div>';
-            html += '<div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
+            html += '</div></div>';
+            html += '<div style="display:table-cell; width:48%; padding-left:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">🎟️ Entrada Libre</span><span style="' + estiloPctBadge(r.pctE) + ' font-size:13px; font-weight:bold;">' + r.pctE + '%</span></div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#7c3aed;">' + r.registrados + '</strong> registradas · <strong>' + r.porOcupar + '</strong> por ocupar</div>';
-            html += '</div>';
-            html += '</div>';
+            html += '</div></div>';
+            html += '</div></div>';
             return html;
         }
 
