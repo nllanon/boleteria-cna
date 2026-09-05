@@ -2575,7 +2575,7 @@
 
         function alturaGrupoReporte(grupo) {
             if (grupo.funciones.length === 1) return REPORTE_ALTO_ROW;
-            return 46 + (grupo.funciones.length * 66) + 54; // encabezado obra + filas función + subtotal
+            return 68 + (grupo.funciones.length * 66) + 54; // encabezado obra (2 líneas) + filas función + subtotal
         }
 
         function alturaColumnaReporte(lista) {
@@ -2623,7 +2623,7 @@
                 let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
                 html += '<div style="flex:1; min-width:0;">';
                 html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
-                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px; margin-top:4px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
                 html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div>';
@@ -2634,7 +2634,8 @@
 
             // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
             let html = '<div style="margin-bottom:2px;">';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + ' <span style="font-size:15px; color:#6b7280;">· ' + grupo.sala + '</span></div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; color:#6b7280; margin-top:4px;">' + grupo.sala + '</div>';
             grupo.funciones.forEach(f => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px 8px 22px; border-bottom:1px solid #f3f4f6;">';
