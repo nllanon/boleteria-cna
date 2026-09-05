@@ -2539,14 +2539,14 @@
             if (item.tipo === 'subtipo') {
                 return '<div style="font-size:12px; font-weight:bold; color:#6b7280; padding:4px 6px 2px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
             }
-            let html = '<div style="display:table; width:100%; table-layout:fixed; padding:6px 4px; border-bottom:1px solid #e5e7eb;">';
-            html += '<div style="display:table-cell; width:60%; vertical-align:middle; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
-            html += '<strong>' + item.icono + ' ' + item.nombre + '</strong> <span style="color:#6b7280; font-size:11px;">· ' + item.sala + '</span>';
+            let html = '<div style="display:flex; align-items:center; padding:7px 4px; border-bottom:1px solid #e5e7eb;">';
+            html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
+            html += '<strong>' + item.icono + ' ' + item.nombre + '</strong>';
+            html += ' <span style="color:#6b7280; font-size:11px;">· ' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</span>';
             html += '</div>';
-            html += '<div style="display:table-cell; width:18%; vertical-align:middle; text-align:center; font-size:12px; color:#374151;">' + formatearFecha(item.fecha) + '<br><span style="font-size:10px; color:#6b7280;">' + item.hora + '</span></div>';
-            html += '<div style="display:table-cell; width:22%; vertical-align:middle; text-align:right;">';
-            html += '<div style="font-size:9px; color:#6b7280;">' + item.metricaTexto + '</div>';
-            html += '<div style="font-size:16px; font-weight:bold; color:' + item.metricaColor + ';">' + item.metricaValor + '</div>';
+            html += '<div style="flex-shrink:0; text-align:right; margin-left:14px; min-width:60px;">';
+            html += '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
+            html += '<div style="font-size:16px; font-weight:bold; color:' + item.metricaColor + '; white-space:nowrap;">' + item.metricaValor + '</div>';
             html += '</div></div>';
             return html;
         }
