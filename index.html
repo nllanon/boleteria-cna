@@ -2502,19 +2502,25 @@
         }
 
         function paginarItemsReporte(items, disponiblePx) {
+            if (items.length === 0) return [[]];
+
+            const pesoTotal = items.reduce((s, it) => s + alturaItemReporte(it), 0);
+            const numPaginas = Math.max(1, Math.ceil(pesoTotal / disponiblePx));
+            const pesoObjetivoPorPagina = pesoTotal / numPaginas;
+
             const paginas = [];
             let actual = [];
             let alturaAcumulada = 0;
             items.forEach(item => {
                 const h = alturaItemReporte(item);
                 const esEncabezado = item.tipo === 'mes' || item.tipo === 'subtipo';
-                const seEstariaQuedandoSolo = esEncabezado && (alturaAcumulada + h + REPORTE_ALTO_ROW) > disponiblePx;
-                if (seEstariaQuedandoSolo && actual.length > 0) {
-                    paginas.push(actual);
-                    actual = [];
-                    alturaAcumulada = 0;
-                }
-                if (alturaAcumulada + h > disponiblePx && actual.length > 0) {
+                const quedanPaginasPorLlenar = paginas.length < numPaginas - 1;
+                const limitePagina = quedanPaginasPorLlenar ? pesoObjetivoPorPagina : disponiblePx;
+
+                const superaLimite = (alturaAcumulada + h) > limitePagina && actual.length > 0;
+                const encabezadoQuedariaHuerfano = esEncabezado && (alturaAcumulada + h + REPORTE_ALTO_ROW) > limitePagina && actual.length > 0;
+
+                if (superaLimite || encabezadoQuedariaHuerfano) {
                     paginas.push(actual);
                     actual = [];
                     alturaAcumulada = 0;
