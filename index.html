@@ -2439,69 +2439,78 @@
 
         function construirMesesReporte() {
             const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
-            const filas = [];
+            const mesesMap = {};
+            const ordenMeses = [];
 
             obrasActivas.forEach(obra => {
                 const sala = getSala(obra.salaId);
                 const funciones = getFuncionesObra(obra.id);
+
                 funciones.forEach(f => {
                     const d = new Date(f.fecha);
-                    let metricaTexto, metricaValor, metricaColor, numerador, denominador;
+                    const mesKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                    const mesLabel = MESES_REPORTE[d.getMonth()] + ' ' + d.getFullYear();
+
+                    let numerador, denominador, metricaColor;
                     if (obra.tipo === 'boleteria') {
-                        const disponible = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
-                        const pct = Math.round(((f.ventasAcumuladas || 0) / disponible) * 100);
-                        metricaTexto = (f.ventasAcumuladas || 0) + '/' + disponible;
-                        metricaValor = pct + '%';
-                        metricaColor = '#2563eb';
                         numerador = f.ventasAcumuladas || 0;
-                        denominador = disponible;
+                        denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                        metricaColor = '#2563eb';
                     } else {
-                        const aforo = sala?.aforo || 0;
-                        const pct = aforo > 0 ? Math.round(((f.registrados || 0) / aforo) * 100) : 0;
-                        metricaTexto = 'Registrados';
-                        metricaValor = (f.registrados || 0) + ' (' + pct + '%)';
-                        metricaColor = '#7c3aed';
                         numerador = f.registrados || 0;
-                        denominador = aforo;
+                        denominador = sala?.aforo || 0;
+                        metricaColor = '#7c3aed';
                     }
-                    filas.push({
-                        tipo: 'funcion',
-                        tipoObra: obra.tipo,
-                        mesKey: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
-                        mesLabel: MESES_REPORTE[d.getMonth()] + ' ' + d.getFullYear(),
-                        icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
-                        nombre: obra.nombre,
-                        sala: sala?.nombre || '',
-                        fecha: f.fecha,
-                        hora: f.hora,
-                        metricaTexto, metricaValor, metricaColor, numerador, denominador
-                    });
+
+                    if (!mesesMap[mesKey]) {
+                        mesesMap[mesKey] = { mesKey, mesLabel, boleteria: new Map(), entrada: new Map() };
+                        ordenMeses.push(mesKey);
+                    }
+                    const bucket = obra.tipo === 'boleteria' ? mesesMap[mesKey].boleteria : mesesMap[mesKey].entrada;
+                    if (!bucket.has(obra.id)) {
+                        bucket.set(obra.id, {
+                            obraId: obra.id,
+                            icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
+                            nombre: obra.nombre,
+                            sala: sala?.nombre || '',
+                            tipoObra: obra.tipo,
+                            metricaColor,
+                            funciones: []
+                        });
+                    }
+                    bucket.get(obra.id).funciones.push({ fecha: f.fecha, hora: f.hora, numerador, denominador });
                 });
             });
 
-            filas.sort((a, b) => {
-                if (a.mesKey !== b.mesKey) return a.mesKey.localeCompare(b.mesKey);
-                return (a.fecha + a.hora).localeCompare(b.fecha + b.hora);
-            });
+            const toArray = (map) => Array.from(map.values()).sort((a, b) =>
+                (a.funciones[0].fecha + a.funciones[0].hora).localeCompare(b.funciones[0].fecha + b.funciones[0].hora)
+            );
 
-            // Agrupar por mes, y dentro de cada mes separar en dos columnas: Boletería y Entrada Libre
-            const mesesMap = {};
-            const ordenMeses = [];
-            filas.forEach(f => {
-                if (!mesesMap[f.mesKey]) {
-                    mesesMap[f.mesKey] = { mesKey: f.mesKey, mesLabel: f.mesLabel, boleteria: [], entrada: [] };
-                    ordenMeses.push(f.mesKey);
-                }
-                if (f.tipoObra === 'boleteria') mesesMap[f.mesKey].boleteria.push(f);
-                else mesesMap[f.mesKey].entrada.push(f);
-            });
+            return ordenMeses.map(k => ({
+                mesKey: mesesMap[k].mesKey,
+                mesLabel: mesesMap[k].mesLabel,
+                boleteria: toArray(mesesMap[k].boleteria),
+                entrada: toArray(mesesMap[k].entrada)
+            }));
+        }
 
-            return ordenMeses.map(k => mesesMap[k]);
+        function formatearMetricaFuncion(tipoObra, numerador, denominador) {
+            const pct = denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
+            if (tipoObra === 'boleteria') {
+                return { texto: numerador + '/' + denominador, valor: pct + '%' };
+            }
+            return { texto: 'Registrados', valor: numerador + ' (' + pct + '%)' };
+        }
+
+        function alturaGrupoReporte(grupo) {
+            if (grupo.funciones.length === 1) return REPORTE_ALTO_ROW;
+            return 46 + (grupo.funciones.length * 66) + 54; // encabezado obra + filas función + subtotal
         }
 
         function alturaColumnaReporte(lista) {
             if (lista.length === 0) return 0;
-            return 54 + (lista.length * REPORTE_ALTO_ROW); // 54 = altura del encabezado con % del mes
+            const sumaGrupos = lista.reduce((s, g) => s + alturaGrupoReporte(g), 0);
+            return 54 + sumaGrupos; // 54 = encabezado columna con % del mes
         }
 
         function alturaMesBloque(mesBloque) {
@@ -2536,18 +2545,54 @@
             return paginas.length > 0 ? paginas : [[]];
         }
 
+        function renderGrupoReporteHTML(grupo) {
+            if (grupo.funciones.length === 1) {
+                const f = grupo.funciones[0];
+                const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
+                let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
+                html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:28px; font-weight:normal; color:#111827;">';
+                html += grupo.icono + ' ' + grupo.nombre;
+                html += '<br><span style="color:#6b7280; font-size:19px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</span>';
+                html += '</div>';
+                html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
+                html += '<div style="font-size:13px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div>';
+                html += '<div style="font-size:26px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + m.valor + '</div>';
+                html += '</div></div>';
+                return html;
+            }
+
+            // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
+            let html = '<div style="margin-bottom:2px;">';
+            html += '<div style="font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + ' <span style="font-size:15px; color:#6b7280;">· ' + grupo.sala + '</span></div>';
+            grupo.funciones.forEach(f => {
+                const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px 8px 22px; border-bottom:1px solid #f3f4f6;">';
+                html += '<div style="font-size:18px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="text-align:right;"><div style="font-size:10px; color:#6b7280;">' + m.texto + '</div><div style="font-size:19px; font-weight:bold; color:' + grupo.metricaColor + ';">' + m.valor + '</div></div>';
+                html += '</div>';
+            });
+            const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
+            const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
+            const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:8px 8px 8px 22px; border-radius:4px; margin:2px 0 6px;">';
+            html += '<div style="font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + '</div>';
+            html += '<div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + ';">' + mTotal.valor + '</div>';
+            html += '</div></div>';
+            return html;
+        }
+
         function renderColumnaReporteHTML(lista, etiqueta) {
             if (lista.length === 0) return '<div></div>';
-            const sumaNum = lista.reduce((s, it) => s + (it.numerador || 0), 0);
-            const sumaDen = lista.reduce((s, it) => s + (it.denominador || 0), 0);
+            const sumaNum = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.numerador, 0), 0);
+            const sumaDen = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.denominador, 0), 0);
             const pctMes = sumaDen > 0 ? Math.round((sumaNum / sumaDen) * 100) : 0;
 
             let html = '<div>';
             html += '<div style="display:flex; justify-content:space-between; align-items:baseline; padding:2px 0 8px; border-bottom:2px solid #e5e7eb; margin-bottom:4px;">';
             html += '<span style="font-size:16px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</span>';
-            html += '<span style="font-size:20px; font-weight:bold; color:' + lista[0].metricaColor + ';">' + pctMes + '% del mes</span>';
+            html += '<span style="font-size:20px; font-weight:bold; color:' + lista[0].metricaColor + ';">' + pctMes + '% total</span>';
             html += '</div>';
-            lista.forEach(item => { html += renderFilaReporteHTML(item); });
+            lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
             html += '</div>';
             return html;
         }
@@ -2558,19 +2603,6 @@
             html += renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería');
             html += renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre');
             html += '</div>';
-            return html;
-        }
-
-        function renderFilaReporteHTML(item) {
-            let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
-            html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:28px; font-weight:normal; color:#111827;">';
-            html += item.icono + ' ' + item.nombre;
-            html += '<br><span style="color:#6b7280; font-size:19px;">' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</span>';
-            html += '</div>';
-            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
-            html += '<div style="font-size:13px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
-            html += '<div style="font-size:26px; font-weight:bold; color:' + item.metricaColor + '; white-space:nowrap;">' + item.metricaValor + '</div>';
-            html += '</div></div>';
             return html;
         }
 
@@ -2597,14 +2629,21 @@
             const items = [];
             meses.forEach(mes => {
                 items.push({ tipo: 'mes', label: mes.mesLabel });
-                if (mes.boleteria.length > 0) {
-                    items.push({ tipo: 'subtipo', label: '💵 Boletería' });
-                    mes.boleteria.forEach(f => items.push(f));
-                }
-                if (mes.entrada.length > 0) {
-                    items.push({ tipo: 'subtipo', label: '🎟️ Entrada Libre' });
-                    mes.entrada.forEach(f => items.push(f));
-                }
+                const agregarColumna = (lista, etiqueta) => {
+                    if (lista.length === 0) return;
+                    items.push({ tipo: 'subtipo', label: etiqueta });
+                    lista.forEach(grupo => {
+                        grupo.funciones.forEach(f => {
+                            const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
+                            items.push({
+                                tipo: 'funcion', icono: grupo.icono, nombre: grupo.nombre, sala: grupo.sala,
+                                fecha: f.fecha, hora: f.hora, metricaTexto: m.texto, metricaValor: m.valor, metricaColor: grupo.metricaColor
+                            });
+                        });
+                    });
+                };
+                agregarColumna(mes.boleteria, '💵 Boletería');
+                agregarColumna(mes.entrada, '🎟️ Entrada Libre');
             });
             return items;
         }
