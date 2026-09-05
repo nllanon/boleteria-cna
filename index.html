@@ -2604,66 +2604,6 @@
 
         const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-        function construirMesesReporte() {
-            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
-            const mesesMap = {};
-            const ordenMeses = [];
-
-            obrasActivas.forEach(obra => {
-                const sala = getSala(obra.salaId);
-                const funciones = getFuncionesObra(obra.id);
-
-                funciones.forEach(f => {
-                    const d = new Date(f.fecha + 'T00:00:00');
-                    const mesKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-                    const mesLabel = MESES_REPORTE[d.getMonth()] + ' ' + d.getFullYear();
-
-                    let numerador, denominador, metricaColor;
-                    if (obra.tipo === 'boleteria') {
-                        numerador = f.ventasAcumuladas || 0;
-                        denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
-                        metricaColor = '#2563eb';
-                    } else {
-                        numerador = f.registrados || 0;
-                        denominador = sala?.aforo || 0;
-                        metricaColor = '#7c3aed';
-                    }
-
-                    if (!mesesMap[mesKey]) {
-                        mesesMap[mesKey] = { mesKey, mesLabel, boleteria: new Map(), entrada: new Map() };
-                        ordenMeses.push(mesKey);
-                    }
-                    const bucket = obra.tipo === 'boleteria' ? mesesMap[mesKey].boleteria : mesesMap[mesKey].entrada;
-                    if (!bucket.has(obra.id)) {
-                        const agrupador = appState.agrupadores.find(a => a.id === obra.agrupadorId);
-                        bucket.set(obra.id, {
-                            obraId: obra.id,
-                            icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
-                            nombre: obra.nombre,
-                            sala: sala?.nombre || '',
-                            agrupadorNombre: agrupador ? agrupador.nombre : 'Obras individuales',
-                            tipoObra: obra.tipo,
-                            metricaColor,
-                            obra: obra,
-                            funciones: []
-                        });
-                    }
-                    bucket.get(obra.id).funciones.push({ fecha: f.fecha, hora: f.hora, numerador, denominador });
-                });
-            });
-
-            const toArray = (map) => Array.from(map.values()).sort((a, b) =>
-                (a.funciones[0].fecha + a.funciones[0].hora).localeCompare(b.funciones[0].fecha + b.funciones[0].hora)
-            );
-
-            return ordenMeses.slice().sort().map(k => ({
-                mesKey: mesesMap[k].mesKey,
-                mesLabel: mesesMap[k].mesLabel,
-                boleteria: toArray(mesesMap[k].boleteria),
-                entrada: toArray(mesesMap[k].entrada)
-            }));
-        }
-
         function truncarTexto(texto, maxChars) {
             if (!texto) return '';
             if (texto.length <= maxChars) return texto;
@@ -2671,9 +2611,9 @@
         }
 
         function colorPctHex(pct) {
-            if (pct >= 120) return '#86EFAC'; // 120% a 140% (y más, no se especificó tope)
-            if (pct >= 100) return '#22C55E'; // 100% a 120%
-            if (pct >= 70) return '#15803D'; // 70% a 100%
+            if (pct >= 120) return '#86EFAC';
+            if (pct >= 100) return '#22C55E';
+            if (pct >= 70) return '#15803D';
             if (pct >= 40) return '#EAB308';
             return '#DC2626';
         }
@@ -2767,10 +2707,6 @@
             registroIconosPendientes = [];
         }
 
-        function esSalaLlena(tipoObra, pct) {
-            return tipoObra === 'boleteria' && pct >= 100;
-        }
-
         function formatearMetricaFuncion(tipoObra, numerador, denominador) {
             const pct = denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
             if (tipoObra === 'boleteria') {
@@ -2779,29 +2715,100 @@
             return { texto: numerador + '/' + denominador, valor: pct + '%', pct };
         }
 
-        const REPORTE_ALTO_SUBTOTAL = 66;
-
-        function alturaGrupoReporte(grupo) {
-            // Cada función es SIEMPRE un renglón de la misma altura, sin importar
-            // si la obra tiene 1 función o varias. Si tiene varias, se suma un
-            // renglón extra para el subtotal.
-            const filas = grupo.funciones.length;
-            return (filas * REPORTE_ALTO_ROW) + (filas > 1 ? REPORTE_ALTO_SUBTOTAL : 0);
+        function esSalaLlena(tipoObra, pct) {
+            return tipoObra === 'boleteria' && pct >= 100;
         }
 
-        function alturaColumnaReporte(lista) {
-            if (lista.length === 0) return 0;
-            const sumaGrupos = lista.reduce((s, g) => s + alturaGrupoReporte(g), 0);
-            return 70 + sumaGrupos; // 70 = encabezado columna con % del mes
+        function construirMesesReporte() {
+            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const mesesMap = {};
+            const ordenMeses = [];
+
+            obrasActivas.forEach(obra => {
+                const sala = getSala(obra.salaId);
+                const funciones = getFuncionesObra(obra.id);
+                if (funciones.length === 0) return;
+
+                const primera = new Date(funciones[0].fecha + 'T00:00:00');
+                const mesKey = primera.getFullYear() + '-' + String(primera.getMonth() + 1).padStart(2, '0');
+                const mesLabel = MESES_REPORTE[primera.getMonth()] + ' ' + primera.getFullYear();
+
+                const agrupador = appState.agrupadores.find(a => a.id === obra.agrupadorId);
+                const agrupadorNombre = agrupador ? agrupador.nombre : 'Obras individuales';
+
+                if (!mesesMap[mesKey]) {
+                    mesesMap[mesKey] = { mesKey, mesLabel, temporadas: {}, ordenTemporadas: [] };
+                    ordenMeses.push(mesKey);
+                }
+                const mesObj = mesesMap[mesKey];
+                if (!mesObj.temporadas[agrupadorNombre]) {
+                    mesObj.temporadas[agrupadorNombre] = { nombre: agrupadorNombre, obras: [] };
+                    mesObj.ordenTemporadas.push(agrupadorNombre);
+                }
+
+                const funcionesConMetrica = funciones.map(f => {
+                    let numerador, denominador;
+                    if (obra.tipo === 'boleteria') {
+                        numerador = f.ventasAcumuladas || 0;
+                        denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                    } else {
+                        numerador = f.registrados || 0;
+                        denominador = sala?.aforo || 0;
+                    }
+                    const m = formatearMetricaFuncion(obra.tipo, numerador, denominador);
+                    return { fecha: f.fecha, hora: f.hora, numerador, denominador, pct: m.pct, valor: m.valor, texto: m.texto };
+                });
+
+                mesObj.temporadas[agrupadorNombre].obras.push({
+                    obraId: obra.id,
+                    icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
+                    nombre: obra.nombre,
+                    sala: sala?.nombre || '',
+                    agrupadorNombre: agrupadorNombre,
+                    tipoObra: obra.tipo,
+                    obra: obra,
+                    funciones: funcionesConMetrica
+                });
+            });
+
+            const ordenAgrupadoresGlobal = appState.agrupadores.map(a => a.nombre).concat(['Obras individuales']);
+
+            return ordenMeses.slice().sort().map(mk => {
+                const mesObj = mesesMap[mk];
+                const temporadasOrdenadas = mesObj.ordenTemporadas.slice().sort((a, b) =>
+                    ordenAgrupadoresGlobal.indexOf(a) - ordenAgrupadoresGlobal.indexOf(b)
+                );
+                return {
+                    mesKey: mesObj.mesKey,
+                    mesLabel: mesObj.mesLabel,
+                    temporadas: temporadasOrdenadas.map(nombreTemp => {
+                        const t = mesObj.temporadas[nombreTemp];
+                        t.obras.sort((a, b) => (a.funciones[0].fecha + a.funciones[0].hora).localeCompare(b.funciones[0].fecha + b.funciones[0].hora));
+                        return t;
+                    })
+                };
+            });
         }
 
-        function alturaMesBloque(mesBloque) {
-            const altoCol = Math.max(alturaColumnaReporte(mesBloque.boleteria), alturaColumnaReporte(mesBloque.entrada));
-            return REPORTE_ALTO_MES + altoCol;
+        const REPORTE_ALTO_TEMPORADA = 40;
+        const REPORTE_ALTO_OBRA_HEADER = 92;
+        const REPORTE_ALTO_FUNCION_SIMPLE = 46;
+        const REPORTE_ALTO_SUBTOTAL_SIMPLE = 42;
+
+        function alturaObraReporte(obraItem) {
+            const n = obraItem.funciones.length;
+            return REPORTE_ALTO_OBRA_HEADER + (n * REPORTE_ALTO_FUNCION_SIMPLE) + (n > 1 ? REPORTE_ALTO_SUBTOTAL_SIMPLE : 0);
         }
 
-        // Llena la página 1 al máximo antes de pasar a la siguiente — no reparte
-        // el contenido de forma pareja entre páginas.
+        function alturaTemporadaReporte(temporada) {
+            return REPORTE_ALTO_TEMPORADA + temporada.obras.reduce((s, o) => s + alturaObraReporte(o), 0);
+        }
+
+        function alturaMesBloque(mes) {
+            return REPORTE_ALTO_MES + mes.temporadas.reduce((s, t) => s + alturaTemporadaReporte(t), 0);
+        }
+
+        // Llena la página 1 al máximo antes de pasar a la siguiente
         function paginarMeses(meses, disponiblePx) {
             if (meses.length === 0) return [[]];
             const paginas = [];
@@ -2821,81 +2828,48 @@
             return paginas.length > 0 ? paginas : [[]];
         }
 
-        function renderFilaUniformeHTML(icono, nombrePrincipal, sub, metricaTexto, metricaValor, pct, salaLlena, indentado, iconosHTML) {
-            let html = '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_ROW - 2) + 'px; padding:0 4px 0 ' + (indentado ? '26px' : '4px') + '; border-bottom:1px solid #e5e7eb; box-sizing:border-box;">';
-            html += '<div style="flex:1; min-width:0;">';
-            html += '<div style="white-space:nowrap; font-size:23px; line-height:1.3; font-weight:normal; color:#111827;">' + (icono ? icono + ' ' : '') + truncarTexto(nombrePrincipal, 30) + '</div>';
-            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 45) + (iconosHTML ? ' ' + iconosHTML : '') + '</div>';
-            html += '</div>';
-            html += '<div style="flex-shrink:0; margin-left:10px;">';
-            html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; text-align:right; margin-bottom:4px;">' + metricaTexto + '</div>';
-            html += '<div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">';
-            if (salaLlena) html += renderBadgePct(pct, '🎉 SALA LLENA');
-            html += renderBadgePct(pct, metricaValor);
-            html += '</div></div></div>';
-            return html;
-        }
+        function renderObraReporteHTML(obraItem) {
+            let html = '<div style="padding:10px 4px 12px; border-bottom:1px solid #e5e7eb;">';
+            html += '<div style="font-size:22px; color:#111827; white-space:nowrap;">' + obraItem.icono + ' ' + truncarTexto(obraItem.nombre, 50) + '</div>';
+            html += '<div style="font-size:14px; color:#6b7280; margin-top:3px; white-space:nowrap;">' + truncarTexto(obraItem.sala, 22) + ' · ' + truncarTexto(obraItem.agrupadorNombre, 34) + '</div>';
+            html += '<div style="margin-top:6px;">' + renderIconosEstadoReporte(obraItem.obra) + '</div>';
 
-        function renderGrupoReporteHTML(grupo) {
-            if (grupo.funciones.length === 1) {
-                const f = grupo.funciones[0];
-                const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
-                return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false, renderIconosEstadoReporte(grupo.obra));
-            }
-
-            // Obra con varias funciones: primer renglón con el nombre + su función,
-            // renglones siguientes indentados solo con fecha/hora — todos del
-            // mismo alto — y un renglón final de subtotal.
-            let html = '';
-            grupo.funciones.forEach((f, idx) => {
-                const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                if (idx === 0) {
-                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
-                    html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false, renderIconosEstadoReporte(grupo.obra));
-                } else {
-                    html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
-                }
+            obraItem.funciones.forEach(f => {
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 4px 6px 6px; margin-top:6px;">';
+                html += '<div style="font-size:16px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="display:flex; align-items:center; gap:6px;">';
+                if (esSalaLlena(obraItem.tipoObra, f.pct)) html += renderBadgePct(f.pct, '🎉 SALA LLENA');
+                html += renderBadgePct(f.pct, f.valor);
+                html += '</div></div>';
             });
-            const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
-            const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
-            const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
-            const salaLlenaTotal = esSalaLlena(grupo.tipoObra, mTotal.pct);
-            html += '<div style="display:flex; align-items:center; justify-content:space-between; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
-            html += '<span style="font-size:15px; font-weight:bold; color:#6b7280;">Total</span>';
-            html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
-            if (salaLlenaTotal) html += renderBadgePct(mTotal.pct, '🎉 SALA LLENA');
-            html += renderBadgePct(mTotal.pct, mTotal.valor);
-            html += '</div></div>';
+
+            if (obraItem.funciones.length > 1) {
+                const sumaNum = obraItem.funciones.reduce((s, f) => s + f.numerador, 0);
+                const sumaDen = obraItem.funciones.reduce((s, f) => s + f.denominador, 0);
+                const mTotal = formatearMetricaFuncion(obraItem.tipoObra, sumaNum, sumaDen);
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; margin-top:4px; background:#f9fafb; border-radius:4px;">';
+                html += '<span style="font-size:14px; font-weight:bold; color:#6b7280;">Total</span>';
+                html += '<div style="display:flex; align-items:center; gap:6px;">';
+                if (esSalaLlena(obraItem.tipoObra, mTotal.pct)) html += renderBadgePct(mTotal.pct, '🎉 SALA LLENA');
+                html += renderBadgePct(mTotal.pct, mTotal.valor);
+                html += '</div></div>';
+            }
+            html += '</div>';
             return html;
         }
 
-        function renderColumnaReporteHTML(lista, etiqueta) {
-            if (lista.length === 0) return '<div style="min-width:0;"></div>';
-            const sumaNum = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.numerador, 0), 0);
-            const sumaDen = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.denominador, 0), 0);
-            const pctMes = sumaDen > 0 ? Math.round((sumaNum / sumaDen) * 100) : 0;
-
-            let html = '<div style="min-width:0; overflow:hidden;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 12px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
-            html += '<span style="font-size:28px; font-weight:bold; color:#374151;">' + etiqueta + '</span>';
-            html += renderBadgePct(pctMes, pctMes + '%');
-            html += '</div>';
-            lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
-            html += '</div>';
+        function renderTemporadaReporteHTML(temporada) {
+            let html = '<div style="font-size:16px; font-weight:bold; color:#4b5563; padding:10px 4px 6px; text-transform:uppercase; letter-spacing:0.3px;">' + truncarTexto(temporada.nombre, 45) + '</div>';
+            temporada.obras.forEach(o => { html += renderObraReporteHTML(o); });
             return html;
         }
 
         function renderMesBloqueHTML(mesBloque) {
-            let html = '<div style="font-size:22px; font-weight:bold; color:#ffffff; background:#808080; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
-            html += '<div style="display:table; width:100%; table-layout:fixed; border-spacing:0;">';
-            html += '<div style="display:table-row;">';
-            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-right:14px;">' + renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería') + '</div>';
-            html += '<div style="display:table-cell; width:4%; vertical-align:top;"><div style="width:2px; background:#d1d5db; height:100%; margin:0 auto;">&nbsp;</div></div>';
-            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-left:14px;">' + renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre') + '</div>';
-            html += '</div></div>';
+            let html = '<div style="font-size:22px; font-weight:bold; color:#ffffff; background:#808080; padding:10px 12px; margin-top:8px; margin-bottom:4px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
+            mesBloque.temporadas.forEach(t => { html += renderTemporadaReporteHTML(t); });
             return html;
         }
+
 
         const REPORTE_ALTO_RESUMEN = 150;
 
@@ -2981,21 +2955,17 @@
             const items = [];
             meses.forEach(mes => {
                 items.push({ tipo: 'mes', label: mes.mesLabel });
-                const agregarColumna = (lista, etiqueta) => {
-                    if (lista.length === 0) return;
-                    items.push({ tipo: 'subtipo', label: etiqueta });
-                    lista.forEach(grupo => {
-                        grupo.funciones.forEach(f => {
-                            const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
+                mes.temporadas.forEach(temporada => {
+                    items.push({ tipo: 'subtipo', label: temporada.nombre });
+                    temporada.obras.forEach(obraItem => {
+                        obraItem.funciones.forEach(f => {
                             items.push({
-                                tipo: 'funcion', icono: grupo.icono, nombre: grupo.nombre, sala: grupo.sala,
-                                fecha: f.fecha, hora: f.hora, metricaTexto: m.texto, metricaValor: m.valor, metricaColor: grupo.metricaColor, metricaPct: m.pct
+                                tipo: 'funcion', icono: obraItem.icono, nombre: obraItem.nombre, sala: obraItem.sala,
+                                fecha: f.fecha, hora: f.hora, metricaTexto: f.texto, metricaValor: f.valor, metricaPct: f.pct
                             });
                         });
                     });
-                };
-                agregarColumna(mes.boleteria, '💵 Boletería');
-                agregarColumna(mes.entrada, '🎟️ Entrada Libre');
+                });
             });
             return items;
         }
