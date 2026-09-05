@@ -707,7 +707,7 @@
 
                 html += '<details open class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
                 html += '<summary style="cursor:pointer; list-style:none;" class="p-4 flex flex-wrap items-center justify-between gap-2">';
-                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> ' + (key === '__sin_agrupar__' ? '' : '🎪 ') + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
+                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
                 html += '<span class="flex items-center gap-2">';
                 if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-size:14px; font-weight:bold;">💵 ' + pctB + '%</span>';
                 if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold;">🎟️ ' + pctE + '%</span>';
@@ -1927,7 +1927,7 @@
 
             // AGRUPADORES: temporadas, festivales, encuentros — obras de boletería y entrada libre pueden pertenecer a uno
             html += '<div class="bg-white rounded shadow p-4 mt-6">';
-            html += '<h3 class="text-lg font-bold mb-1">🎪 Temporadas, Festivales y Encuentros</h3>';
+            html += '<h3 class="text-lg font-bold mb-1">Temporadas, Festivales y Encuentros</h3>';
             html += '<p class="text-xs text-gray-500 mb-3">Agrupa varias obras (de Boletería y/o Entrada Libre) bajo un mismo evento o temporada. Cada obra puede pertenecer a uno.</p>';
             html += '<form onsubmit="agregarAgrupador(event)" class="flex gap-2 mb-4">';
             html += '<input type="text" id="nuevoAgrupadorNombre" placeholder="Ej: Festival de Teatro 2026, Temporada Septiembre..." required class="flex-1 px-3 py-2 border rounded text-sm" />';
@@ -2677,7 +2677,7 @@
             if (grupo.funciones.length === 1) {
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + (grupo.agrupadorNombre === 'Obras individuales' ? '' : '🎪 ') + truncarTexto(grupo.agrupadorNombre, 20);
+                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
                 return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false);
             }
 
@@ -2688,7 +2688,7 @@
             grupo.funciones.forEach((f, idx) => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 if (idx === 0) {
-                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + (grupo.agrupadorNombre === 'Obras individuales' ? '' : '🎪 ') + truncarTexto(grupo.agrupadorNombre, 20);
+                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
                     html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false);
                 } else {
                     html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
