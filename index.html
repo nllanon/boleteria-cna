@@ -718,13 +718,13 @@
                 const pctE = denE > 0 ? Math.round((numE / denE) * 100) : null;
 
                 html += '<details class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
-                html += '<summary style="cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap;" class="p-4">';
+                html += '<summary style="cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; row-gap:6px;" class="p-4">';
                 html += '<span style="display:flex; align-items:center; gap:8px; min-width:0; flex:1; overflow:hidden;">';
                 html += '<span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s; flex-shrink:0;">▶</span>';
                 html += '<span style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:bold; font-size:1.125rem;">' + truncarTexto(grupo.nombre, 26) + '</span>';
                 html += '<span style="flex-shrink:0; font-size:0.75rem; font-weight:normal; color:#6b7280;">(' + grupo.obras.length + ')</span>';
                 html += '</span>';
-                html += '<span style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
+                html += '<span style="flex-shrink:0; display:flex; align-items:center; gap:8px; margin-left:auto;">';
                 if (pctB !== null) html += renderBadgePct(pctB, '💵 ' + pctB + '%');
                 if (pctE !== null) html += renderBadgePct(pctE, '🎟️ ' + pctE + '%');
                 html += '</span>';
