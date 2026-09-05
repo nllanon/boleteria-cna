@@ -2582,15 +2582,20 @@
             return { texto: numerador + '/' + denominador, valor: pct + '%', pct };
         }
 
+        const REPORTE_ALTO_SUBTOTAL = 66;
+
         function alturaGrupoReporte(grupo) {
-            if (grupo.funciones.length === 1) return REPORTE_ALTO_ROW;
-            return 72 + (grupo.funciones.length * 72) + 58; // encabezado obra (2 líneas) + filas función + subtotal
+            // Cada función es SIEMPRE un renglón de la misma altura, sin importar
+            // si la obra tiene 1 función o varias. Si tiene varias, se suma un
+            // renglón extra para el subtotal.
+            const filas = grupo.funciones.length;
+            return (filas * REPORTE_ALTO_ROW) + (filas > 1 ? REPORTE_ALTO_SUBTOTAL : 0);
         }
 
         function alturaColumnaReporte(lista) {
             if (lista.length === 0) return 0;
             const sumaGrupos = lista.reduce((s, g) => s + alturaGrupoReporte(g), 0);
-            return 64 + sumaGrupos; // 64 = encabezado columna con % del mes
+            return 70 + sumaGrupos; // 70 = encabezado columna con % del mes
         }
 
         function alturaMesBloque(mesBloque) {
@@ -2598,22 +2603,16 @@
             return REPORTE_ALTO_MES + altoCol;
         }
 
+        // Llena la página 1 al máximo antes de pasar a la siguiente — no reparte
+        // el contenido de forma pareja entre páginas.
         function paginarMeses(meses, disponiblePx) {
             if (meses.length === 0) return [[]];
-
-            const pesoTotal = meses.reduce((s, m) => s + alturaMesBloque(m), 0);
-            const numPaginas = Math.max(1, Math.ceil(pesoTotal / disponiblePx));
-            const pesoObjetivoPorPagina = pesoTotal / numPaginas;
-
             const paginas = [];
             let actual = [];
             let alturaAcumulada = 0;
             meses.forEach(mes => {
                 const h = alturaMesBloque(mes);
-                const quedanPaginasPorLlenar = paginas.length < numPaginas - 1;
-                const limitePagina = quedanPaginasPorLlenar ? pesoObjetivoPorPagina : disponiblePx;
-
-                if ((alturaAcumulada + h) > limitePagina && actual.length > 0) {
+                if ((alturaAcumulada + h) > disponiblePx && actual.length > 0) {
                     paginas.push(actual);
                     actual = [];
                     alturaAcumulada = 0;
@@ -2625,56 +2624,65 @@
             return paginas.length > 0 ? paginas : [[]];
         }
 
+        function renderFilaUniformeHTML(icono, nombrePrincipal, sub, metricaTexto, metricaValor, pct, salaLlena, indentado) {
+            let html = '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_ROW - 2) + 'px; padding:0 4px 0 ' + (indentado ? '26px' : '4px') + '; border-bottom:1px solid #e5e7eb; box-sizing:border-box;">';
+            html += '<div style="flex:1; min-width:0;">';
+            html += '<div style="white-space:nowrap; font-size:23px; line-height:1.3; font-weight:normal; color:#111827;">' + (icono ? icono + ' ' : '') + truncarTexto(nombrePrincipal, 30) + '</div>';
+            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 36) + '</div>';
+            html += '</div>';
+            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
+            html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:4px;">' + metricaTexto + '</div>';
+            html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(pct) + '">' + metricaValor + '</div>';
+            html += '</div></div>';
+            if (salaLlena) {
+                html += '<div style="display:flex; justify-content:flex-end; padding:0 4px 8px ' + (indentado ? '26px' : '4px') + ';"><span style="' + estiloPctBadge(pct) + ' padding:3px 10px; font-size:12px; font-weight:bold;">🎉 SALA LLENA</span></div>';
+            }
+            return html;
+        }
+
         function renderGrupoReporteHTML(grupo) {
             if (grupo.funciones.length === 1) {
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                let html = '<div style="display:flex; align-items:center; padding:14px 4px; border-bottom:1px solid #e5e7eb;">';
-                html += '<div style="flex:1; min-width:0;">';
-                html += '<div style="white-space:nowrap; font-size:24px; line-height:1.5; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + truncarTexto(grupo.nombre, 26) + '</div>';
-                html += '<div style="white-space:nowrap; color:#6b7280; font-size:15px; line-height:1.5; margin-top:4px;">' + truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                if (esSalaLlena(grupo.tipoObra, m.pct)) html += '<div style="margin-top:6px;"><span style="' + estiloPctBadge(m.pct) + ' padding:3px 10px; font-size:13px; font-weight:bold;">🎉 SALA LLENA</span></div>';
-                html += '</div>';
-                html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
-                html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:5px;">' + m.texto + '</div>';
-                html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div>';
-                html += '</div></div>';
-                return html;
+                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora;
+                return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false);
             }
 
-            // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
-            let html = '<div style="margin-bottom:2px;">';
-            html += '<div style="white-space:nowrap; font-size:24px; line-height:1.5; color:#111827; padding-top:10px;">' + grupo.icono + ' ' + truncarTexto(grupo.nombre, 26) + '</div>';
-            html += '<div style="white-space:nowrap; font-size:15px; line-height:1.5; color:#6b7280; margin-top:4px;">' + truncarTexto(grupo.sala, 20) + '</div>';
-            grupo.funciones.forEach(f => {
+            // Obra con varias funciones: primer renglón con el nombre + su función,
+            // renglones siguientes indentados solo con fecha/hora — todos del
+            // mismo alto — y un renglón final de subtotal.
+            let html = '';
+            grupo.funciones.forEach((f, idx) => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 4px 10px 22px; border-bottom:1px solid #f3f4f6;">';
-                html += '<div style="font-size:15px; color:#374151; white-space:nowrap;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:5px;">' + m.texto + '</div><div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div></div>';
-                html += '</div>';
+                if (idx === 0) {
+                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora;
+                    html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false);
+                } else {
+                    html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
+                }
             });
             const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px 8px 10px 22px; border-radius:4px; margin:2px 0 6px;">';
-            html += '<div style="flex:1; white-space:nowrap; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + truncarTexto(grupo.nombre, 22) + '</div>';
+            const salaLlenaTotal = esSalaLlena(grupo.tipoObra, mTotal.pct);
+            html += '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
+            html += '<div style="flex:1; white-space:nowrap; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + truncarTexto(grupo.nombre, 24) + '</div>';
             html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px; margin-left:8px;">';
-            if (esSalaLlena(grupo.tipoObra, mTotal.pct)) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' padding:3px 10px; font-size:13px; font-weight:bold;">🎉 SALA LLENA</span>';
+            if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' padding:3px 10px; font-size:12px; font-weight:bold;">🎉 SALA LLENA</span>';
             html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
-            html += '</div>';
             html += '</div></div>';
             return html;
         }
 
         function renderColumnaReporteHTML(lista, etiqueta) {
-            if (lista.length === 0) return '<div></div>';
+            if (lista.length === 0) return '<div style="min-width:0;"></div>';
             const sumaNum = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.numerador, 0), 0);
             const sumaDen = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.denominador, 0), 0);
             const pctMes = sumaDen > 0 ? Math.round((sumaNum / sumaDen) * 100) : 0;
 
             let html = '<div style="min-width:0; overflow:hidden;">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 10px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
-            html += '<span style="font-size:16px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</span>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 12px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
+            html += '<span style="font-size:28px; font-weight:bold; color:#374151;">' + etiqueta + '</span>';
             html += '<span style="font-size:20px; font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '% total</span>';
             html += '</div>';
             lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
@@ -2684,8 +2692,9 @@
 
         function renderMesBloqueHTML(mesBloque) {
             let html = '<div style="font-size:22px; font-weight:bold; color:#374151; background:#f3f4f6; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
-            html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">';
+            html += '<div style="display:grid; grid-template-columns:1fr 2px 1fr; gap:20px; align-items:start;">';
             html += renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería');
+            html += '<div style="background:#d1d5db; align-self:stretch;"></div>';
             html += renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre');
             html += '</div>';
             return html;
@@ -2694,7 +2703,9 @@
         function alturaRealPagina(paginaMeses) {
             const alturaContenido = paginaMeses.reduce((s, m) => s + alturaMesBloque(m), 0);
             const total = REPORTE_ALTO_HEADER + alturaContenido + (REPORTE_PADDING * 2) + 20;
-            return Math.min(REPORTE_ALTO_TOTAL, Math.max(400, total));
+            // Nunca recorta contenido: si un mes por sí solo necesita más espacio
+            // del ideal (1920), la imagen crece en vez de cortar texto.
+            return Math.max(400, total);
         }
 
         function renderPaginaReporteHTML(paginaMeses, numPagina, totalPaginas, altoPagina) {
