@@ -45,7 +45,8 @@
             calAnio: null,
             calFiltroSala: 'todas',
             calFiltroTipo: 'todas',
-            dashboardBusqueda: ''
+            dashboardBusqueda: '',
+            reportePaginasGeneradas: null
         };
 
         const USUARIOS = {
@@ -2454,6 +2455,7 @@
                     }
                     filas.push({
                         tipo: 'funcion',
+                        tipoObra: obra.tipo,
                         mesKey: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
                         mesLabel: MESES_REPORTE[d.getMonth()] + ' ' + d.getFullYear(),
                         icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
@@ -2466,16 +2468,27 @@
                 });
             });
 
-            filas.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+            // Orden: mes → tipo (Boletería primero, Entrada Libre después) → fecha/hora
+            filas.sort((a, b) => {
+                if (a.mesKey !== b.mesKey) return a.mesKey.localeCompare(b.mesKey);
+                if (a.tipoObra !== b.tipoObra) return a.tipoObra === 'boleteria' ? -1 : 1;
+                return (a.fecha + a.hora).localeCompare(b.fecha + b.hora);
+            });
 
-            // Insertar encabezados de mes (agrupación — sustituye a "temporadas",
-            // que todavía no es un dato real en el sistema)
+            // Insertar encabezados de mes + subtítulo de tipo (agrupación — sustituye a
+            // "temporadas", que todavía no es un dato real en el sistema)
             const items = [];
             let mesActual = null;
+            let tipoActual = null;
             filas.forEach(f => {
                 if (f.mesKey !== mesActual) {
                     items.push({ tipo: 'mes', label: f.mesLabel });
                     mesActual = f.mesKey;
+                    tipoActual = null;
+                }
+                if (f.tipoObra !== tipoActual) {
+                    items.push({ tipo: 'subtipo', label: f.tipoObra === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre' });
+                    tipoActual = f.tipoObra;
                 }
                 items.push(f);
             });
@@ -2483,7 +2496,9 @@
         }
 
         function alturaItemReporte(item) {
-            return item.tipo === 'mes' ? REPORTE_ALTO_MES : REPORTE_ALTO_ROW;
+            if (item.tipo === 'mes') return REPORTE_ALTO_MES;
+            if (item.tipo === 'subtipo') return 34;
+            return REPORTE_ALTO_ROW;
         }
 
         function paginarItemsReporte(items, disponiblePx) {
@@ -2492,7 +2507,8 @@
             let alturaAcumulada = 0;
             items.forEach(item => {
                 const h = alturaItemReporte(item);
-                const seEstariaQuedandoSolo = item.tipo === 'mes' && (alturaAcumulada + h + REPORTE_ALTO_ROW) > disponiblePx;
+                const esEncabezado = item.tipo === 'mes' || item.tipo === 'subtipo';
+                const seEstariaQuedandoSolo = esEncabezado && (alturaAcumulada + h + REPORTE_ALTO_ROW) > disponiblePx;
                 if (seEstariaQuedandoSolo && actual.length > 0) {
                     paginas.push(actual);
                     actual = [];
@@ -2513,6 +2529,9 @@
         function renderFilaReporteHTML(item) {
             if (item.tipo === 'mes') {
                 return '<div style="font-size:16px; font-weight:bold; color:#374151; background:#f3f4f6; padding:8px 10px; margin-top:6px; margin-bottom:2px; border-radius:4px;">📅 ' + item.label + '</div>';
+            }
+            if (item.tipo === 'subtipo') {
+                return '<div style="font-size:12px; font-weight:bold; color:#6b7280; padding:4px 6px 2px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
             }
             let html = '<div style="display:table; width:100%; table-layout:fixed; padding:6px 4px; border-bottom:1px solid #e5e7eb;">';
             html += '<div style="display:table-cell; width:60%; vertical-align:middle; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
@@ -2546,7 +2565,7 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Se descargan una o más imágenes de 1080×1920 (según cuántas funciones haya), agrupadas por mes. Cada fila es una función individual, no un total de obra.</p>';
+            html += '<p class="text-xs text-gray-500 mb-4">Se generan una o más imágenes de 1080×1920 (según cuántas funciones haya), agrupadas por mes y tipo. Cada fila es una función individual, no un total de obra.</p>';
 
             const items = construirItemsReporte();
 
@@ -2558,6 +2577,19 @@
                 items.forEach(item => { html += renderFilaReporteHTML(item); });
             }
             html += '</div></div>';
+
+            if (appState.reportePaginasGeneradas && appState.reportePaginasGeneradas.length > 0) {
+                html += '<div id="reportePaginasGeneradas" class="mt-8 max-w-md">';
+                html += '<h3 class="text-base font-bold mb-1">✅ ' + appState.reportePaginasGeneradas.length + ' imagen(es) lista(s)</h3>';
+                html += '<p class="text-xs text-gray-500 mb-3">Descarga cada una por separado tocando su botón — el navegador del celular no permite descargar varias a la vez automáticamente.</p>';
+                appState.reportePaginasGeneradas.forEach((pagina, idx) => {
+                    html += '<div class="bg-white rounded shadow mb-4 p-3">';
+                    html += '<img src="' + pagina.dataUrl + '" style="width:100%; border-radius:4px; border:1px solid #e5e7eb;" />';
+                    html += '<a href="' + pagina.dataUrl + '" download="' + pagina.nombreArchivo + '" class="mt-2 block text-center bg-green-600 text-white py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar imagen ' + (idx + 1) + ' de ' + appState.reportePaginasGeneradas.length + '</a>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
 
             html += '</main></div>';
             return html;
@@ -2582,6 +2614,7 @@
             const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
             if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando ' + paginas.length + ' imagen(es)...'; }
 
+            const generadas = [];
             for (let i = 0; i < paginas.length; i++) {
                 const pagina = document.createElement('div');
                 pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px;';
@@ -2590,11 +2623,10 @@
 
                 try {
                     const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 2, width: REPORTE_ANCHO, height: REPORTE_ALTO_TOTAL });
-                    const link = document.createElement('a');
-                    link.download = 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    await new Promise(r => setTimeout(r, 300));
+                    generadas.push({
+                        dataUrl: canvas.toDataURL('image/png'),
+                        nombreArchivo: 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png'
+                    });
                 } catch (err) {
                     console.error(err);
                     alert('⚠️ Error generando la imagen ' + (i + 1));
@@ -2604,6 +2636,17 @@
             }
 
             if (btn) { btn.disabled = false; btn.textContent = '📥 Descargar PNG'; }
+
+            // Los navegadores móviles bloquean descargas automáticas múltiples en
+            // un mismo clic (solo dejan pasar la última). Por eso se muestran las
+            // imágenes generadas con un botón de descarga individual cada una —
+            // cada descarga real es un toque separado del usuario.
+            appState.reportePaginasGeneradas = generadas;
+            render();
+            setTimeout(() => {
+                const destino = document.getElementById('reportePaginasGeneradas');
+                if (destino) destino.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         }
 
         function renderHistorial() {
