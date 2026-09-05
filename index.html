@@ -2633,7 +2633,7 @@
                 html += '<div style="flex:1; min-width:0;">';
                 html += '<div style="white-space:nowrap; font-size:24px; line-height:1.5; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + truncarTexto(grupo.nombre, 26) + '</div>';
                 html += '<div style="white-space:nowrap; color:#6b7280; font-size:15px; line-height:1.5; margin-top:4px;">' + truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                if (esSalaLlena(grupo.tipoObra, m.pct)) html += '<div style="margin-top:6px;"><span style="background:#166534; color:#ffffff; padding:3px 10px; border-radius:5px; font-size:13px; font-weight:bold; display:inline-block;">🎉 SALA LLENA</span></div>';
+                if (esSalaLlena(grupo.tipoObra, m.pct)) html += '<div style="margin-top:6px;"><span style="' + estiloPctBadge(m.pct) + ' padding:3px 10px; font-size:13px; font-weight:bold;">🎉 SALA LLENA</span></div>';
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
                 html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:5px;">' + m.texto + '</div>';
@@ -2659,7 +2659,7 @@
             html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px 8px 10px 22px; border-radius:4px; margin:2px 0 6px;">';
             html += '<div style="flex:1; white-space:nowrap; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + truncarTexto(grupo.nombre, 22) + '</div>';
             html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px; margin-left:8px;">';
-            if (esSalaLlena(grupo.tipoObra, mTotal.pct)) html += '<span style="background:#166534; color:#ffffff; padding:3px 10px; border-radius:5px; font-size:13px; font-weight:bold; white-space:nowrap;">🎉 SALA LLENA</span>';
+            if (esSalaLlena(grupo.tipoObra, mTotal.pct)) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' padding:3px 10px; font-size:13px; font-weight:bold;">🎉 SALA LLENA</span>';
             html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div>';
             html += '</div></div>';
