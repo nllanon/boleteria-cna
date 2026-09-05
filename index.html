@@ -575,21 +575,20 @@
         };
 
         function renderIconosEstado(obra) {
-            const item = (activo, emoji, titulo) => {
-                return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="display:inline-block;">'
-                    + '<span style="font-size:1.1rem; filter: ' + (activo ? 'none' : 'grayscale(1) opacity(0.35)') + ';">' + emoji + '</span>'
-                    + '</span>';
+            const item = (activo, texto, titulo) => {
+                const bg = activo ? '#3B82F6' : '#BFBFBF';
+                return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="display:inline-block; background:' + bg + '; color:#ffffff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:4px; line-height:1.3;">' + texto + '</span>';
             };
             let html = '<div class="flex gap-1.5 items-center flex-wrap">';
-            html += item(!!obra.piezasDesarrolladas, ICONOS.piezas, 'Piezas Desarrolladas');
+            html += item(!!obra.piezasDesarrolladas, 'Pi', 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
-                html += item(!!obra.fechaTiquetera, ICONOS.tiquetera, 'Tiquetera (en línea)');
-                html += item(!!obra.fechaRedes, ICONOS.redes, 'Redes Sociales');
-                html += item(!!obra.videoDisponible, ICONOS.video, 'Video para Pauta');
-                html += item(!!obra.fechaPauta, ICONOS.pauta, 'Pauta Digital');
+                html += item(!!obra.fechaTiquetera, 'Tiq', 'Tiquetera (en línea)');
+                html += item(!!obra.fechaRedes, 'RS', 'Redes Sociales');
+                html += item(!!obra.videoDisponible, 'V', 'Video para Pauta');
+                html += item(!!obra.fechaPauta, 'Pau', 'Pauta Digital');
             } else {
-                html += item(!!obra.linkRegistro, ICONOS.link, 'Link de Registro');
-                html += item(!!obra.fechaRedes, ICONOS.redes, 'Redes Sociales');
+                html += item(!!obra.linkRegistro, 'Link', 'Link de Registro');
+                html += item(!!obra.fechaRedes, 'RS', 'Redes Sociales');
             }
             html += '</div>';
             return html;
@@ -2667,21 +2666,23 @@
             const id = 'iconos-' + registroIconosPendientes.length + '-' + Math.random().toString(36).slice(2, 8);
             const items = obra.tipo === 'boleteria'
                 ? [
-                    { emoji: '🧩', activo: !!obra.piezasDesarrolladas },
-                    { emoji: '🌐', activo: !!obra.fechaTiquetera },
-                    { emoji: '💬', activo: !!obra.fechaRedes },
-                    { emoji: '🎬', activo: !!obra.videoDisponible },
-                    { emoji: '📢', activo: !!obra.fechaPauta }
+                    { texto: 'Pi', activo: !!obra.piezasDesarrolladas },
+                    { texto: 'Tiq', activo: !!obra.fechaTiquetera },
+                    { texto: 'RS', activo: !!obra.fechaRedes },
+                    { texto: 'V', activo: !!obra.videoDisponible },
+                    { texto: 'Pau', activo: !!obra.fechaPauta }
                   ]
                 : [
-                    { emoji: '🧩', activo: !!obra.piezasDesarrolladas },
-                    { emoji: '🔗', activo: !!obra.linkRegistro },
-                    { emoji: '💬', activo: !!obra.fechaRedes }
+                    { texto: 'Pi', activo: !!obra.piezasDesarrolladas },
+                    { texto: 'Link', activo: !!obra.linkRegistro },
+                    { texto: 'RS', activo: !!obra.fechaRedes }
                   ];
-            const ancho = items.length * 24;
+            const GAP = 4;
+            items.forEach(item => { item.ancho = item.texto.length * 6 + 14; });
+            const anchoTotal = items.reduce((s, it) => s + it.ancho, 0) + GAP * (items.length - 1);
             const alto = 20;
-            registroIconosPendientes.push({ id, items, ancho, alto });
-            return '<canvas id="' + id + '" width="' + ancho + '" height="' + alto + '" style="display:inline-block; vertical-align:middle;"></canvas>';
+            registroIconosPendientes.push({ id, items, ancho: anchoTotal, alto, gap: GAP });
+            return '<canvas id="' + id + '" width="' + anchoTotal + '" height="' + alto + '" style="display:inline-block; vertical-align:middle;"></canvas>';
         }
 
         function dibujarIconosPendientesEnCanvas() {
@@ -2695,14 +2696,29 @@
                 canvas.style.height = reg.alto + 'px';
                 const ctx = canvas.getContext('2d');
                 ctx.scale(FACTOR, FACTOR);
-                ctx.font = '15px Arial';
+                ctx.font = 'bold 10px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                reg.items.forEach((item, idx) => {
-                    ctx.globalAlpha = item.activo ? 1 : 0.25;
-                    ctx.fillText(item.emoji, 12 + idx * 24, reg.alto / 2 + 1);
+
+                let x = 0;
+                reg.items.forEach(item => {
+                    const r = 3;
+                    const w = item.ancho, h = reg.alto;
+                    ctx.fillStyle = item.activo ? '#3B82F6' : '#BFBFBF';
+                    ctx.beginPath();
+                    ctx.moveTo(x + r, 0);
+                    ctx.arcTo(x + w, 0, x + w, h, r);
+                    ctx.arcTo(x + w, h, x, h, r);
+                    ctx.arcTo(x, h, x, 0, r);
+                    ctx.arcTo(x, 0, x + w, 0, r);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(item.texto, x + w / 2, h / 2 + 1);
+
+                    x += w + reg.gap;
                 });
-                ctx.globalAlpha = 1;
             });
             registroIconosPendientes = [];
         }
