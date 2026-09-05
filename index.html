@@ -643,14 +643,18 @@
             html += '</div>';
 
             html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">';
-            html += '<div class="bg-white p-3 rounded shadow">';
-            html += '<div class="flex justify-between items-center mb-1"><p class="text-gray-500 text-xs">💵 Boletería</p><span style="' + estiloPctBadge(pctBoleteria) + ' font-size:14px; font-weight:bold;">' + pctBoleteria + '%</span></div>';
-            html += '<p class="text-sm"><span class="text-lg font-bold text-green-600">' + totalVentas + '</span> <span class="text-gray-500">vendidas</span> · <span class="text-lg font-bold text-gray-700">' + porVenderBoleteria + '</span> <span class="text-gray-500">por vender</span></p>';
-            html += '</div>';
-            html += '<div class="bg-white p-3 rounded shadow">';
-            html += '<div class="flex justify-between items-center mb-1"><p class="text-gray-500 text-xs">🎟️ Entrada Libre</p><span style="' + estiloPctBadge(pctEntrada) + ' font-size:14px; font-weight:bold;">' + pctEntrada + '%</span></div>';
-            html += '<p class="text-sm"><span class="text-lg font-bold text-purple-600">' + totalRegistrados + '</span> <span class="text-gray-500">registradas</span> · <span class="text-lg font-bold text-gray-700">' + porOcuparEntrada + '</span> <span class="text-gray-500">por ocupar</span></p>';
-            html += '</div>';
+            html += '<div class="bg-white p-3 rounded shadow flex items-center gap-3">';
+            html += '<div style="width:64px; height:64px; flex-shrink:0;"><canvas id="donaBoleteria"></canvas></div>';
+            html += '<div style="min-width:0;">';
+            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">💵 Boletería</p><span style="' + estiloPctBadge(pctBoleteria) + ' font-size:13px; font-weight:bold;">' + pctBoleteria + '%</span></div>';
+            html += '<p class="text-sm"><span class="text-lg font-bold text-green-600">' + totalVentas + '</span> <span class="text-gray-500">vendidas</span><br><span class="text-lg font-bold text-gray-700">' + porVenderBoleteria + '</span> <span class="text-gray-500">por vender</span></p>';
+            html += '</div></div>';
+            html += '<div class="bg-white p-3 rounded shadow flex items-center gap-3">';
+            html += '<div style="width:64px; height:64px; flex-shrink:0;"><canvas id="donaEntrada"></canvas></div>';
+            html += '<div style="min-width:0;">';
+            html += '<div class="flex justify-between items-center gap-2 mb-1"><p class="text-gray-500 text-xs">🎟️ Entrada Libre</p><span style="' + estiloPctBadge(pctEntrada) + ' font-size:13px; font-weight:bold;">' + pctEntrada + '%</span></div>';
+            html += '<p class="text-sm"><span class="text-lg font-bold text-purple-600">' + totalRegistrados + '</span> <span class="text-gray-500">registradas</span><br><span class="text-lg font-bold text-gray-700">' + porOcuparEntrada + '</span> <span class="text-gray-500">por ocupar</span></p>';
+            html += '</div></div>';
             html += '</div>';
 
             // Buscador
@@ -713,7 +717,7 @@
                 const pctB = denB > 0 ? Math.round((numB / denB) * 100) : null;
                 const pctE = denE > 0 ? Math.round((numE / denE) * 100) : null;
 
-                html += '<details open class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
+                html += '<details class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
                 html += '<summary style="cursor:pointer; list-style:none;" class="p-4 flex flex-wrap items-center justify-between gap-2">';
                 html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
                 html += '<span class="flex items-center gap-2">';
@@ -730,7 +734,35 @@
             html += '<style>details[open] > summary .triangulo-cascada { transform: rotate(90deg); } summary::-webkit-details-marker { display:none; } summary { list-style:none; }</style>';
 
             html += '</main></div>';
+
+            setTimeout(() => renderDonasResumenDashboard(totalVentas, porVenderBoleteria, totalRegistrados, porOcuparEntrada), 50);
+
             return html;
+        }
+
+        function renderDonasResumenDashboard(vendidas, porVender, registradas, porOcupar) {
+            if (!window.Chart) return;
+
+            const hacerDona = (canvasId, instanciaKey, valores, colores) => {
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return;
+                if (window[instanciaKey]) window[instanciaKey].destroy();
+                const sinDatos = valores.every(v => v === 0);
+                window[instanciaKey] = new Chart(canvas, {
+                    type: 'doughnut',
+                    data: { datasets: [{ data: sinDatos ? [1] : valores, backgroundColor: sinDatos ? ['#e5e7eb'] : colores, borderWidth: 0 }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        animation: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                    }
+                });
+            };
+
+            hacerDona('donaBoleteria', 'donaBoleteriaInstance', [vendidas, porVender], ['#16A34A', '#e5e7eb']);
+            hacerDona('donaEntrada', 'donaEntradaInstance', [registradas, porOcupar], ['#7c3aed', '#e5e7eb']);
         }
 
         function renderTarjetaDashboard(obra) {
