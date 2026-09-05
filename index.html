@@ -3092,7 +3092,7 @@
                 dibujarIconosPendientesEnCanvas();
 
                 try {
-                    const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 2, width: REPORTE_ANCHO, height: altoPagina });
+                    const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 3, width: REPORTE_ANCHO, height: altoPagina });
                     generadas.push({
                         dataUrl: canvas.toDataURL('image/png'),
                         nombreArchivo: 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png'
