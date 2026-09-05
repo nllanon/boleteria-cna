@@ -640,16 +640,22 @@
 
             // Buscador
             html += '<div class="mb-6"><div class="relative max-w-md">';
-            html += '<input type="text" id="dashboardBuscador" oninput="filtrarDashboard()" value="' + (appState.dashboardBusqueda || '') + '" placeholder="🔍 Buscar obra por nombre, artista o categoría..." class="w-full px-4 py-2 border rounded-lg text-sm shadow-sm" />';
+            html += '<input type="text" id="dashboardBuscador" oninput="filtrarDashboard()" value="' + (appState.dashboardBusqueda || '') + '" placeholder="🔍 Buscar por obra, artista, categoría, sala o temporada/festival..." class="w-full px-4 py-2 border rounded-lg text-sm shadow-sm" />';
             html += '</div></div>';
 
             const busqueda = (appState.dashboardBusqueda || '').toLowerCase().trim();
             if (busqueda) {
-                obrasFiltradas = obrasFiltradas.filter(o =>
-                    (o.nombre || '').toLowerCase().includes(busqueda) ||
-                    (o.artista || '').toLowerCase().includes(busqueda) ||
-                    (o.categoria || '').toLowerCase().includes(busqueda)
-                );
+                obrasFiltradas = obrasFiltradas.filter(o => {
+                    const sala = getSala(o.salaId);
+                    const agrupador = appState.agrupadores.find(a => a.id === o.agrupadorId);
+                    const tipoTexto = o.tipo === 'boleteria' ? 'boleteria boletería' : 'entrada libre';
+                    return (o.nombre || '').toLowerCase().includes(busqueda) ||
+                        (o.artista || '').toLowerCase().includes(busqueda) ||
+                        (o.categoria || '').toLowerCase().includes(busqueda) ||
+                        (sala?.nombre || '').toLowerCase().includes(busqueda) ||
+                        (agrupador?.nombre || '').toLowerCase().includes(busqueda) ||
+                        tipoTexto.includes(busqueda);
+                });
             }
 
             if (busqueda && obrasFiltradas.length === 0) {
