@@ -580,15 +580,15 @@
                 return '<span title="' + titulo + (activo ? ' ✓ Listo' : ' — Pendiente') + '" style="display:inline-block; background:' + bg + '; color:#ffffff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:4px; line-height:1.3;">' + texto + '</span>';
             };
             let html = '<div class="flex gap-1.5 items-center flex-wrap">';
-            html += item(!!obra.piezasDesarrolladas, 'Pi', 'Piezas Desarrolladas');
+            html += item(!!obra.piezasDesarrolladas, 'Pieza', 'Piezas Desarrolladas');
             if (obra.tipo === 'boleteria') {
-                html += item(!!obra.fechaTiquetera, 'Tiq', 'Tiquetera (en línea)');
-                html += item(!!obra.fechaRedes, 'RS', 'Redes Sociales');
-                html += item(!!obra.videoDisponible, 'V', 'Video para Pauta');
-                html += item(!!obra.fechaPauta, 'Pau', 'Pauta Digital');
+                html += item(!!obra.fechaTiquetera, 'Tiquetera', 'Tiquetera (en línea)');
+                html += item(!!obra.fechaRedes, 'Redes', 'Redes Sociales');
+                html += item(!!obra.videoDisponible, 'Video', 'Video para Pauta');
+                html += item(!!obra.fechaPauta, 'Pauta', 'Pauta Digital');
             } else {
                 html += item(!!obra.linkRegistro, 'Link', 'Link de Registro');
-                html += item(!!obra.fechaRedes, 'RS', 'Redes Sociales');
+                html += item(!!obra.fechaRedes, 'Redes', 'Redes Sociales');
             }
             html += '</div>';
             return html;
@@ -2666,16 +2666,16 @@
             const id = 'iconos-' + registroIconosPendientes.length + '-' + Math.random().toString(36).slice(2, 8);
             const items = obra.tipo === 'boleteria'
                 ? [
-                    { texto: 'Pi', activo: !!obra.piezasDesarrolladas },
-                    { texto: 'Tiq', activo: !!obra.fechaTiquetera },
-                    { texto: 'RS', activo: !!obra.fechaRedes },
-                    { texto: 'V', activo: !!obra.videoDisponible },
-                    { texto: 'Pau', activo: !!obra.fechaPauta }
+                    { texto: 'Pieza', activo: !!obra.piezasDesarrolladas },
+                    { texto: 'Tiquetera', activo: !!obra.fechaTiquetera },
+                    { texto: 'Redes', activo: !!obra.fechaRedes },
+                    { texto: 'Video', activo: !!obra.videoDisponible },
+                    { texto: 'Pauta', activo: !!obra.fechaPauta }
                   ]
                 : [
-                    { texto: 'Pi', activo: !!obra.piezasDesarrolladas },
+                    { texto: 'Pieza', activo: !!obra.piezasDesarrolladas },
                     { texto: 'Link', activo: !!obra.linkRegistro },
-                    { texto: 'RS', activo: !!obra.fechaRedes }
+                    { texto: 'Redes', activo: !!obra.fechaRedes }
                   ];
             const GAP = 4;
             items.forEach(item => { item.ancho = item.texto.length * 6 + 14; });
