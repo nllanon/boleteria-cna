@@ -2865,9 +2865,9 @@
             html += '<div style="margin-top:6px;">' + renderIconosEstadoReporte(obraItem.obra) + '</div>';
 
             obraItem.funciones.forEach(f => {
-                html += '<div style="display:flex; align-items:center; padding:6px 2px 6px 4px; margin-top:6px;">';
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 6px 6px 4px; margin-top:6px;">';
                 html += '<div style="font-size:14px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="display:flex; align-items:center; gap:4px; margin-left:14px;">';
+                html += '<div style="display:flex; align-items:center; gap:4px;">';
                 if (esSalaLlena(obraItem.tipoObra, f.pct)) html += renderBadgePct(f.pct, '🎉 LLENA');
                 html += renderBadgePct(f.pct, f.valor);
                 html += '</div></div>';
@@ -2877,8 +2877,8 @@
                 const sumaNum = obraItem.funciones.reduce((s, f) => s + f.numerador, 0);
                 const sumaDen = obraItem.funciones.reduce((s, f) => s + f.denominador, 0);
                 const mTotal = formatearMetricaFuncion(obraItem.tipoObra, sumaNum, sumaDen);
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 6px; margin-top:4px; background:#f9fafb; border-radius:4px;">';
-                html += '<span style="font-size:12px; font-weight:bold; color:#6b7280;">Total</span>';
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 6px; margin-top:4px; background:#BFBFBF; border-radius:4px;">';
+                html += '<span style="font-size:12px; font-weight:bold; color:#374151;">Total</span>';
                 html += '<div style="display:flex; align-items:center; gap:4px;">';
                 if (esSalaLlena(obraItem.tipoObra, mTotal.pct)) html += renderBadgePct(mTotal.pct, '🎉 LLENA');
                 html += renderBadgePct(mTotal.pct, mTotal.valor);
