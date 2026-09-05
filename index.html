@@ -2800,12 +2800,36 @@
             return REPORTE_ALTO_OBRA_HEADER + (n * REPORTE_ALTO_FUNCION_SIMPLE) + (n > 1 ? REPORTE_ALTO_SUBTOTAL_SIMPLE : 0);
         }
 
-        function alturaTemporadaReporte(temporada) {
-            return REPORTE_ALTO_TEMPORADA + temporada.obras.reduce((s, o) => s + alturaObraReporte(o), 0);
+        function alturaMesBloque(mes) {
+            const [col1, col2] = dividirEnDosColumnas(mes.temporadas);
+            const alturaCol1 = col1.reduce((s, seg) => s + seg.altura, 0);
+            const alturaCol2 = col2.reduce((s, seg) => s + seg.altura, 0);
+            return REPORTE_ALTO_MES + Math.max(alturaCol1, alturaCol2);
         }
 
-        function alturaMesBloque(mes) {
-            return REPORTE_ALTO_MES + mes.temporadas.reduce((s, t) => s + alturaTemporadaReporte(t), 0);
+        function dividirEnDosColumnas(temporadas) {
+            const segmentos = [];
+            temporadas.forEach(t => {
+                segmentos.push({ tipo: 'temporada', nombre: t.nombre, altura: REPORTE_ALTO_TEMPORADA });
+                t.obras.forEach(o => {
+                    segmentos.push({ tipo: 'obra', obraItem: o, altura: alturaObraReporte(o) });
+                });
+            });
+            const alturaTotal = segmentos.reduce((s, seg) => s + seg.altura, 0);
+            const mitad = alturaTotal / 2;
+
+            const col1 = [], col2 = [];
+            let acumulado = 0;
+            let enCol1 = true;
+            segmentos.forEach(seg => {
+                // No dejar un encabezado de temporada solo al final de la columna 1
+                if (enCol1 && seg.tipo === 'temporada' && acumulado >= mitad && col1.length > 0) {
+                    enCol1 = false;
+                }
+                if (enCol1) { col1.push(seg); acumulado += seg.altura; }
+                else { col2.push(seg); }
+            });
+            return [col1, col2];
         }
 
         // Llena la página 1 al máximo antes de pasar a la siguiente
@@ -2830,15 +2854,15 @@
 
         function renderObraReporteHTML(obraItem) {
             let html = '<div style="padding:10px 4px 12px; border-bottom:1px solid #e5e7eb;">';
-            html += '<div style="font-size:22px; color:#111827; white-space:nowrap;">' + obraItem.icono + ' ' + truncarTexto(obraItem.nombre, 50) + '</div>';
-            html += '<div style="font-size:14px; color:#6b7280; margin-top:3px; white-space:nowrap;">' + truncarTexto(obraItem.sala, 22) + ' · ' + truncarTexto(obraItem.agrupadorNombre, 34) + '</div>';
+            html += '<div style="font-size:19px; color:#111827; white-space:nowrap;">' + obraItem.icono + ' ' + truncarTexto(obraItem.nombre, 26) + '</div>';
+            html += '<div style="font-size:12px; color:#6b7280; margin-top:3px; white-space:nowrap;">' + truncarTexto(obraItem.sala, 14) + ' · ' + truncarTexto(obraItem.agrupadorNombre, 18) + '</div>';
             html += '<div style="margin-top:6px;">' + renderIconosEstadoReporte(obraItem.obra) + '</div>';
 
             obraItem.funciones.forEach(f => {
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 4px 6px 6px; margin-top:6px;">';
-                html += '<div style="font-size:16px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="display:flex; align-items:center; gap:6px;">';
-                if (esSalaLlena(obraItem.tipoObra, f.pct)) html += renderBadgePct(f.pct, '🎉 SALA LLENA');
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 2px 6px 4px; margin-top:6px;">';
+                html += '<div style="font-size:14px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="display:flex; align-items:center; gap:4px;">';
+                if (esSalaLlena(obraItem.tipoObra, f.pct)) html += renderBadgePct(f.pct, '🎉 LLENA');
                 html += renderBadgePct(f.pct, f.valor);
                 html += '</div></div>';
             });
@@ -2847,10 +2871,10 @@
                 const sumaNum = obraItem.funciones.reduce((s, f) => s + f.numerador, 0);
                 const sumaDen = obraItem.funciones.reduce((s, f) => s + f.denominador, 0);
                 const mTotal = formatearMetricaFuncion(obraItem.tipoObra, sumaNum, sumaDen);
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; margin-top:4px; background:#f9fafb; border-radius:4px;">';
-                html += '<span style="font-size:14px; font-weight:bold; color:#6b7280;">Total</span>';
-                html += '<div style="display:flex; align-items:center; gap:6px;">';
-                if (esSalaLlena(obraItem.tipoObra, mTotal.pct)) html += renderBadgePct(mTotal.pct, '🎉 SALA LLENA');
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 6px; margin-top:4px; background:#f9fafb; border-radius:4px;">';
+                html += '<span style="font-size:12px; font-weight:bold; color:#6b7280;">Total</span>';
+                html += '<div style="display:flex; align-items:center; gap:4px;">';
+                if (esSalaLlena(obraItem.tipoObra, mTotal.pct)) html += renderBadgePct(mTotal.pct, '🎉 LLENA');
                 html += renderBadgePct(mTotal.pct, mTotal.valor);
                 html += '</div></div>';
             }
@@ -2858,15 +2882,26 @@
             return html;
         }
 
-        function renderTemporadaReporteHTML(temporada) {
-            let html = '<div style="font-size:16px; font-weight:bold; color:#4b5563; padding:10px 4px 6px; text-transform:uppercase; letter-spacing:0.3px;">' + truncarTexto(temporada.nombre, 45) + '</div>';
-            temporada.obras.forEach(o => { html += renderObraReporteHTML(o); });
-            return html;
+        function renderSegmentoReporteHTML(seg) {
+            if (seg.tipo === 'temporada') {
+                return '<div style="font-size:14px; font-weight:bold; color:#4b5563; padding:8px 2px 4px; text-transform:uppercase; letter-spacing:0.3px;">' + truncarTexto(seg.nombre, 28) + '</div>';
+            }
+            return renderObraReporteHTML(seg.obraItem);
         }
 
         function renderMesBloqueHTML(mesBloque) {
             let html = '<div style="font-size:22px; font-weight:bold; color:#ffffff; background:#808080; padding:10px 12px; margin-top:8px; margin-bottom:4px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
-            mesBloque.temporadas.forEach(t => { html += renderTemporadaReporteHTML(t); });
+            const [col1, col2] = dividirEnDosColumnas(mesBloque.temporadas);
+            html += '<div style="display:table; width:100%; table-layout:fixed;">';
+            html += '<div style="display:table-row;">';
+            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-right:12px;">';
+            col1.forEach(seg => { html += renderSegmentoReporteHTML(seg); });
+            html += '</div>';
+            html += '<div style="display:table-cell; width:4%; vertical-align:top;"><div style="width:2px; background:#d1d5db; height:100%; margin:0 auto;">&nbsp;</div></div>';
+            html += '<div style="display:table-cell; width:48%; vertical-align:top; padding-left:12px;">';
+            col2.forEach(seg => { html += renderSegmentoReporteHTML(seg); });
+            html += '</div>';
+            html += '</div></div>';
             return html;
         }
 
