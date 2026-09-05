@@ -2644,6 +2644,7 @@
                             agrupadorNombre: agrupador ? agrupador.nombre : 'Obras individuales',
                             tipoObra: obra.tipo,
                             metricaColor,
+                            obra: obra,
                             funciones: []
                         });
                     }
@@ -2720,6 +2721,52 @@
             registroBadgesPendientes = [];
         }
 
+        let registroIconosPendientes = [];
+
+        function renderIconosEstadoReporte(obra) {
+            const id = 'iconos-' + registroIconosPendientes.length + '-' + Math.random().toString(36).slice(2, 8);
+            const items = obra.tipo === 'boleteria'
+                ? [
+                    { emoji: '🧩', activo: !!obra.piezasDesarrolladas },
+                    { emoji: '🌐', activo: !!obra.fechaTiquetera },
+                    { emoji: '💬', activo: !!obra.fechaRedes },
+                    { emoji: '🎬', activo: !!obra.videoDisponible },
+                    { emoji: '📢', activo: !!obra.fechaPauta }
+                  ]
+                : [
+                    { emoji: '🧩', activo: !!obra.piezasDesarrolladas },
+                    { emoji: '🔗', activo: !!obra.linkRegistro },
+                    { emoji: '💬', activo: !!obra.fechaRedes }
+                  ];
+            const ancho = items.length * 24;
+            const alto = 20;
+            registroIconosPendientes.push({ id, items, ancho, alto });
+            return '<canvas id="' + id + '" width="' + ancho + '" height="' + alto + '" style="display:inline-block; vertical-align:middle;"></canvas>';
+        }
+
+        function dibujarIconosPendientesEnCanvas() {
+            const FACTOR = 3;
+            registroIconosPendientes.forEach(reg => {
+                const canvas = document.getElementById(reg.id);
+                if (!canvas) return;
+                canvas.width = reg.ancho * FACTOR;
+                canvas.height = reg.alto * FACTOR;
+                canvas.style.width = reg.ancho + 'px';
+                canvas.style.height = reg.alto + 'px';
+                const ctx = canvas.getContext('2d');
+                ctx.scale(FACTOR, FACTOR);
+                ctx.font = '15px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                reg.items.forEach((item, idx) => {
+                    ctx.globalAlpha = item.activo ? 1 : 0.25;
+                    ctx.fillText(item.emoji, 12 + idx * 24, reg.alto / 2 + 1);
+                });
+                ctx.globalAlpha = 1;
+            });
+            registroIconosPendientes = [];
+        }
+
         function esSalaLlena(tipoObra, pct) {
             return tipoObra === 'boleteria' && pct >= 100;
         }
@@ -2774,11 +2821,11 @@
             return paginas.length > 0 ? paginas : [[]];
         }
 
-        function renderFilaUniformeHTML(icono, nombrePrincipal, sub, metricaTexto, metricaValor, pct, salaLlena, indentado) {
+        function renderFilaUniformeHTML(icono, nombrePrincipal, sub, metricaTexto, metricaValor, pct, salaLlena, indentado, iconosHTML) {
             let html = '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_ROW - 2) + 'px; padding:0 4px 0 ' + (indentado ? '26px' : '4px') + '; border-bottom:1px solid #e5e7eb; box-sizing:border-box;">';
             html += '<div style="flex:1; min-width:0;">';
             html += '<div style="white-space:nowrap; font-size:23px; line-height:1.3; font-weight:normal; color:#111827;">' + (icono ? icono + ' ' : '') + truncarTexto(nombrePrincipal, 30) + '</div>';
-            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 60) + '</div>';
+            if (sub) html += '<div style="white-space:nowrap; color:#6b7280; font-size:14px; line-height:1.3; margin-top:2px;">' + truncarTexto(sub, 45) + (iconosHTML ? ' ' + iconosHTML : '') + '</div>';
             html += '</div>';
             html += '<div style="flex-shrink:0; margin-left:10px;">';
             html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; text-align:right; margin-bottom:4px;">' + metricaTexto + '</div>';
@@ -2794,7 +2841,7 @@
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
-                return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false);
+                return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false, renderIconosEstadoReporte(grupo.obra));
             }
 
             // Obra con varias funciones: primer renglón con el nombre + su función,
@@ -2805,7 +2852,7 @@
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 if (idx === 0) {
                     const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + truncarTexto(grupo.agrupadorNombre, 20);
-                    html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false);
+                    html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false, renderIconosEstadoReporte(grupo.obra));
                 } else {
                     html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
                 }
@@ -3038,6 +3085,7 @@
                 pagina.innerHTML = renderPaginaReporteHTML(paginas[i], i + 1, paginas.length, altoPagina);
                 document.body.appendChild(pagina);
                 dibujarBadgesPendientesEnCanvas();
+                dibujarIconosPendientesEnCanvas();
 
                 try {
                     const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 2, width: REPORTE_ANCHO, height: altoPagina });
@@ -3135,6 +3183,7 @@
                     default: app.innerHTML = renderDashboard();
                 }
                 dibujarBadgesPendientesEnCanvas();
+                dibujarIconosPendientesEnCanvas();
                 
                 if (appState.showGraficoVentas) {
                     const obraModal = appState.obras.find(o => o.id === appState.graficoVentasObraId);
