@@ -221,22 +221,6 @@
             return appState.salas.find(s => s.id === salaId);
         }
 
-        function calcularDiasDesde(fecha) {
-            if (!fecha) return 0;
-            const hoy = new Date();
-            const inicio = parsearFechaLocal(fecha);
-            const diff = Math.floor((hoy - inicio) / (1000 * 60 * 60 * 24));
-            return Math.max(0, diff);
-        }
-
-        function calcularDiasParaVender(fechaTiquetera, fechaUltimaFuncion) {
-            if (!fechaTiquetera || !fechaUltimaFuncion) return 0;
-            const inicio = new Date(fechaTiquetera);
-            const fin = new Date(fechaUltimaFuncion);
-            const diff = Math.floor((fin - inicio) / (1000 * 60 * 60 * 24));
-            return Math.max(0, diff);
-        }
-
         function getAccionesObra(obraId) {
             return appState.acciones.filter(a => a.obraId === obraId);
         }
@@ -1791,7 +1775,6 @@
                     totAsistencia += asistencia;
 
                     let colorRestantes = diasRestantes < 0 ? 'text-red-600' : (diasRestantes <= 3 ? 'text-yellow-600' : 'text-green-600');
-                    let colorOcupacion = pctOcupacion >= 70 ? 'text-green-600' : (pctOcupacion >= 40 ? 'text-yellow-600' : 'text-red-600');
 
                     html += '<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewObra(\'' + obra.id + '\')">';
                     html += '<td class="px-3 py-2 font-medium">' + formatearFecha(f.fecha) + '</td>';
@@ -1805,7 +1788,7 @@
                     html += '<td class="px-3 py-2">' + disponible + '</td>';
                     html += '<td class="px-3 py-2">' + aforo + '</td>';
                     html += '<td class="px-3 py-2 font-bold">' + asistencia + '</td>';
-                    html += '<td class="px-3 py-2 font-bold ' + colorOcupacion + '">' + pctOcupacion + '%</td>';
+                    html += '<td class="px-3 py-2"><span style="' + estiloPctBadge(pctOcupacion) + ' font-size:12px; font-weight:bold;">' + pctOcupacion + '%</span></td>';
                     html += '</tr>';
                 });
 
@@ -2474,7 +2457,7 @@
                         datasets: [{
                             label: '% de venta',
                             data: datos.map(d => d.pct),
-                            backgroundColor: datos.map(d => d.pct >= 70 ? '#22c55e' : d.pct >= 40 ? '#eab308' : '#ef4444'),
+                            backgroundColor: datos.map(d => colorPctHex(d.pct)),
                             borderRadius: 4
                         }]
                     },
@@ -2506,7 +2489,7 @@
                         datasets: [{
                             label: '% de registrados',
                             data: datos.map(d => d.pct),
-                            backgroundColor: '#8b5cf6',
+                            backgroundColor: datos.map(d => colorPctHex(d.pct)),
                             borderRadius: 4
                         }]
                     },
@@ -2595,12 +2578,15 @@
             return texto.slice(0, maxChars - 1).trim() + '…';
         }
 
+        function colorPctHex(pct) {
+            if (pct > 100) return '#166534';
+            if (pct >= 70) return '#4ADE80';
+            if (pct >= 40) return '#EAB308';
+            return '#DC2626';
+        }
+
         function estiloPctBadge(pct) {
-            let bg;
-            if (pct > 100) bg = '#166534';
-            else if (pct >= 70) bg = '#4ADE80';
-            else if (pct >= 40) bg = '#EAB308';
-            else bg = '#DC2626';
+            const bg = colorPctHex(pct);
             return 'background:' + bg + '; color:#ffffff; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; min-width:56px; height:30px; padding:0 10px; box-sizing:border-box;';
         }
 
