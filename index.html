@@ -2437,7 +2437,7 @@
 
         const MESES_REPORTE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-        function construirItemsReporte() {
+        function construirMesesReporte() {
             const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
             const filas = [];
 
@@ -2475,96 +2475,101 @@
                 });
             });
 
-            // Orden: mes → tipo (Boletería primero, Entrada Libre después) → fecha/hora
             filas.sort((a, b) => {
                 if (a.mesKey !== b.mesKey) return a.mesKey.localeCompare(b.mesKey);
-                if (a.tipoObra !== b.tipoObra) return a.tipoObra === 'boleteria' ? -1 : 1;
                 return (a.fecha + a.hora).localeCompare(b.fecha + b.hora);
             });
 
-            // Insertar encabezados de mes + subtítulo de tipo (agrupación — sustituye a
-            // "temporadas", que todavía no es un dato real en el sistema)
-            const items = [];
-            let mesActual = null;
-            let tipoActual = null;
+            // Agrupar por mes, y dentro de cada mes separar en dos columnas: Boletería y Entrada Libre
+            const mesesMap = {};
+            const ordenMeses = [];
             filas.forEach(f => {
-                if (f.mesKey !== mesActual) {
-                    items.push({ tipo: 'mes', label: f.mesLabel });
-                    mesActual = f.mesKey;
-                    tipoActual = null;
+                if (!mesesMap[f.mesKey]) {
+                    mesesMap[f.mesKey] = { mesKey: f.mesKey, mesLabel: f.mesLabel, boleteria: [], entrada: [] };
+                    ordenMeses.push(f.mesKey);
                 }
-                if (f.tipoObra !== tipoActual) {
-                    items.push({ tipo: 'subtipo', label: f.tipoObra === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre' });
-                    tipoActual = f.tipoObra;
-                }
-                items.push(f);
+                if (f.tipoObra === 'boleteria') mesesMap[f.mesKey].boleteria.push(f);
+                else mesesMap[f.mesKey].entrada.push(f);
             });
-            return items;
+
+            return ordenMeses.map(k => mesesMap[k]);
         }
 
-        function alturaItemReporte(item) {
-            if (item.tipo === 'mes') return REPORTE_ALTO_MES;
-            if (item.tipo === 'subtipo') return 44;
-            return REPORTE_ALTO_ROW;
+        function alturaColumnaReporte(lista) {
+            if (lista.length === 0) return 0;
+            return 44 + (lista.length * REPORTE_ALTO_ROW); // 44 = altura del subtítulo Boletería/Entrada Libre
         }
 
-        function paginarItemsReporte(items, disponiblePx) {
-            if (items.length === 0) return [[]];
+        function alturaMesBloque(mesBloque) {
+            const altoCol = Math.max(alturaColumnaReporte(mesBloque.boleteria), alturaColumnaReporte(mesBloque.entrada));
+            return REPORTE_ALTO_MES + altoCol;
+        }
 
-            const pesoTotal = items.reduce((s, it) => s + alturaItemReporte(it), 0);
+        function paginarMeses(meses, disponiblePx) {
+            if (meses.length === 0) return [[]];
+
+            const pesoTotal = meses.reduce((s, m) => s + alturaMesBloque(m), 0);
             const numPaginas = Math.max(1, Math.ceil(pesoTotal / disponiblePx));
             const pesoObjetivoPorPagina = pesoTotal / numPaginas;
 
             const paginas = [];
             let actual = [];
             let alturaAcumulada = 0;
-            items.forEach(item => {
-                const h = alturaItemReporte(item);
-                const esEncabezado = item.tipo === 'mes' || item.tipo === 'subtipo';
+            meses.forEach(mes => {
+                const h = alturaMesBloque(mes);
                 const quedanPaginasPorLlenar = paginas.length < numPaginas - 1;
                 const limitePagina = quedanPaginasPorLlenar ? pesoObjetivoPorPagina : disponiblePx;
 
-                const superaLimite = (alturaAcumulada + h) > limitePagina && actual.length > 0;
-                const encabezadoQuedariaHuerfano = esEncabezado && (alturaAcumulada + h + REPORTE_ALTO_ROW) > limitePagina && actual.length > 0;
-
-                if (superaLimite || encabezadoQuedariaHuerfano) {
+                if ((alturaAcumulada + h) > limitePagina && actual.length > 0) {
                     paginas.push(actual);
                     actual = [];
                     alturaAcumulada = 0;
                 }
-                actual.push(item);
+                actual.push(mes);
                 alturaAcumulada += h;
             });
             if (actual.length > 0) paginas.push(actual);
             return paginas.length > 0 ? paginas : [[]];
         }
 
+        function renderColumnaReporteHTML(lista, etiqueta) {
+            if (lista.length === 0) return '<div></div>';
+            let html = '<div>';
+            html += '<div style="font-size:16px; font-weight:bold; color:#6b7280; padding:2px 0 6px; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</div>';
+            lista.forEach(item => { html += renderFilaReporteHTML(item); });
+            html += '</div>';
+            return html;
+        }
+
+        function renderMesBloqueHTML(mesBloque) {
+            let html = '<div style="font-size:22px; font-weight:bold; color:#374151; background:#f3f4f6; padding:10px 12px; margin-top:8px; margin-bottom:8px; border-radius:6px;">📅 ' + mesBloque.mesLabel + '</div>';
+            html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">';
+            html += renderColumnaReporteHTML(mesBloque.boleteria, '💵 Boletería');
+            html += renderColumnaReporteHTML(mesBloque.entrada, '🎟️ Entrada Libre');
+            html += '</div>';
+            return html;
+        }
+
         function renderFilaReporteHTML(item) {
-            if (item.tipo === 'mes') {
-                return '<div style="font-size:22px; font-weight:bold; color:#374151; background:#f3f4f6; padding:12px 14px; margin-top:8px; margin-bottom:3px; border-radius:6px;">📅 ' + item.label + '</div>';
-            }
-            if (item.tipo === 'subtipo') {
-                return '<div style="font-size:16px; font-weight:bold; color:#6b7280; padding:6px 8px 2px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
-            }
-            let html = '<div style="display:flex; align-items:center; padding:14px 6px; border-bottom:1px solid #e5e7eb;">';
+            let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
             html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:28px; font-weight:normal; color:#111827;">';
             html += item.icono + ' ' + item.nombre;
             html += '<br><span style="color:#6b7280; font-size:19px;">' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</span>';
             html += '</div>';
-            html += '<div style="flex-shrink:0; text-align:right; margin-left:14px; min-width:80px;">';
+            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
             html += '<div style="font-size:13px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
             html += '<div style="font-size:26px; font-weight:bold; color:' + item.metricaColor + '; white-space:nowrap;">' + item.metricaValor + '</div>';
             html += '</div></div>';
             return html;
         }
 
-        function alturaRealPagina(paginaItems) {
-            const alturaContenido = paginaItems.reduce((s, it) => s + alturaItemReporte(it), 0);
+        function alturaRealPagina(paginaMeses) {
+            const alturaContenido = paginaMeses.reduce((s, m) => s + alturaMesBloque(m), 0);
             const total = REPORTE_ALTO_HEADER + alturaContenido + (REPORTE_PADDING * 2) + 20;
             return Math.min(REPORTE_ALTO_TOTAL, Math.max(400, total));
         }
 
-        function renderPaginaReporteHTML(paginaItems, numPagina, totalPaginas, altoPagina) {
+        function renderPaginaReporteHTML(paginaMeses, numPagina, totalPaginas, altoPagina) {
             let html = '<div style="background:white; padding:' + REPORTE_PADDING + 'px; width:' + REPORTE_ANCHO + 'px; height:' + altoPagina + 'px; font-family: Arial, sans-serif; box-sizing:border-box; overflow:hidden;">';
             html += '<div style="display:table; width:100%; margin-bottom:10px; border-bottom:3px solid #1f2937; padding-bottom:8px;">';
             html += '<div style="display:table-cell; font-size:20px; font-weight:bold; color:#111827; vertical-align:bottom;">🎭 Boletería CNA — Avance</div>';
@@ -2572,9 +2577,25 @@
             html += '<div style="font-size:30px; font-weight:bold; color:#111827;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
             if (totalPaginas > 1) html += '<div style="font-size:11px; color:#9ca3af;">Página ' + numPagina + ' de ' + totalPaginas + '</div>';
             html += '</div></div>';
-            paginaItems.forEach(item => { html += renderFilaReporteHTML(item); });
+            paginaMeses.forEach(mes => { html += renderMesBloqueHTML(mes); });
             html += '</div>';
             return html;
+        }
+
+        function flatItemsDesdeMeses(meses) {
+            const items = [];
+            meses.forEach(mes => {
+                items.push({ tipo: 'mes', label: mes.mesLabel });
+                if (mes.boleteria.length > 0) {
+                    items.push({ tipo: 'subtipo', label: '💵 Boletería' });
+                    mes.boleteria.forEach(f => items.push(f));
+                }
+                if (mes.entrada.length > 0) {
+                    items.push({ tipo: 'subtipo', label: '🎟️ Entrada Libre' });
+                    mes.entrada.forEach(f => items.push(f));
+                }
+            });
+            return items;
         }
 
         function renderFilaReportePreviewHTML(item) {
@@ -2603,9 +2624,10 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Se generan una o más imágenes de 1080×1920 (según cuántas funciones haya), agrupadas por mes y tipo. Cada fila es una función individual, no un total de obra.</p>';
+            html += '<p class="text-xs text-gray-500 mb-4">Se generan una o más imágenes de 1080×1920 (según cuántas funciones haya), en dos columnas por mes: Boletería y Entrada Libre.</p>';
 
-            const items = construirItemsReporte();
+            const meses = construirMesesReporte();
+            const items = flatItemsDesdeMeses(meses);
 
             html += '<div style="background:white; max-width:700px; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1);">';
             html += '<div style="padding:16px;">';
@@ -2639,14 +2661,15 @@
                 return;
             }
 
-            const items = construirItemsReporte();
-            if (items.filter(i => i.tipo === 'funcion').length === 0) {
+            const meses = construirMesesReporte();
+            const totalFunciones = meses.reduce((s, m) => s + m.boleteria.length + m.entrada.length, 0);
+            if (totalFunciones === 0) {
                 alert('⚠️ No hay funciones activas para incluir en el reporte.');
                 return;
             }
 
             const disponible = REPORTE_ALTO_TOTAL - (REPORTE_PADDING * 2) - REPORTE_ALTO_HEADER;
-            const paginas = paginarItemsReporte(items, disponible);
+            const paginas = paginarMeses(meses, disponible);
             const fecha = new Date().toISOString().split('T')[0];
 
             const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
