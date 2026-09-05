@@ -2884,7 +2884,7 @@
             html += '<div style="display:table-cell; font-size:20px; font-weight:bold; color:#111827; vertical-align:bottom;">🎭 Salas Llenas — Avance</div>';
             html += '<div style="display:table-cell; text-align:right; vertical-align:bottom;">';
             html += '<div style="font-size:30px; font-weight:bold; color:#111827;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
-            if (totalPaginas > 1) html += '<div style="font-size:11px; color:#9ca3af;">Página ' + numPagina + ' de ' + totalPaginas + '</div>';
+            if (totalPaginas > 1) html += '<div style="font-size:16px; font-weight:bold; color:#374151; margin-top:2px;">Página ' + numPagina + ' de ' + totalPaginas + '</div>';
             html += '</div></div>';
             if (numPagina === 1) html += renderResumenGeneralReporteHTML();
             paginaMeses.forEach(mes => { html += renderMesBloqueHTML(mes); });
