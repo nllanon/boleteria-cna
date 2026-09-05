@@ -697,10 +697,6 @@
                         
                         const diasPorVender = calcularDiasPorVender(f.fecha);
                         
-                        let colorVenta = 'text-red-600';
-                        if (porcenVenta >= 70) colorVenta = 'text-green-600';
-                        else if (porcenVenta >= 40) colorVenta = 'text-yellow-600';
-                        
                         let colorDias = 'text-red-600';
                         if (diasPorVender === 'N/A') colorDias = 'text-gray-600';
                         else if (diasPorVender >= 60) colorDias = 'text-green-600';
@@ -708,7 +704,7 @@
                         
                         html += '<div class="text-xs mb-2">';
                         html += '<strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | ';
-                        html += '<span class="' + colorVenta + ' font-bold">' + porcenVenta + '%</span> | ';
+                        html += '<span style="' + estiloPctBadge(porcenVenta) + ' font-size:11px;" class="font-bold">' + porcenVenta + '%</span> | ';
                         html += '<span class="' + colorDias + ' font-bold">' + diasPorVender + 'd</span>';
                         html += '</div>';
                     });
@@ -747,11 +743,7 @@
                         else if (diasPorVender >= 60) colorDias = 'text-green-600';
                         else if (diasPorVender >= 30) colorDias = 'text-yellow-600';
 
-                        let colorPct = 'text-red-600';
-                        if (pctRegistro >= 70) colorPct = 'text-green-600';
-                        else if (pctRegistro >= 40) colorPct = 'text-yellow-600';
-
-                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span class="' + colorPct + ' font-bold">' + pctRegistro + '%</span> | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
+                        html += '<div class="text-xs mb-2"><strong>' + formatearFecha(f.fecha) + '</strong> ' + formatearHora(f.hora) + ' | <span style="' + estiloPctBadge(pctRegistro) + ' font-size:11px;" class="font-bold">' + pctRegistro + '%</span> | <span class="' + colorDias + ' font-bold">' + diasPorVender + (diasPorVender !== 'N/A' ? 'd' : '') + '</span></div>';
                     });
                     html += '</div>';
                     html += '</div>';
@@ -942,12 +934,12 @@
                             const ventasFunc = f.ventasAcumuladas || 0;
                             const disponibleFunc = Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
                             const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
-                            html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong class="text-blue-600">' + ventasFunc + ' / ' + disponibleFunc + '</strong> (' + pctFunc + '%)</div>';
+                            html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong>' + ventasFunc + ' / ' + disponibleFunc + '</strong> <span style="' + estiloPctBadge(pctFunc) + ' font-size:11px;">' + pctFunc + '%</span></div>';
                         } else {
                             const registradosFunc = f.registrados || 0;
                             const aforoSala = sala?.aforo || 0;
                             const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
-                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong class="text-purple-600">' + registradosFunc + '</strong> (' + pctRegistro + '%)</div>';
+                            html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong>' + registradosFunc + '</strong> <span style="' + estiloPctBadge(pctRegistro) + ' font-size:11px;">' + pctRegistro + '%</span></div>';
                         }
                         html += '</div>';
                         html += '<div class="flex gap-2">';
@@ -2565,12 +2557,21 @@
             }));
         }
 
+        function estiloPctBadge(pct) {
+            let bg;
+            if (pct > 100) bg = '#075E54';
+            else if (pct >= 70) bg = '#25D366';
+            else if (pct >= 40) bg = '#CC9A06';
+            else bg = '#DC2626';
+            return 'background:' + bg + '; color:#ffffff; padding:3px 9px; border-radius:5px; display:inline-block;';
+        }
+
         function formatearMetricaFuncion(tipoObra, numerador, denominador) {
             const pct = denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
             if (tipoObra === 'boleteria') {
-                return { texto: numerador + '/' + denominador, valor: pct + '%' };
+                return { texto: numerador + '/' + denominador, valor: pct + '%', pct };
             }
-            return { texto: 'Registrados', valor: numerador + ' (' + pct + '%)' };
+            return { texto: 'Registrados', valor: numerador + ' (' + pct + '%)', pct };
         }
 
         function alturaGrupoReporte(grupo) {
@@ -2627,7 +2628,7 @@
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
                 html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div>';
-                html += '<div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + m.valor + '</div>';
+                html += '<div style="font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div>';
                 html += '</div></div>';
                 return html;
             }
@@ -2640,7 +2641,7 @@
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px 8px 22px; border-bottom:1px solid #f3f4f6;">';
                 html += '<div style="font-size:15px; color:#374151; white-space:nowrap;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div><div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + m.valor + '</div></div>';
+                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div><div style="font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div></div>';
                 html += '</div>';
             });
             const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
@@ -2648,7 +2649,7 @@
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
             html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:8px 8px 8px 22px; border-radius:4px; margin:2px 0 6px;">';
             html += '<div style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + '</div>';
-            html += '<div style="flex-shrink:0; margin-left:8px; font-size:20px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + mTotal.valor + '</div>';
+            html += '<div style="flex-shrink:0; margin-left:8px; font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
         }
@@ -2662,7 +2663,7 @@
             let html = '<div>';
             html += '<div style="display:flex; justify-content:space-between; align-items:baseline; padding:2px 0 8px; border-bottom:2px solid #e5e7eb; margin-bottom:4px;">';
             html += '<span style="font-size:16px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</span>';
-            html += '<span style="font-size:20px; font-weight:bold; color:' + lista[0].metricaColor + ';">' + pctMes + '% total</span>';
+            html += '<span style="font-size:20px; font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '% total</span>';
             html += '</div>';
             lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
             html += '</div>';
@@ -2709,7 +2710,7 @@
                             const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                             items.push({
                                 tipo: 'funcion', icono: grupo.icono, nombre: grupo.nombre, sala: grupo.sala,
-                                fecha: f.fecha, hora: f.hora, metricaTexto: m.texto, metricaValor: m.valor, metricaColor: grupo.metricaColor
+                                fecha: f.fecha, hora: f.hora, metricaTexto: m.texto, metricaValor: m.valor, metricaColor: grupo.metricaColor, metricaPct: m.pct
                             });
                         });
                     });
@@ -2727,14 +2728,14 @@
             if (item.tipo === 'subtipo') {
                 return '<div style="font-size:10px; font-weight:bold; color:#6b7280; padding:3px 6px 1px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
             }
-            let html = '<div style="display:flex; align-items:center; padding:6px 4px; border-bottom:1px solid #e5e7eb;">';
-            html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;">';
-            html += '<strong>' + item.icono + ' ' + item.nombre + '</strong>';
-            html += ' <span style="color:#6b7280; font-size:11px;">· ' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</span>';
+            let html = '<div style="display:flex; align-items:center; padding:8px 4px; border-bottom:1px solid #e5e7eb;">';
+            html += '<div style="flex:1; min-width:0;">';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;"><strong>' + item.icono + ' ' + item.nombre + '</strong></div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:11px; margin-top:3px;">' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</div>';
             html += '</div>';
             html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
             html += '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
-            html += '<div style="font-size:13px; font-weight:bold; color:' + item.metricaColor + '; white-space:nowrap;">' + item.metricaValor + '</div>';
+            html += '<div style="font-size:13px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(item.metricaPct || 0) + '">' + item.metricaValor + '</div>';
             html += '</div></div>';
             return html;
         }
