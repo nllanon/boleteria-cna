@@ -604,8 +604,15 @@
         }
 
         function filtrarDashboard() {
-            appState.dashboardBusqueda = document.getElementById('dashboardBuscador').value;
+            const input = document.getElementById('dashboardBuscador');
+            const cursorPos = input.selectionStart;
+            appState.dashboardBusqueda = input.value;
             render();
+            const nuevoInput = document.getElementById('dashboardBuscador');
+            if (nuevoInput) {
+                nuevoInput.focus();
+                nuevoInput.setSelectionRange(cursorPos, cursorPos);
+            }
         }
 
         function renderDashboard() {
