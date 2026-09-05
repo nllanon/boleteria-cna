@@ -2489,7 +2489,7 @@
             }
         }
 
-        const REPORTE_ALTO_ROW = 90;
+        const REPORTE_ALTO_ROW = 96;
         const REPORTE_ALTO_MES = 56;
         const REPORTE_ALTO_HEADER = 80;
         const REPORTE_ANCHO = 1080;
@@ -2557,11 +2557,15 @@
 
         function estiloPctBadge(pct) {
             let bg;
-            if (pct > 100) bg = '#0D9488';
-            else if (pct >= 70) bg = '#25D366';
+            if (pct > 100) bg = '#166534';
+            else if (pct >= 70) bg = '#4ADE80';
             else if (pct >= 40) bg = '#EAB308';
             else bg = '#DC2626';
-            return 'background:' + bg + '; color:#ffffff; padding:3px 9px; border-radius:5px; display:inline-block;';
+            return 'background:' + bg + '; color:#ffffff; padding:2px 7px; border-radius:5px; display:inline-block; line-height:1.4;';
+        }
+
+        function esSalaLlena(tipoObra, pct) {
+            return tipoObra === 'boleteria' && pct >= 100;
         }
 
         function formatearMetricaFuncion(tipoObra, numerador, denominador) {
@@ -2569,18 +2573,18 @@
             if (tipoObra === 'boleteria') {
                 return { texto: numerador + '/' + denominador, valor: pct + '%', pct };
             }
-            return { texto: 'Registrados', valor: numerador + ' (' + pct + '%)', pct };
+            return { texto: numerador + ' registrados', valor: pct + '%', pct };
         }
 
         function alturaGrupoReporte(grupo) {
             if (grupo.funciones.length === 1) return REPORTE_ALTO_ROW;
-            return 68 + (grupo.funciones.length * 66) + 54; // encabezado obra (2 líneas) + filas función + subtotal
+            return 72 + (grupo.funciones.length * 72) + 58; // encabezado obra (2 líneas) + filas función + subtotal
         }
 
         function alturaColumnaReporte(lista) {
             if (lista.length === 0) return 0;
             const sumaGrupos = lista.reduce((s, g) => s + alturaGrupoReporte(g), 0);
-            return 54 + sumaGrupos; // 54 = encabezado columna con % del mes
+            return 64 + sumaGrupos; // 64 = encabezado columna con % del mes
         }
 
         function alturaMesBloque(mesBloque) {
@@ -2619,35 +2623,36 @@
             if (grupo.funciones.length === 1) {
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
+                let html = '<div style="display:flex; align-items:center; padding:14px 4px; border-bottom:1px solid #e5e7eb;">';
                 html += '<div style="flex:1; min-width:0;">';
-                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
-                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px; margin-top:4px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; line-height:1.4; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
+                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px; line-height:1.4; margin-top:4px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                if (esSalaLlena(grupo.tipoObra, m.pct)) html += '<div style="margin-top:4px; font-size:13px; font-weight:bold; color:#166534;">🎉 SALA LLENA</div>';
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
-                html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div>';
-                html += '<div style="font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div>';
+                html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:5px;">' + m.texto + '</div>';
+                html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div>';
                 html += '</div></div>';
                 return html;
             }
 
             // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
             let html = '<div style="margin-bottom:2px;">';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; color:#6b7280; margin-top:4px;">' + grupo.sala + '</div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; line-height:1.4; color:#111827; padding-top:10px;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; line-height:1.4; color:#6b7280; margin-top:4px;">' + grupo.sala + '</div>';
             grupo.funciones.forEach(f => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px 8px 22px; border-bottom:1px solid #f3f4f6;">';
+                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 4px 10px 22px; border-bottom:1px solid #f3f4f6;">';
                 html += '<div style="font-size:15px; color:#374151; white-space:nowrap;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div><div style="font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div></div>';
+                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap; margin-bottom:5px;">' + m.texto + '</div><div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(m.pct) + '">' + m.valor + '</div></div>';
                 html += '</div>';
             });
             const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:8px 8px 8px 22px; border-radius:4px; margin:2px 0 6px;">';
-            html += '<div style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + '</div>';
-            html += '<div style="flex-shrink:0; margin-left:8px; font-size:20px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px 8px 10px 22px; border-radius:4px; margin:2px 0 6px;">';
+            html += '<div style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + (esSalaLlena(grupo.tipoObra, mTotal.pct) ? ' <span style="color:#166534;">🎉 SALA LLENA</span>' : '') + '</div>';
+            html += '<div style="flex-shrink:0; margin-left:8px; font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
         }
@@ -2658,8 +2663,8 @@
             const sumaDen = lista.reduce((s, g) => s + g.funciones.reduce((s2, f) => s2 + f.denominador, 0), 0);
             const pctMes = sumaDen > 0 ? Math.round((sumaNum / sumaDen) * 100) : 0;
 
-            let html = '<div>';
-            html += '<div style="display:flex; justify-content:space-between; align-items:baseline; padding:2px 0 8px; border-bottom:2px solid #e5e7eb; margin-bottom:4px;">';
+            let html = '<div style="min-width:0; overflow:hidden;">';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 10px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
             html += '<span style="font-size:16px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</span>';
             html += '<span style="font-size:20px; font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '% total</span>';
             html += '</div>';
