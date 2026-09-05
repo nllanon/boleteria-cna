@@ -2579,8 +2579,9 @@
         }
 
         function colorPctHex(pct) {
-            if (pct > 100) return '#166534';
-            if (pct >= 70) return '#4ADE80';
+            if (pct >= 120) return '#86EFAC'; // 120% a 140% (y más, no se especificó tope)
+            if (pct >= 100) return '#22C55E'; // 100% a 120%
+            if (pct >= 70) return '#15803D'; // 70% a 100%
             if (pct >= 40) return '#EAB308';
             return '#DC2626';
         }
