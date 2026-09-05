@@ -2555,6 +2555,12 @@
             }));
         }
 
+        function truncarTexto(texto, maxChars) {
+            if (!texto) return '';
+            if (texto.length <= maxChars) return texto;
+            return texto.slice(0, maxChars - 1).trim() + '…';
+        }
+
         function estiloPctBadge(pct) {
             let bg;
             if (pct > 100) bg = '#166534';
@@ -2625,8 +2631,8 @@
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 let html = '<div style="display:flex; align-items:center; padding:14px 4px; border-bottom:1px solid #e5e7eb;">';
                 html += '<div style="flex:1; min-width:0;">';
-                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; line-height:1.4; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
-                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px; line-height:1.4; margin-top:4px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="white-space:nowrap; font-size:24px; line-height:1.5; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + truncarTexto(grupo.nombre, 26) + '</div>';
+                html += '<div style="white-space:nowrap; color:#6b7280; font-size:15px; line-height:1.5; margin-top:4px;">' + truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
                 if (esSalaLlena(grupo.tipoObra, m.pct)) html += '<div style="margin-top:4px; font-size:13px; font-weight:bold; color:#166534;">🎉 SALA LLENA</div>';
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
@@ -2638,8 +2644,8 @@
 
             // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
             let html = '<div style="margin-bottom:2px;">';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; line-height:1.4; color:#111827; padding-top:10px;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; line-height:1.4; color:#6b7280; margin-top:4px;">' + grupo.sala + '</div>';
+            html += '<div style="white-space:nowrap; font-size:24px; line-height:1.5; color:#111827; padding-top:10px;">' + grupo.icono + ' ' + truncarTexto(grupo.nombre, 26) + '</div>';
+            html += '<div style="white-space:nowrap; font-size:15px; line-height:1.5; color:#6b7280; margin-top:4px;">' + truncarTexto(grupo.sala, 20) + '</div>';
             grupo.funciones.forEach(f => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 4px 10px 22px; border-bottom:1px solid #f3f4f6;">';
@@ -2651,7 +2657,7 @@
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
             html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px 8px 10px 22px; border-radius:4px; margin:2px 0 6px;">';
-            html += '<div style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + (esSalaLlena(grupo.tipoObra, mTotal.pct) ? ' <span style="color:#166534;">🎉 SALA LLENA</span>' : '') + '</div>';
+            html += '<div style="flex:1; white-space:nowrap; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + truncarTexto(grupo.nombre, 22) + (esSalaLlena(grupo.tipoObra, mTotal.pct) ? ' <span style="color:#166534;">🎉 SALA LLENA</span>' : '') + '</div>';
             html += '<div style="flex-shrink:0; margin-left:8px; font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
