@@ -675,7 +675,7 @@
             const grupos = {};
             const ordenGrupos = [];
             appState.agrupadores.forEach(a => { grupos[a.id] = { nombre: a.nombre, obras: [] }; ordenGrupos.push(a.id); });
-            grupos['__sin_agrupar__'] = { nombre: 'Sin Temporada / Festival / Encuentro asignado', obras: [] };
+            grupos['__sin_agrupar__'] = { nombre: 'Obras individuales', obras: [] };
             ordenGrupos.push('__sin_agrupar__');
 
             obrasFiltradas.forEach(o => {
@@ -707,7 +707,7 @@
 
                 html += '<details open class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
                 html += '<summary style="cursor:pointer; list-style:none;" class="p-4 flex flex-wrap items-center justify-between gap-2">';
-                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> 🎪 ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
+                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> ' + (key === '__sin_agrupar__' ? '' : '🎪 ') + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
                 html += '<span class="flex items-center gap-2">';
                 if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-size:14px; font-weight:bold;">💵 ' + pctB + '%</span>';
                 if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold;">🎟️ ' + pctE + '%</span>';
@@ -2567,7 +2567,7 @@
                             icono: obra.tipo === 'boleteria' ? '💵' : '🎟️',
                             nombre: obra.nombre,
                             sala: sala?.nombre || '',
-                            agrupadorNombre: agrupador ? agrupador.nombre : 'Sin Temporada/Festival',
+                            agrupadorNombre: agrupador ? agrupador.nombre : 'Obras individuales',
                             tipoObra: obra.tipo,
                             metricaColor,
                             funciones: []
@@ -2677,7 +2677,7 @@
             if (grupo.funciones.length === 1) {
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
-                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · 🎪 ' + truncarTexto(grupo.agrupadorNombre, 20);
+                const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + (grupo.agrupadorNombre === 'Obras individuales' ? '' : '🎪 ') + truncarTexto(grupo.agrupadorNombre, 20);
                 return renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, esSalaLlena(grupo.tipoObra, m.pct), false);
             }
 
@@ -2688,7 +2688,7 @@
             grupo.funciones.forEach((f, idx) => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 if (idx === 0) {
-                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · 🎪 ' + truncarTexto(grupo.agrupadorNombre, 20);
+                    const sub = truncarTexto(grupo.sala, 16) + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + ' · ' + (grupo.agrupadorNombre === 'Obras individuales' ? '' : '🎪 ') + truncarTexto(grupo.agrupadorNombre, 20);
                     html += renderFilaUniformeHTML(grupo.icono, grupo.nombre, sub, m.texto, m.valor, m.pct, false, false);
                 } else {
                     html += renderFilaUniformeHTML(null, formatearFecha(f.fecha) + ' ' + f.hora, null, m.texto, m.valor, m.pct, false, true);
