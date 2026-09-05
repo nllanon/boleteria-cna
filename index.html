@@ -2816,19 +2816,25 @@
                 });
             });
             const alturaTotal = segmentos.reduce((s, seg) => s + seg.altura, 0);
-            const mitad = alturaTotal / 2;
 
-            const col1 = [], col2 = [];
+            // Probar TODOS los puntos de corte posibles y quedarse con el que
+            // deja las dos columnas más parejas (evitando cortar justo después
+            // de un encabezado de temporada, para que no quede huérfano)
+            let mejorCorte = segmentos.length;
+            let mejorDiferencia = Infinity;
             let acumulado = 0;
-            let enCol1 = true;
-            segmentos.forEach(seg => {
-                // No dejar un encabezado de temporada solo al final de la columna 1
-                if (enCol1 && seg.tipo === 'temporada' && acumulado >= mitad && col1.length > 0) {
-                    enCol1 = false;
+            for (let i = 0; i < segmentos.length; i++) {
+                acumulado += segmentos[i].altura;
+                if (segmentos[i].tipo === 'temporada') continue;
+                const diferencia = Math.abs((alturaTotal - acumulado) - acumulado);
+                if (diferencia < mejorDiferencia) {
+                    mejorDiferencia = diferencia;
+                    mejorCorte = i + 1;
                 }
-                if (enCol1) { col1.push(seg); acumulado += seg.altura; }
-                else { col2.push(seg); }
-            });
+            }
+
+            const col1 = segmentos.slice(0, mejorCorte);
+            const col2 = segmentos.slice(mejorCorte);
             return [col1, col2];
         }
 
@@ -2859,9 +2865,9 @@
             html += '<div style="margin-top:6px;">' + renderIconosEstadoReporte(obraItem.obra) + '</div>';
 
             obraItem.funciones.forEach(f => {
-                html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 2px 6px 4px; margin-top:6px;">';
+                html += '<div style="display:flex; align-items:center; padding:6px 2px 6px 4px; margin-top:6px;">';
                 html += '<div style="font-size:14px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="display:flex; align-items:center; gap:4px;">';
+                html += '<div style="display:flex; align-items:center; gap:4px; margin-left:14px;">';
                 if (esSalaLlena(obraItem.tipoObra, f.pct)) html += renderBadgePct(f.pct, '🎉 LLENA');
                 html += renderBadgePct(f.pct, f.valor);
                 html += '</div></div>';
