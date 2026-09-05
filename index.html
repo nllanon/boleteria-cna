@@ -718,11 +718,15 @@
                 const pctE = denE > 0 ? Math.round((numE / denE) * 100) : null;
 
                 html += '<details class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
-                html += '<summary style="cursor:pointer; list-style:none;" class="p-4 flex flex-wrap items-center justify-between gap-2">';
-                html += '<span class="flex items-center gap-2 text-lg font-bold"><span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span> ' + grupo.nombre + ' <span class="text-xs font-normal text-gray-500">(' + grupo.obras.length + ')</span></span>';
-                html += '<span class="flex items-center gap-2">';
-                if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-size:14px; font-weight:bold;">💵 ' + pctB + '%</span>';
-                if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold;">🎟️ ' + pctE + '%</span>';
+                html += '<summary style="cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:nowrap;" class="p-4">';
+                html += '<span style="display:flex; align-items:center; gap:8px; min-width:0; flex:1; overflow:hidden;">';
+                html += '<span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s; flex-shrink:0;">▶</span>';
+                html += '<span style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:bold; font-size:1.125rem;">' + grupo.nombre + '</span>';
+                html += '<span style="flex-shrink:0; font-size:0.75rem; font-weight:normal; color:#6b7280;">(' + grupo.obras.length + ')</span>';
+                html += '</span>';
+                html += '<span style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
+                if (pctB !== null) html += '<span style="' + estiloPctBadge(pctB) + ' font-size:14px; font-weight:bold; white-space:nowrap;">💵 ' + pctB + '%</span>';
+                if (pctE !== null) html += '<span style="' + estiloPctBadge(pctE) + ' font-size:14px; font-weight:bold; white-space:nowrap;">🎟️ ' + pctE + '%</span>';
                 html += '</span>';
                 html += '</summary>';
                 html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 items-start">';
@@ -2780,9 +2784,50 @@
             return html;
         }
 
-        function alturaRealPagina(paginaMeses) {
+        const REPORTE_ALTO_RESUMEN = 150;
+
+        function calcularResumenGeneralReporte() {
+            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            let ventas = 0, disponibleB = 0, registrados = 0, aforoE = 0;
+            obrasActivas.forEach(obra => {
+                const sala = getSala(obra.salaId);
+                getFuncionesObra(obra.id).forEach(f => {
+                    if (obra.tipo === 'boleteria') {
+                        ventas += f.ventasAcumuladas || 0;
+                        disponibleB += Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                    } else {
+                        registrados += f.registrados || 0;
+                        aforoE += sala?.aforo || 0;
+                    }
+                });
+            });
+            return {
+                ventas, porVender: Math.max(0, disponibleB - ventas),
+                pctB: disponibleB > 0 ? Math.round((ventas / disponibleB) * 100) : 0,
+                registrados, porOcupar: Math.max(0, aforoE - registrados),
+                pctE: aforoE > 0 ? Math.round((registrados / aforoE) * 100) : 0
+            };
+        }
+
+        function renderResumenGeneralReporteHTML() {
+            const r = calcularResumenGeneralReporte();
+            let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; padding-bottom:14px; border-bottom:2px solid #e5e7eb;">';
+            html += '<div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">💵 Boletería</span><span style="' + estiloPctBadge(r.pctB) + ' font-size:13px; font-weight:bold;">' + r.pctB + '%</span></div>';
+            html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#16A34A;">' + r.ventas + '</strong> vendidas · <strong>' + r.porVender + '</strong> por vender</div>';
+            html += '</div>';
+            html += '<div style="background:#f9fafb; border-radius:6px; padding:10px 12px;">';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">🎟️ Entrada Libre</span><span style="' + estiloPctBadge(r.pctE) + ' font-size:13px; font-weight:bold;">' + r.pctE + '%</span></div>';
+            html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#7c3aed;">' + r.registrados + '</strong> registradas · <strong>' + r.porOcupar + '</strong> por ocupar</div>';
+            html += '</div>';
+            html += '</div>';
+            return html;
+        }
+
+        function alturaRealPagina(paginaMeses, esPrimeraPagina) {
             const alturaContenido = paginaMeses.reduce((s, m) => s + alturaMesBloque(m), 0);
-            const total = REPORTE_ALTO_HEADER + alturaContenido + (REPORTE_PADDING * 2) + 20;
+            const alturaResumen = esPrimeraPagina ? REPORTE_ALTO_RESUMEN : 0;
+            const total = REPORTE_ALTO_HEADER + alturaResumen + alturaContenido + (REPORTE_PADDING * 2) + 20;
             // Nunca recorta contenido: si un mes por sí solo necesita más espacio
             // del ideal (1920), la imagen crece en vez de cortar texto.
             return Math.max(400, total);
@@ -2796,6 +2841,7 @@
             html += '<div style="font-size:30px; font-weight:bold; color:#111827;">' + formatearFecha(new Date().toISOString().split('T')[0]) + '</div>';
             if (totalPaginas > 1) html += '<div style="font-size:11px; color:#9ca3af;">Página ' + numPagina + ' de ' + totalPaginas + '</div>';
             html += '</div></div>';
+            if (numPagina === 1) html += renderResumenGeneralReporteHTML();
             paginaMeses.forEach(mes => { html += renderMesBloqueHTML(mes); });
             html += '</div>';
             return html;
@@ -2903,7 +2949,7 @@
 
             const generadas = [];
             for (let i = 0; i < paginas.length; i++) {
-                const altoPagina = alturaRealPagina(paginas[i]);
+                const altoPagina = alturaRealPagina(paginas[i], i === 0);
                 const pagina = document.createElement('div');
                 pagina.style.cssText = 'position:fixed; top:-99999px; left:-99999px;';
                 pagina.innerHTML = renderPaginaReporteHTML(paginas[i], i + 1, paginas.length, altoPagina);
