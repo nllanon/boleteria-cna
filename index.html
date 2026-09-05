@@ -2621,9 +2621,9 @@
                 const f = grupo.funciones[0];
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 let html = '<div style="display:flex; align-items:center; padding:12px 4px; border-bottom:1px solid #e5e7eb;">';
-                html += '<div style="flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; font-weight:normal; color:#111827;">';
-                html += grupo.icono + ' ' + grupo.nombre;
-                html += '<br><span style="color:#6b7280; font-size:15px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</span>';
+                html += '<div style="flex:1; min-width:0;">';
+                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; font-weight:normal; color:#111827;">' + grupo.icono + ' ' + grupo.nombre + '</div>';
+                html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:15px;">' + grupo.sala + ' · ' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
                 html += '</div>';
                 html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
                 html += '<div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div>';
@@ -2634,20 +2634,20 @@
 
             // Obra con VARIAS funciones: encabezado + cada función indentada + subtotal individual
             let html = '<div style="margin-bottom:2px;">';
-            html += '<div style="font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + ' <span style="font-size:15px; color:#6b7280;">· ' + grupo.sala + '</span></div>';
+            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:24px; color:#111827; padding-top:8px;">' + grupo.icono + ' ' + grupo.nombre + ' <span style="font-size:15px; color:#6b7280;">· ' + grupo.sala + '</span></div>';
             grupo.funciones.forEach(f => {
                 const m = formatearMetricaFuncion(grupo.tipoObra, f.numerador, f.denominador);
                 html += '<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px 8px 22px; border-bottom:1px solid #f3f4f6;">';
-                html += '<div style="font-size:15px; color:#374151;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
-                html += '<div style="text-align:right;"><div style="font-size:11px; color:#6b7280;">' + m.texto + '</div><div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + ';">' + m.valor + '</div></div>';
+                html += '<div style="font-size:15px; color:#374151; white-space:nowrap;">' + formatearFecha(f.fecha) + ' ' + f.hora + '</div>';
+                html += '<div style="text-align:right; flex-shrink:0; margin-left:8px;"><div style="font-size:11px; color:#6b7280; white-space:nowrap;">' + m.texto + '</div><div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + m.valor + '</div></div>';
                 html += '</div>';
             });
             const sumaNum = grupo.funciones.reduce((s, f) => s + f.numerador, 0);
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
             html += '<div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:8px 8px 8px 22px; border-radius:4px; margin:2px 0 6px;">';
-            html += '<div style="font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + '</div>';
-            html += '<div style="font-size:20px; font-weight:bold; color:' + grupo.metricaColor + ';">' + mTotal.valor + '</div>';
+            html += '<div style="flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + grupo.nombre + '</div>';
+            html += '<div style="flex-shrink:0; margin-left:8px; font-size:20px; font-weight:bold; color:' + grupo.metricaColor + '; white-space:nowrap;">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
         }
