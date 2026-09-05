@@ -2551,7 +2551,7 @@
                 (a.funciones[0].fecha + a.funciones[0].hora).localeCompare(b.funciones[0].fecha + b.funciones[0].hora)
             );
 
-            return ordenMeses.map(k => ({
+            return ordenMeses.slice().sort().map(k => ({
                 mesKey: mesesMap[k].mesKey,
                 mesLabel: mesesMap[k].mesLabel,
                 boleteria: toArray(mesesMap[k].boleteria),
