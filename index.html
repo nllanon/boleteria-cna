@@ -2665,11 +2665,10 @@
             const sumaDen = grupo.funciones.reduce((s, f) => s + f.denominador, 0);
             const mTotal = formatearMetricaFuncion(grupo.tipoObra, sumaNum, sumaDen);
             const salaLlenaTotal = esSalaLlena(grupo.tipoObra, mTotal.pct);
-            html += '<div style="display:flex; align-items:center; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
-            html += '<div style="flex:1; white-space:nowrap; min-width:0; font-size:15px; font-weight:bold; color:#374151;">Total ' + truncarTexto(grupo.nombre, 24) + '</div>';
-            html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px; margin-left:8px;">';
+            html += '<div style="display:flex; align-items:center; justify-content:flex-end; height:' + (REPORTE_ALTO_SUBTOTAL - 2) + 'px; padding:0 8px 0 26px; background:#f9fafb; border-bottom:2px solid #e5e7eb; box-sizing:border-box;">';
+            html += '<div style="flex-shrink:0; display:flex; align-items:center; gap:8px;">';
             if (salaLlenaTotal) html += '<span style="' + estiloPctBadge(mTotal.pct) + ' padding:3px 10px; font-size:12px; font-weight:bold;">🎉 SALA LLENA</span>';
-            html += '<div style="font-size:18px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
+            html += '<div style="font-size:28px; font-weight:bold; white-space:nowrap; ' + estiloPctBadge(mTotal.pct) + '">' + mTotal.valor + '</div>';
             html += '</div></div>';
             return html;
         }
@@ -2683,7 +2682,7 @@
             let html = '<div style="min-width:0; overflow:hidden;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0 12px; border-bottom:2px solid #e5e7eb; margin-bottom:8px;">';
             html += '<span style="font-size:28px; font-weight:bold; color:#374151;">' + etiqueta + '</span>';
-            html += '<span style="font-size:20px; font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '% total</span>';
+            html += '<span style="font-size:28px; font-weight:bold; ' + estiloPctBadge(pctMes) + '">' + pctMes + '%</span>';
             html += '</div>';
             lista.forEach(grupo => { html += renderGrupoReporteHTML(grupo); });
             html += '</div>';
