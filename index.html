@@ -2446,19 +2446,23 @@
                 const funciones = getFuncionesObra(obra.id);
                 funciones.forEach(f => {
                     const d = new Date(f.fecha);
-                    let metricaTexto, metricaValor, metricaColor;
+                    let metricaTexto, metricaValor, metricaColor, numerador, denominador;
                     if (obra.tipo === 'boleteria') {
                         const disponible = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
                         const pct = Math.round(((f.ventasAcumuladas || 0) / disponible) * 100);
                         metricaTexto = (f.ventasAcumuladas || 0) + '/' + disponible;
                         metricaValor = pct + '%';
                         metricaColor = '#2563eb';
+                        numerador = f.ventasAcumuladas || 0;
+                        denominador = disponible;
                     } else {
                         const aforo = sala?.aforo || 0;
                         const pct = aforo > 0 ? Math.round(((f.registrados || 0) / aforo) * 100) : 0;
                         metricaTexto = 'Registrados';
                         metricaValor = (f.registrados || 0) + ' (' + pct + '%)';
                         metricaColor = '#7c3aed';
+                        numerador = f.registrados || 0;
+                        denominador = aforo;
                     }
                     filas.push({
                         tipo: 'funcion',
@@ -2470,7 +2474,7 @@
                         sala: sala?.nombre || '',
                         fecha: f.fecha,
                         hora: f.hora,
-                        metricaTexto, metricaValor, metricaColor
+                        metricaTexto, metricaValor, metricaColor, numerador, denominador
                     });
                 });
             });
@@ -2497,7 +2501,7 @@
 
         function alturaColumnaReporte(lista) {
             if (lista.length === 0) return 0;
-            return 44 + (lista.length * REPORTE_ALTO_ROW); // 44 = altura del subtítulo Boletería/Entrada Libre
+            return 54 + (lista.length * REPORTE_ALTO_ROW); // 54 = altura del encabezado con % del mes
         }
 
         function alturaMesBloque(mesBloque) {
@@ -2534,8 +2538,15 @@
 
         function renderColumnaReporteHTML(lista, etiqueta) {
             if (lista.length === 0) return '<div></div>';
+            const sumaNum = lista.reduce((s, it) => s + (it.numerador || 0), 0);
+            const sumaDen = lista.reduce((s, it) => s + (it.denominador || 0), 0);
+            const pctMes = sumaDen > 0 ? Math.round((sumaNum / sumaDen) * 100) : 0;
+
             let html = '<div>';
-            html += '<div style="font-size:16px; font-weight:bold; color:#6b7280; padding:2px 0 6px; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:baseline; padding:2px 0 8px; border-bottom:2px solid #e5e7eb; margin-bottom:4px;">';
+            html += '<span style="font-size:16px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:0.3px;">' + etiqueta + '</span>';
+            html += '<span style="font-size:20px; font-weight:bold; color:' + lista[0].metricaColor + ';">' + pctMes + '% del mes</span>';
+            html += '</div>';
             lista.forEach(item => { html += renderFilaReporteHTML(item); });
             html += '</div>';
             return html;
