@@ -3239,6 +3239,7 @@
                 html += '<p class="text-xs text-gray-500 mb-3">Descarga cada una por separado tocando su botón — el navegador del celular no permite descargar varias a la vez automáticamente.</p>';
                 appState.reportePaginasGeneradas.forEach((pagina, idx) => {
                     html += '<div class="bg-white rounded shadow mb-4 p-3">';
+                    if (pagina.etiqueta) html += '<p class="text-xs font-bold text-gray-600 mb-2">' + pagina.etiqueta + '</p>';
                     html += '<img src="' + pagina.dataUrl + '" style="width:100%; border-radius:4px; border:1px solid #e5e7eb;" />';
                     html += '<a href="' + pagina.dataUrl + '" download="' + pagina.nombreArchivo + '" class="mt-2 block text-center bg-green-600 text-white py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar imagen ' + (idx + 1) + ' de ' + appState.reportePaginasGeneradas.length + '</a>';
                     html += '</div>';
@@ -3248,6 +3249,177 @@
 
             html += '</main></div>';
             return html;
+        }
+
+        // ---- Imagen adicional del reporte: tablas de requisitos pendientes ----
+        // Se dibuja íntegramente con Canvas 2D (no html2canvas) porque las tablas
+        // con CSS se interpretan distinto entre navegadores.
+        function construirTablasRequisitos() {
+            const activas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+
+            const boleteria = activas.filter(o => o.tipo === 'boleteria')
+                .filter(o => !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta)
+                .map(o => ({
+                    nombre: o.nombre,
+                    valores: [!!o.piezasDesarrolladas, !!o.fechaTiquetera, !!o.fechaRedes, !!o.videoDisponible, !!o.fechaPauta]
+                }));
+
+            const entradaLibre = activas.filter(o => o.tipo === 'entrada_libre')
+                .filter(o => !o.piezasDesarrolladas || !o.linkRegistro || !o.fechaRedes)
+                .map(o => ({
+                    nombre: o.nombre,
+                    valores: [!!o.piezasDesarrolladas, !!o.linkRegistro, !!o.fechaRedes]
+                }));
+
+            return [
+                { titulo: '\uD83D\uDCB5 Boletería', columnas: ['Pieza', 'Tiquetera', 'Redes', 'Video', 'Pauta'], filas: boleteria },
+                { titulo: '\uD83C\uDF9F\uFE0F Entrada Libre', columnas: ['Pieza', 'Link', 'Redes'], filas: entradaLibre }
+            ];
+        }
+
+        function envolverTextoCanvas(ctx, texto, anchoMax, maxLineas) {
+            const palabras = String(texto).split(' ');
+            const lineas = [];
+            let actual = '';
+            palabras.forEach(pal => {
+                const prueba = actual ? actual + ' ' + pal : pal;
+                if (ctx.measureText(prueba).width <= anchoMax || !actual) {
+                    actual = prueba;
+                } else {
+                    lineas.push(actual);
+                    actual = pal;
+                }
+            });
+            if (actual) lineas.push(actual);
+            if (lineas.length > maxLineas) {
+                const recortadas = lineas.slice(0, maxLineas);
+                let ultima = recortadas[maxLineas - 1];
+                while (ultima.length > 3 && ctx.measureText(ultima + '…').width > anchoMax) {
+                    ultima = ultima.slice(0, -1);
+                }
+                recortadas[maxLineas - 1] = ultima + '…';
+                return recortadas;
+            }
+            return lineas;
+        }
+
+        function generarImagenRequisitos() {
+            const secciones = construirTablasRequisitos().filter(sec => sec.filas.length > 0);
+            if (secciones.length === 0) return null;
+
+            const FACTOR = 3;
+            const ANCHO = REPORTE_ANCHO;
+            const PAD = 40;
+            const ANCHO_NOMBRE = 430;
+            const ALTO_FILA_BASE = 46;
+            const ALTO_ENCABEZADO_TABLA = 44;
+            const ALTO_TITULO_SECCION = 52;
+
+            // Canvas de medición para calcular alturas antes de dibujar
+            const medidor = document.createElement('canvas').getContext('2d');
+            medidor.font = '20px Arial, sans-serif';
+
+            let alto = PAD + 70;
+            secciones.forEach(sec => {
+                alto += ALTO_TITULO_SECCION + ALTO_ENCABEZADO_TABLA;
+                sec.filas.forEach(fila => {
+                    fila.lineas = envolverTextoCanvas(medidor, fila.nombre, ANCHO_NOMBRE - 20, 2);
+                    fila.alto = Math.max(ALTO_FILA_BASE, 22 + fila.lineas.length * 26);
+                    alto += fila.alto;
+                });
+                alto += 30;
+            });
+            alto += PAD;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = ANCHO * FACTOR;
+            canvas.height = alto * FACTOR;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(FACTOR, FACTOR);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, ANCHO, alto);
+
+            let y = PAD;
+
+            ctx.fillStyle = '#111827';
+            ctx.font = 'bold 34px Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('\uD83D\uDCCB Requisitos Pendientes', PAD, y + 30);
+
+            ctx.fillStyle = '#6B7280';
+            ctx.font = '18px Arial, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(formatearFecha(new Date().toISOString().split('T')[0]), ANCHO - PAD, y + 30);
+            y += 70;
+
+            secciones.forEach(sec => {
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#111827';
+                ctx.font = 'bold 24px Arial, sans-serif';
+                ctx.fillText(sec.titulo, PAD, y + 30);
+                y += ALTO_TITULO_SECCION;
+
+                const anchoColumnas = (ANCHO - PAD * 2 - ANCHO_NOMBRE) / sec.columnas.length;
+
+                ctx.fillStyle = '#374151';
+                ctx.font = 'bold 19px Arial, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('Obra', PAD + 10, y + 28);
+                ctx.textAlign = 'center';
+                sec.columnas.forEach((col, i) => {
+                    ctx.fillText(col, PAD + ANCHO_NOMBRE + anchoColumnas * i + anchoColumnas / 2, y + 28);
+                });
+                y += ALTO_ENCABEZADO_TABLA;
+
+                ctx.strokeStyle = '#D1D5DB';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y);
+                ctx.lineTo(ANCHO - PAD, y);
+                ctx.stroke();
+
+                sec.filas.forEach((fila, idx) => {
+                    if (idx % 2 === 1) {
+                        ctx.fillStyle = '#F9FAFB';
+                        ctx.fillRect(PAD, y, ANCHO - PAD * 2, fila.alto);
+                    }
+
+                    ctx.fillStyle = '#111827';
+                    ctx.font = '20px Arial, sans-serif';
+                    ctx.textAlign = 'left';
+                    const yTexto = y + (fila.alto - fila.lineas.length * 26) / 2 + 20;
+                    fila.lineas.forEach((linea, li) => {
+                        ctx.fillText(linea, PAD + 10, yTexto + li * 26);
+                    });
+
+                    ctx.textAlign = 'center';
+                    ctx.font = 'bold 24px Arial, sans-serif';
+                    fila.valores.forEach((ok, i) => {
+                        ctx.fillStyle = ok ? '#16A34A' : '#DC2626';
+                        ctx.fillText(ok ? '\u2713' : '\u2715',
+                            PAD + ANCHO_NOMBRE + anchoColumnas * i + anchoColumnas / 2,
+                            y + fila.alto / 2 + 9);
+                    });
+
+                    y += fila.alto;
+                    ctx.strokeStyle = '#E5E7EB';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(PAD, y);
+                    ctx.lineTo(ANCHO - PAD, y);
+                    ctx.stroke();
+                });
+
+                y += 30;
+            });
+
+            return {
+                dataUrl: canvas.toDataURL('image/png'),
+                etiqueta: 'Requisitos pendientes',
+                nombreArchivo: 'requisitos-pendientes-cna-' + new Date().toISOString().split('T')[0] + '.png'
+            };
         }
 
         async function descargarReportePNG() {
@@ -3268,7 +3440,9 @@
             const fecha = new Date().toISOString().split('T')[0];
 
             const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando ' + paginas.length + ' imagen(es)...'; }
+            const hayRequisitos = construirTablasRequisitos().some(sec => sec.filas.length > 0);
+            const totalImagenes = paginas.length + (hayRequisitos ? 1 : 0);
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando ' + totalImagenes + ' imagen(es)...'; }
 
             const generadas = [];
             for (let i = 0; i < paginas.length; i++) {
@@ -3284,6 +3458,7 @@
                     const canvas = await html2canvas(pagina.firstElementChild, { backgroundColor: '#ffffff', scale: 3, width: REPORTE_ANCHO, height: altoPagina });
                     generadas.push({
                         dataUrl: canvas.toDataURL('image/png'),
+                        etiqueta: paginas.length > 1 ? 'Reporte de avance — parte ' + (i + 1) : 'Reporte de avance',
                         nombreArchivo: 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png'
                     });
                 } catch (err) {
@@ -3292,6 +3467,14 @@
                 } finally {
                     document.body.removeChild(pagina);
                 }
+            }
+
+            // Imagen final aparte con las tablas de requisitos pendientes
+            try {
+                const imgRequisitos = generarImagenRequisitos();
+                if (imgRequisitos) generadas.push(imgRequisitos);
+            } catch (err) {
+                console.error('Error generando imagen de requisitos:', err);
             }
 
             if (btn) { btn.disabled = false; btn.textContent = '📥 Descargar PNG'; }
