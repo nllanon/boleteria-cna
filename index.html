@@ -203,9 +203,9 @@
         function tienePermiso(accion) {
             const rol = appState.user?.rol;
             const permisos = {
-                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'generar_reportes', 'editar_salas'],
-                'registrador_boleto': ['crear_obra', 'editar_obra', 'registrar_venta', 'generar_reportes'],
-                'registrador_entrada': ['crear_obra', 'editar_obra', 'registrar_entrada', 'generar_reportes'],
+                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'registrador_boleto': ['crear_obra', 'editar_obra', 'registrar_venta', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'registrador_entrada': ['crear_obra', 'editar_obra', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
                 'visualizador': ['ver_todo']
             };
             return permisos[rol]?.includes(accion) || false;
@@ -1230,11 +1230,14 @@
 
             // Sección de Acciones de Mercadeo y Comunicaciones
             html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📣 Acciones de Mercadeo y Comunicaciones (' + acciones.length + ')</h3>';
-            html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Activamos pauta digital adicional por $500.000" class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Fecha de la acción</label><input type="date" id="accionFecha" value="' + new Date().toISOString().split('T')[0] + '" required class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Puedes registrar acciones de días anteriores.</p></div>';
-            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar acción</button>';
-            html += '</form>';
+            const puedeRegistrarAccion = tienePermiso('registrar_accion_mercadeo');
+            if (puedeRegistrarAccion) {
+                html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
+                html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Activamos pauta digital adicional por $500.000" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+                html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Fecha de la acción</label><input type="date" id="accionFecha" value="' + new Date().toISOString().split('T')[0] + '" required class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Puedes registrar acciones de días anteriores.</p></div>';
+                html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar acción</button>';
+                html += '</form>';
+            }
 
             if (acciones.length === 0) {
                 html += '<p class="text-gray-500 text-sm">Sin acciones de mercadeo registradas</p>';
@@ -1244,7 +1247,11 @@
                     html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-blue-500">';
                     html += '<div class="flex justify-between items-start mb-2">';
                     html += '<div><strong>' + a.descripcion + '</strong></div>';
-                    html += '<button onclick="toggleAccionHecho(\'' + a.id + '\')" class="' + (a.hecho ? 'bg-green-500' : 'bg-gray-400') + ' text-white px-2 py-1 rounded text-xs">' + (a.hecho ? '✅ Hecho' : '❌ Pendiente') + '</button>';
+                    if (puedeRegistrarAccion) {
+                        html += '<button onclick="toggleAccionHecho(\'' + a.id + '\')" class="' + (a.hecho ? 'bg-green-500' : 'bg-gray-400') + ' text-white px-2 py-1 rounded text-xs">' + (a.hecho ? '✅ Hecho' : '❌ Pendiente') + '</button>';
+                    } else {
+                        html += '<span class="' + (a.hecho ? 'text-green-600' : 'text-orange-600') + ' text-xs font-bold">' + (a.hecho ? '✅ Hecho' : '❌ Pendiente') + '</span>';
+                    }
                     html += '</div>';
                     html += '<p class="text-xs text-gray-600">' + formatearFecha(a.fecha) + ' por ' + a.usuario + '</p>';
                     html += '</div>';
@@ -1380,6 +1387,15 @@
 
         function handleAgregarAccion(e, obraId) {
             e.preventDefault();
+            if (!tienePermiso('registrar_accion_mercadeo')) {
+                alert('⚠️ Tu usuario no puede registrar acciones de mercadeo.');
+                return;
+            }
+            const obraDestino = appState.obras.find(o => o.id === obraId);
+            if (!obraDestino || !puedeVerObra(obraDestino)) {
+                alert('⚠️ No puedes registrar acciones sobre esta obra.');
+                return;
+            }
             const desc = document.getElementById('accionDesc').value;
             const campoFecha = document.getElementById('accionFecha');
             const fecha = (campoFecha && campoFecha.value) ? campoFecha.value : new Date().toISOString().split('T')[0];
@@ -1406,6 +1422,7 @@
         }
 
         function toggleAccionHecho(accionId) {
+            if (!tienePermiso('registrar_accion_mercadeo')) return;
             const accion = appState.acciones.find(a => a.id === accionId);
             if (accion) {
                 accion.hecho = !accion.hecho;
@@ -2844,16 +2861,18 @@
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
             html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Boletería)</h3>';
-            html += '<p class="text-xs text-gray-500 mb-3">Solo obras activas con al menos un requisito sin completar.</p>';
-            const obrasConPendientes = obrasBoleto.filter(o =>
-                !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta
-            );
-            if (obrasConPendientes.length === 0) {
-                html += '<p class="text-sm text-gray-500">Todas las obras activas tienen sus requisitos completos. 🎉</p>';
+            html += '<p class="text-xs text-gray-500 mb-3">Todas las obras activas, con el estado de cada herramienta.</p>';
+            const faltaAlgoBoleteria = (o) => !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta;
+            const obrasTablaBoleteria = obrasBoleto.slice().sort((a, b) => {
+                const dif = (faltaAlgoBoleteria(b) ? 1 : 0) - (faltaAlgoBoleteria(a) ? 1 : 0);
+                return dif !== 0 ? dif : a.nombre.localeCompare(b.nombre);
+            });
+            if (obrasTablaBoleteria.length === 0) {
+                html += '<p class="text-sm text-gray-500">Sin obras activas de este tipo.</p>';
             } else {
                 html += '<table class="w-full text-sm" style="table-layout:fixed;">';
                 html += '<thead><tr class="border-b"><th class="text-left py-2 pr-2 align-bottom">Obra</th>' + ['Pieza','Tiquetera','Redes','Video','Pauta'].map(thVertical).join('') + '</tr></thead><tbody>';
-                obrasConPendientes.forEach(o => {
+                obrasTablaBoleteria.forEach(o => {
                     html += '<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewObra(\'' + o.id + '\')">';
                     html += '<td class="py-2 pr-2 font-medium" style="word-break:break-word; line-height:1.25;">' + o.nombre + '</td>';
                     html += '<td class="text-center py-2 px-0">' + check(!!o.piezasDesarrolladas) + '</td>';
@@ -2869,16 +2888,18 @@
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
             html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Entrada Libre)</h3>';
-            html += '<p class="text-xs text-gray-500 mb-3">Solo obras activas con al menos un requisito sin completar.</p>';
-            const obrasEntradaConPendientes = obrasEntrada.filter(o =>
-                !o.piezasDesarrolladas || !o.linkRegistro || !o.fechaRedes
-            );
-            if (obrasEntradaConPendientes.length === 0) {
-                html += '<p class="text-sm text-gray-500">Todas las obras activas tienen sus requisitos completos. 🎉</p>';
+            html += '<p class="text-xs text-gray-500 mb-3">Todas las obras activas, con el estado de cada herramienta.</p>';
+            const faltaAlgoEntrada = (o) => !o.piezasDesarrolladas || !o.linkRegistro || !o.fechaRedes;
+            const obrasTablaEntrada = obrasEntrada.slice().sort((a, b) => {
+                const dif = (faltaAlgoEntrada(b) ? 1 : 0) - (faltaAlgoEntrada(a) ? 1 : 0);
+                return dif !== 0 ? dif : a.nombre.localeCompare(b.nombre);
+            });
+            if (obrasTablaEntrada.length === 0) {
+                html += '<p class="text-sm text-gray-500">Sin obras activas de este tipo.</p>';
             } else {
                 html += '<table class="w-full text-sm" style="table-layout:fixed;">';
                 html += '<thead><tr class="border-b"><th class="text-left py-2 pr-2 align-bottom">Obra</th>' + ['Pieza','Link','Redes'].map(thVertical).join('') + '</tr></thead><tbody>';
-                obrasEntradaConPendientes.forEach(o => {
+                obrasTablaEntrada.forEach(o => {
                     html += '<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewObra(\'' + o.id + '\')">';
                     html += '<td class="py-2 pr-2 font-medium" style="word-break:break-word; line-height:1.25;">' + o.nombre + '</td>';
                     html += '<td class="text-center py-2 px-0">' + check(!!o.piezasDesarrolladas) + '</td>';
@@ -3486,19 +3507,23 @@
         function construirTablasRequisitos() {
             const activas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
 
-            const boleteria = activas.filter(o => o.tipo === 'boleteria')
-                .filter(o => !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta)
+            const ordenarPorPendientes = (lista) => lista.sort((a, b) => {
+                const faltaA = a.valores.some(v => !v) ? 1 : 0;
+                const faltaB = b.valores.some(v => !v) ? 1 : 0;
+                return faltaB - faltaA || a.nombre.localeCompare(b.nombre);
+            });
+
+            const boleteria = ordenarPorPendientes(activas.filter(o => o.tipo === 'boleteria')
                 .map(o => ({
                     nombre: o.nombre,
                     valores: [!!o.piezasDesarrolladas, !!o.fechaTiquetera, !!o.fechaRedes, !!o.videoDisponible, !!o.fechaPauta]
-                }));
+                })));
 
-            const entradaLibre = activas.filter(o => o.tipo === 'entrada_libre')
-                .filter(o => !o.piezasDesarrolladas || !o.linkRegistro || !o.fechaRedes)
+            const entradaLibre = ordenarPorPendientes(activas.filter(o => o.tipo === 'entrada_libre')
                 .map(o => ({
                     nombre: o.nombre,
                     valores: [!!o.piezasDesarrolladas, !!o.linkRegistro, !!o.fechaRedes]
-                }));
+                })));
 
             return [
                 { titulo: '\uD83D\uDCB5 Boletería', columnas: ['Pieza', 'Tiquetera', 'Redes', 'Video', 'Pauta'], filas: boleteria },
