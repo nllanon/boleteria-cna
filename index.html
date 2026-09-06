@@ -1228,18 +1228,19 @@
             html += '</div>';
             }
 
-            // Sección de Acciones
-            html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📋 Acciones Registradas (' + acciones.length + ')</h3>';
+            // Sección de Acciones de Mercadeo y Comunicaciones
+            html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📣 Acciones de Mercadeo y Comunicaciones (' + acciones.length + ')</h3>';
             html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
-            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Publicado en redes, Enviado correo..." class="w-full px-3 py-2 border rounded text-sm" /></div>';
-            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar Acción</button>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Activamos pauta digital adicional por $500.000" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Fecha de la acción</label><input type="date" id="accionFecha" value="' + new Date().toISOString().split('T')[0] + '" required class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Puedes registrar acciones de días anteriores.</p></div>';
+            html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar acción</button>';
             html += '</form>';
 
             if (acciones.length === 0) {
-                html += '<p class="text-gray-500 text-sm">Sin acciones registradas</p>';
+                html += '<p class="text-gray-500 text-sm">Sin acciones de mercadeo registradas</p>';
             } else {
                 html += '<div class="space-y-3">';
-                acciones.slice().reverse().forEach(a => {
+                acciones.slice().sort((x, y) => (y.fecha || '').localeCompare(x.fecha || '')).forEach(a => {
                     html += '<div class="p-3 bg-gray-50 rounded border-l-4 border-blue-500">';
                     html += '<div class="flex justify-between items-start mb-2">';
                     html += '<div><strong>' + a.descripcion + '</strong></div>';
@@ -1380,14 +1381,24 @@
         function handleAgregarAccion(e, obraId) {
             e.preventDefault();
             const desc = document.getElementById('accionDesc').value;
-            const hoy = new Date();
+            const campoFecha = document.getElementById('accionFecha');
+            const fecha = (campoFecha && campoFecha.value) ? campoFecha.value : new Date().toISOString().split('T')[0];
             appState.acciones.push({
                 id: Date.now().toString(),
                 obraId,
                 descripcion: desc,
-                fecha: hoy.toISOString().split('T')[0],
+                fecha,
                 usuario: appState.user.email,
                 hecho: false
+            });
+            appState.historial.push({
+                id: Date.now().toString() + Math.random().toString(36).slice(2),
+                timestamp: new Date().toISOString(),
+                usuario: appState.user.email,
+                obraId: obraId,
+                accion: 'Acción de mercadeo registrada',
+                detalles: desc + ' (' + formatearFecha(fecha) + ')',
+                _pendingInsert: true
             });
             saveData();
             document.getElementById('accionDesc').value = '';
@@ -2879,6 +2890,31 @@
             }
             html += '</div>';
 
+            // ACCIONES DE MERCADEO Y COMUNICACIONES
+            html += '<div class="bg-white p-4 rounded shadow mb-6">';
+            html += '<h3 class="font-bold mb-1">📣 Acciones de Mercadeo y Comunicaciones</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Todas las acciones registradas por obra, con su fecha y quién las creó.</p>';
+
+            const accionesReporte = construirReporteAcciones();
+            if (accionesReporte.length === 0) {
+                html += '<p class="text-sm text-gray-500">Todavía no hay acciones de mercadeo registradas.</p>';
+            } else {
+                accionesReporte.forEach(grupo => {
+                    html += '<div class="mb-4">';
+                    html += '<p class="text-sm font-bold text-gray-800">' + grupo.obra + ' <span class="font-normal text-xs text-gray-500">(' + grupo.tipoTexto + ' · ' + grupo.acciones.length + ')</span></p>';
+                    html += '<table class="w-full text-sm mt-1"><tbody>';
+                    grupo.acciones.forEach(a => {
+                        html += '<tr class="border-b align-top">';
+                        html += '<td class="py-2 pr-2 whitespace-nowrap text-xs text-gray-600" style="width:88px;">' + formatearFecha(a.fecha) + '</td>';
+                        html += '<td class="py-2 pr-2">' + a.descripcion + '<br><span class="text-xs text-gray-500">' + a.usuario + '</span></td>';
+                        html += '<td class="py-2 text-right whitespace-nowrap text-xs">' + (a.hecho ? '<span class="text-green-600 font-bold">Hecha</span>' : '<span class="text-orange-600 font-bold">Pendiente</span>') + '</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                });
+            }
+            html += '</div>';
+
             html += '</main></div>';
 
             setTimeout(() => renderGraficosReportes(obrasBoleto, obrasEntrada), 50);
@@ -3615,6 +3651,137 @@
             };
         }
 
+        // ---- Reporte de acciones de mercadeo y comunicaciones ----
+        function construirReporteAcciones() {
+            const obrasVisibles = appState.obras.filter(o => puedeVerObra(o));
+            const grupos = [];
+            obrasVisibles.forEach(obra => {
+                const acciones = getAccionesObra(obra.id)
+                    .slice()
+                    .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+                if (acciones.length === 0) return;
+                grupos.push({
+                    obra: obra.nombre,
+                    tipoTexto: obra.tipo === 'boleteria' ? 'Boletería' : 'Entrada Libre',
+                    acciones: acciones
+                });
+            });
+            return grupos.sort((a, b) => a.obra.localeCompare(b.obra));
+        }
+
+        function generarImagenAcciones() {
+            const grupos = construirReporteAcciones();
+            if (grupos.length === 0) return null;
+
+            const FACTOR = 3;
+            const ANCHO = REPORTE_ANCHO;
+            const PAD = 40;
+            const X_FECHA = PAD + 10;
+            const ANCHO_FECHA = 110;
+            const X_DESC = X_FECHA + ANCHO_FECHA;
+            const ANCHO_ESTADO = 110;
+            const ANCHO_DESC = ANCHO - PAD - X_DESC - ANCHO_ESTADO - 10;
+
+            const medidor = document.createElement('canvas').getContext('2d');
+
+            let alto = PAD + 70;
+            grupos.forEach(g => {
+                alto += 42;
+                g.acciones.forEach(a => {
+                    medidor.font = '19px Arial, sans-serif';
+                    a.lineas = envolverTextoCanvas(medidor, a.descripcion, ANCHO_DESC, 2);
+                    a.alto = Math.max(48, 20 + a.lineas.length * 24 + 20);
+                    alto += a.alto;
+                });
+                alto += 16;
+            });
+            alto += PAD;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = ANCHO * FACTOR;
+            canvas.height = alto * FACTOR;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(FACTOR, FACTOR);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, ANCHO, alto);
+
+            let y = PAD;
+            ctx.fillStyle = '#111827';
+            ctx.font = 'bold 30px Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('\uD83D\uDCE3 Acciones de Mercadeo y Comunicaciones', PAD, y + 30);
+            ctx.fillStyle = '#6B7280';
+            ctx.font = '18px Arial, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(formatearFecha(new Date().toISOString().split('T')[0]), ANCHO - PAD, y + 30);
+            y += 70;
+
+            grupos.forEach(g => {
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#111827';
+                ctx.font = 'bold 22px Arial, sans-serif';
+                const meta = g.tipoTexto + ' · ' + g.acciones.length + ' acción(es)';
+                const nombreObra = envolverTextoCanvas(ctx, g.obra, ANCHO - PAD * 2 - 220, 1)[0];
+                ctx.fillText(nombreObra, PAD, y + 26);
+                const anchoNombre = ctx.measureText(nombreObra).width;
+                ctx.fillStyle = '#6B7280';
+                ctx.font = '16px Arial, sans-serif';
+                ctx.fillText(meta, PAD + anchoNombre + 12, y + 26);
+                y += 42;
+
+                ctx.strokeStyle = '#D1D5DB';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y);
+                ctx.lineTo(ANCHO - PAD, y);
+                ctx.stroke();
+
+                g.acciones.forEach((a, idx) => {
+                    if (idx % 2 === 1) {
+                        ctx.fillStyle = '#F9FAFB';
+                        ctx.fillRect(PAD, y, ANCHO - PAD * 2, a.alto);
+                    }
+
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = '#6B7280';
+                    ctx.font = '17px Arial, sans-serif';
+                    ctx.fillText(formatearFecha(a.fecha), X_FECHA, y + 28);
+
+                    ctx.fillStyle = '#111827';
+                    ctx.font = '19px Arial, sans-serif';
+                    a.lineas.forEach((linea, li) => {
+                        ctx.fillText(linea, X_DESC, y + 28 + li * 24);
+                    });
+
+                    ctx.fillStyle = '#6B7280';
+                    ctx.font = '15px Arial, sans-serif';
+                    ctx.fillText(a.usuario || '', X_DESC, y + 28 + a.lineas.length * 24);
+
+                    ctx.textAlign = 'right';
+                    ctx.font = 'bold 16px Arial, sans-serif';
+                    ctx.fillStyle = a.hecho ? '#16A34A' : '#EA580C';
+                    ctx.fillText(a.hecho ? 'Hecha' : 'Pendiente', ANCHO - PAD - 10, y + 28);
+
+                    y += a.alto;
+                    ctx.strokeStyle = '#E5E7EB';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(PAD, y);
+                    ctx.lineTo(ANCHO - PAD, y);
+                    ctx.stroke();
+                });
+
+                y += 16;
+            });
+
+            return {
+                dataUrl: canvas.toDataURL('image/png'),
+                etiqueta: 'Acciones de mercadeo y comunicaciones',
+                nombreArchivo: 'acciones-mercadeo-cna-' + new Date().toISOString().split('T')[0] + '.png'
+            };
+        }
+
         async function descargarReportePNG() {
             if (!window.html2canvas) {
                 alert('⚠️ No se pudo generar la imagen. Recarga la página e intenta de nuevo.');
@@ -3634,7 +3801,8 @@
 
             const btn = document.querySelector('button[onclick="descargarReportePNG()"]');
             const hayRequisitos = construirTablasRequisitos().some(sec => sec.filas.length > 0);
-            const totalImagenes = paginas.length + (hayRequisitos ? 1 : 0);
+            const hayAcciones = construirReporteAcciones().length > 0;
+            const totalImagenes = paginas.length + (hayRequisitos ? 1 : 0) + (hayAcciones ? 1 : 0);
             if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando ' + totalImagenes + ' imagen(es)...'; }
 
             const generadas = [];
@@ -3667,7 +3835,15 @@
                 const imgRequisitos = generarImagenRequisitos();
                 if (imgRequisitos) generadas.push(imgRequisitos);
             } catch (err) {
-                console.error('Error generando imagen de requisitos:', err);
+                console.error('Error generando imagen de herramientas:', err);
+            }
+
+            // Imagen final aparte con las acciones de mercadeo y comunicaciones
+            try {
+                const imgAcciones = generarImagenAcciones();
+                if (imgAcciones) generadas.push(imgAcciones);
+            } catch (err) {
+                console.error('Error generando imagen de acciones:', err);
             }
 
             if (btn) { btn.disabled = false; btn.textContent = '📥 Descargar PNG'; }
