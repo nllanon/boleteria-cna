@@ -612,6 +612,8 @@
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">📊 Dashboard</h2>';
 
             let obrasFiltradas = appState.obras.filter(o => puedeVerObra(o));
+            const obrasActivasDash = obrasFiltradas.filter(o => !obraEstaFinalizada(o));
+            const obrasFinalizadasDash = obrasFiltradas.filter(o => obraEstaFinalizada(o));
 
             const totalVentas = appState.funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
             const totalDisponibleBoleteria = appState.funciones.reduce((sum, f) => {
@@ -638,9 +640,11 @@
             const pctEntrada = totalAforoEntrada > 0 ? Math.round((totalRegistrados / totalAforoEntrada) * 100) : 0;
 
             html += '<div class="grid grid-cols-2 gap-2 mb-3">';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total obras en cartelera</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total obras en cartelera</p><p class="text-2xl font-bold text-blue-600">' + obrasActivasDash.length + '</p></div>';
             html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total funciones en cartelera</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
             html += '</div>';
+
+            html += '<p class="text-xs text-gray-400 mb-3">📱 Gira tu teléfono para ver mejor la información.</p>';
 
             html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">';
             html += '<div class="bg-white p-3 rounded shadow flex items-center gap-3">';
@@ -690,7 +694,7 @@
             grupos['__sin_agrupar__'] = { nombre: 'Obras individuales', obras: [] };
             ordenGrupos.push('__sin_agrupar__');
 
-            obrasFiltradas.forEach(o => {
+            obrasActivasDash.forEach(o => {
                 const key = (o.agrupadorId && grupos[o.agrupadorId]) ? o.agrupadorId : '__sin_agrupar__';
                 grupos[key].obras.push(o);
             });
@@ -734,6 +738,19 @@
                 html += '</div></div>';
                 html += '</details>';
             });
+
+            if (obrasFinalizadasDash.length > 0) {
+                html += '<details class="mb-6 bg-white rounded shadow" style="overflow:hidden;">';
+                html += '<summary style="cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;" class="p-4">';
+                html += '<span class="triangulo-cascada" style="display:inline-block; transition:transform 0.15s;">▶</span>';
+                html += '<span style="font-weight:bold; font-size:1.125rem; color:#6b7280;">Finalizadas</span>';
+                html += '<span style="font-size:0.75rem; color:#9ca3af;">(' + obrasFinalizadasDash.length + ')</span>';
+                html += '</summary>';
+                html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 items-start">';
+                obrasFinalizadasDash.forEach(obra => { html += renderTarjetaDashboard(obra); });
+                html += '</div></div>';
+                html += '</details>';
+            }
 
             html += '<style>details[open] > summary .triangulo-cascada { transform: rotate(90deg); } summary::-webkit-details-marker { display:none; } summary { list-style:none; }</style>';
 
