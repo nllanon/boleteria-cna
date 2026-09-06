@@ -1586,7 +1586,11 @@
                     alert('⚠️ Debes ingresar al menos la fecha y hora de la función');
                     return;
                 }
-                functionesAGuardar.push({ fecha, hora });
+                // Preservar todos los datos ya registrados de la función existente
+                // (ventas, cortesías, registrados, etc.) — solo actualizamos fecha/hora.
+                // Antes esto se reconstruía desde cero solo con {fecha, hora}, borrando
+                // el progreso ya guardado. Bug corregido el 06/09.
+                functionesAGuardar.push({ ...(appState.editingFunciones[0] || {}), fecha, hora });
             } else {
                 if (appState.editingFunciones.length === 0) {
                     alert('⚠️ Debes agregar al menos una función');
