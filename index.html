@@ -637,8 +637,8 @@
             const pctEntrada = totalAforoEntrada > 0 ? Math.round((totalRegistrados / totalAforoEntrada) * 100) : 0;
 
             html += '<div class="grid grid-cols-2 gap-2 mb-3">';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Obras</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
-            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total Funciones</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total obras en cartelera</p><p class="text-2xl font-bold text-blue-600">' + obrasFiltradas.length + '</p></div>';
+            html += '<div class="bg-white p-3 rounded shadow"><p class="text-gray-500 text-xs">Total funciones en cartelera</p><p class="text-2xl font-bold text-orange-600">' + appState.funciones.length + '</p></div>';
             html += '</div>';
 
             html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">';
@@ -768,6 +768,11 @@
             hacerDona('donaEntrada', 'donaEntradaInstance', [registradas, porOcupar], ['#7c3aed', '#e5e7eb']);
         }
 
+        function renderBadgePctChico(pct, texto) {
+            const bg = colorPctHex(pct);
+            return '<span style="background:' + bg + '; color:#ffffff; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:4px; white-space:nowrap; display:inline-block; flex-shrink:0;">' + texto + '</span>';
+        }
+
         function renderTarjetaDashboard(obra) {
             const sala = getSala(obra.salaId);
             const funciones = getFuncionesObra(obra.id);
@@ -794,11 +799,11 @@
                 const pct = denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
 
                 filasFunciones += '<div style="padding:6px 0; border-bottom:1px solid #f3f4f6;">';
-                filasFunciones += '<div class="flex justify-between items-center">';
-                filasFunciones += '<div class="text-xs text-gray-700">' + formatearFecha(f.fecha) + ' <span class="text-gray-400">' + formatearHora(f.hora) + '</span></div>';
-                filasFunciones += renderBadgePct(pct, pct + '%');
+                filasFunciones += '<div class="flex justify-between items-center gap-2">';
+                filasFunciones += '<div class="text-xs text-gray-700" style="min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + formatearFecha(f.fecha) + ' <span class="text-gray-400">' + formatearHora(f.hora) + '</span></div>';
+                filasFunciones += renderBadgePctChico(pct, pct + '%');
                 filasFunciones += '</div>';
-                filasFunciones += '<div class="text-xs text-gray-500 mt-0.5">' + etiquetaIzq + ' · ' + etiquetaDer + '</div>';
+                filasFunciones += '<div class="text-xs text-gray-500 mt-0.5" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + etiquetaIzq + ' · ' + etiquetaDer + '</div>';
                 filasFunciones += '</div>';
             });
 
@@ -810,11 +815,11 @@
             let html = '<details class="bg-white rounded shadow" style="overflow:hidden;">';
             html += '<summary style="cursor:pointer; list-style:none;" class="p-3">';
             html += '<div class="flex justify-between items-center gap-2">';
-            html += '<div style="min-width:0;">';
+            html += '<div style="min-width:0; flex:1;">';
             html += '<div class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</div>';
-            html += '<div class="text-xs text-gray-500">' + (sala?.nombre || '') + '</div>';
+            html += '<div class="text-xs text-gray-500" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (sala?.nombre || '') + '</div>';
             html += '</div>';
-            html += renderBadgePct(pctTotal, pctTotal + '%');
+            html += renderBadgePctChico(pctTotal, pctTotal + '%');
             html += '</div>';
             html += '</summary>';
 
