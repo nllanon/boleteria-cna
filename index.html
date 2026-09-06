@@ -22,6 +22,7 @@
             user: null,
             temporadas: [],
             obras: [],
+            obrasFiltroMesFinalizadas: 'todos',
             funciones: [],
             ventas: [],
             entrada_libre: [],
@@ -874,6 +875,37 @@
                 const fB = getUltimaFuncion(b.id)?.fecha || '9999-99-99';
                 return fA.localeCompare(fB);
             });
+
+            // Filtro por mes, solo aplica a las obras finalizadas
+            const MESES_NOMBRE = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const mesesDisponibles = new Set();
+            obrasFiltradas.forEach(o => {
+                if (!obraEstaFinalizada(o)) return;
+                const f = getUltimaFuncion(o.id)?.fecha;
+                if (!f) return;
+                mesesDisponibles.add(f.slice(0, 7)); // 'YYYY-MM'
+            });
+            const listaMeses = [...mesesDisponibles].sort();
+
+            if (listaMeses.length > 0) {
+                html += '<div class="mb-3"><label class="text-xs text-gray-600 mr-2">Finalizadas del mes:</label>';
+                html += '<select onchange="appState.obrasFiltroMesFinalizadas=this.value; render();" class="border rounded px-2 py-1 text-sm">';
+                html += '<option value="todos"' + (appState.obrasFiltroMesFinalizadas === 'todos' ? ' selected' : '') + '>Todos los meses</option>';
+                listaMeses.forEach(m => {
+                    const [anio, mesNum] = m.split('-');
+                    const label = MESES_NOMBRE[parseInt(mesNum) - 1] + ' ' + anio;
+                    html += '<option value="' + m + '"' + (appState.obrasFiltroMesFinalizadas === m ? ' selected' : '') + '>' + label + '</option>';
+                });
+                html += '</select></div>';
+            }
+
+            if (appState.obrasFiltroMesFinalizadas !== 'todos') {
+                obrasFiltradas = obrasFiltradas.filter(o => {
+                    if (!obraEstaFinalizada(o)) return true; // las activas nunca se filtran por mes
+                    const f = getUltimaFuncion(o.id)?.fecha;
+                    return f && f.slice(0, 7) === appState.obrasFiltroMesFinalizadas;
+                });
+            }
 
             html += '<div class="bg-white rounded shadow overflow-hidden"><table class="w-full text-sm">';
             html += '<thead class="bg-gray-100"><tr><th class="px-4 py-2 text-left">Obra</th><th class="px-4 py-2 text-left">Tipo</th><th class="px-4 py-2 text-left">Sala</th><th class="px-4 py-2 text-left">Tiquetera</th><th class="px-4 py-2 text-left">Última Fun.</th><th class="px-4 py-2 text-left">Días</th><th class="px-4 py-2">Acciones</th></tr></thead><tbody>';
