@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div id="app"></div>
@@ -2135,8 +2136,200 @@
             }
             html += '</div>';
 
+            // COPIA DE SEGURIDAD
+            html += '<div class="bg-white rounded shadow p-4 mt-6">';
+            html += '<h3 class="text-lg font-bold mb-1">💾 Copia de seguridad</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Descarga todos los datos del sistema en un archivo Excel, o restaura el sistema a partir de un archivo descargado antes.</p>';
+            html += '<div class="flex flex-wrap gap-2 mb-4">';
+            html += '<button onclick="descargarBackupExcel()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar backup en Excel</button>';
+            html += '<button onclick="document.getElementById(\'inputBackupExcel\').click()" class="bg-red-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-red-700">📤 Restaurar desde Excel</button>';
+            html += '<input type="file" id="inputBackupExcel" accept=".xlsx" style="display:none" onchange="restaurarBackupExcel(event)" />';
+            html += '</div>';
+            html += '<div class="bg-red-50 border border-red-200 rounded p-3">';
+            html += '<p class="text-xs text-red-800"><strong>⚠️ Cuidado:</strong> restaurar un archivo <strong>borra por completo</strong> las obras, funciones, ventas, registros, salas, categorías, agrupadores e historial que existan en este momento, y los reemplaza por los del archivo. No se puede deshacer. Descarga un backup antes de restaurar.</p>';
+            html += '</div>';
+            html += '</div>';
+
             html += '</main></div>';
             return html;
+        }
+
+        // ============================================
+        // COPIA DE SEGURIDAD EN EXCEL
+        // ============================================
+        // Las hojas de datos guardan las filas tal como viven en Supabase
+        // (snake_case), para que la restauración sea directa. Las columnas
+        // con arreglos JSON se guardan como texto y se vuelven a parsear.
+        const HOJAS_BACKUP = [
+            { hoja: 'salas', tabla: 'boleteria_salas' },
+            { hoja: 'categorias', tabla: 'boleteria_categorias' },
+            { hoja: 'agrupadores', tabla: 'boleteria_agrupadores' },
+            { hoja: 'obras', tabla: 'boleteria_obras' },
+            { hoja: 'funciones', tabla: 'boleteria_funciones' },
+            { hoja: 'acciones', tabla: 'boleteria_acciones' },
+            { hoja: 'historial', tabla: 'boleteria_historial' }
+        ];
+        const COLUMNAS_JSON_BACKUP = ['ventas_por_dia', 'registros_por_dia'];
+
+        function filasBackup() {
+            return {
+                salas: appState.salas.map(s => ({ id: s.id, nombre: s.nombre, aforo: s.aforo, color: s.color || '#8b5cf6' })),
+                categorias: appState.categorias.map(c => ({ id: c.id, nombre: c.nombre })),
+                agrupadores: appState.agrupadores.map(a => ({ id: a.id, nombre: a.nombre })),
+                obras: appState.obras.map(obraToDb),
+                funciones: appState.funciones.map(funcionToDb),
+                acciones: appState.acciones.map(accionToDb),
+                historial: appState.historial.map(historialToDb)
+            };
+        }
+
+        // Hoja legible (no se usa al restaurar) con el estado de herramientas por obra
+        function hojaHerramientasBackup() {
+            const secciones = construirTablasRequisitos();
+            const filas = [];
+            secciones.forEach(sec => {
+                const tipo = sec.titulo.indexOf('Boletería') !== -1 ? 'Boletería' : 'Entrada Libre';
+                sec.filas.forEach(f => {
+                    const fila = { Tipo: tipo, Obra: f.nombre };
+                    sec.columnas.forEach((col, i) => { fila[col] = f.valores[i] ? 'Sí' : 'No'; });
+                    filas.push(fila);
+                });
+            });
+            return filas;
+        }
+
+        async function descargarBackupExcel() {
+            if (!window.XLSX) {
+                alert('⚠️ No se pudo generar el Excel. Recarga la página e intenta de nuevo.');
+                return;
+            }
+            try {
+                // Se lee directo de la base para incluir TODO (el estado en memoria
+                // solo conserva los últimos 50 registros de historial)
+                let datos = filasBackup();
+                try {
+                    const respuestas = await Promise.all(HOJAS_BACKUP.map(h => db.from(h.tabla).select('*')));
+                    const desdeDb = {};
+                    let completo = true;
+                    respuestas.forEach((res, i) => {
+                        if (res.error) completo = false;
+                        desdeDb[HOJAS_BACKUP[i].hoja] = res.data || [];
+                    });
+                    if (completo) datos = desdeDb;
+                } catch (e) {
+                    console.warn('No se pudo leer todo desde la base, se usa el estado en memoria', e);
+                }
+                const libro = XLSX.utils.book_new();
+
+                HOJAS_BACKUP.forEach(({ hoja }) => {
+                    const filas = (datos[hoja] || []).map(fila => {
+                        const copia = {};
+                        Object.keys(fila).forEach(k => {
+                            copia[k] = COLUMNAS_JSON_BACKUP.indexOf(k) !== -1 ? JSON.stringify(fila[k] || []) : fila[k];
+                        });
+                        return copia;
+                    });
+                    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), hoja);
+                });
+
+                const herramientas = hojaHerramientasBackup();
+                if (herramientas.length > 0) {
+                    XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(herramientas), 'herramientas');
+                }
+
+                const fecha = new Date().toISOString().split('T')[0];
+                XLSX.writeFile(libro, 'backup-salas-llenas-' + fecha + '.xlsx');
+            } catch (err) {
+                console.error('Error generando backup:', err);
+                alert('⚠️ Error al generar el archivo de backup.');
+            }
+        }
+
+        async function restaurarBackupExcel(event) {
+            const archivo = event.target.files && event.target.files[0];
+            event.target.value = '';
+            if (!archivo) return;
+            if (!window.XLSX) {
+                alert('⚠️ No se pudo leer el Excel. Recarga la página e intenta de nuevo.');
+                return;
+            }
+
+            let libro;
+            try {
+                const buffer = await archivo.arrayBuffer();
+                libro = XLSX.read(buffer, { type: 'array' });
+            } catch (err) {
+                console.error(err);
+                alert('⚠️ No se pudo leer el archivo. ¿Seguro que es un backup en Excel de este sistema?');
+                return;
+            }
+
+            const faltantes = HOJAS_BACKUP.filter(h => libro.SheetNames.indexOf(h.hoja) === -1).map(h => h.hoja);
+            if (faltantes.length > 0) {
+                alert('⚠️ El archivo no parece un backup de este sistema. Faltan las hojas: ' + faltantes.join(', '));
+                return;
+            }
+
+            const contenido = {};
+            HOJAS_BACKUP.forEach(({ hoja }) => {
+                const filas = XLSX.utils.sheet_to_json(libro.Sheets[hoja], { defval: null });
+                contenido[hoja] = filas.map(fila => {
+                    const limpia = {};
+                    Object.keys(fila).forEach(k => {
+                        if (COLUMNAS_JSON_BACKUP.indexOf(k) !== -1) {
+                            try { limpia[k] = typeof fila[k] === 'string' ? JSON.parse(fila[k]) : (fila[k] || []); }
+                            catch (e) { limpia[k] = []; }
+                        } else {
+                            limpia[k] = fila[k] === '' ? null : fila[k];
+                        }
+                    });
+                    return limpia;
+                });
+            });
+
+            const resumen = 'Se van a cargar ' + contenido.obras.length + ' obra(s), ' + contenido.funciones.length +
+                ' función(es), ' + contenido.salas.length + ' sala(s) y ' + contenido.historial.length + ' registro(s) de historial.';
+
+            if (!confirm('⚠️ ATENCIÓN\n\nEsto BORRA TODA la información actual del sistema (obras, funciones, ventas, registros, salas, categorías, agrupadores e historial) y la reemplaza por la del archivo.\n\n' + resumen + '\n\nEsta acción NO se puede deshacer. ¿Continuar?')) {
+                return;
+            }
+
+            const escrito = prompt('Para confirmar, escribe BORRAR en mayúsculas:');
+            if (escrito !== 'BORRAR') {
+                alert('Restauración cancelada. No se borró nada.');
+                return;
+            }
+
+            try {
+                // Borrar primero lo que depende de obras, luego el resto
+                const ordenBorrado = ['boleteria_historial', 'boleteria_acciones', 'boleteria_funciones', 'boleteria_obras', 'boleteria_agrupadores', 'boleteria_categorias', 'boleteria_salas'];
+                for (const tabla of ordenBorrado) {
+                    const { error } = await db.from(tabla).delete().not('id', 'is', null);
+                    if (error) throw error;
+                }
+
+                // Insertar en orden inverso para respetar las llaves foráneas
+                const ordenInsercion = ['salas', 'categorias', 'agrupadores', 'obras', 'funciones', 'acciones', 'historial'];
+                for (const hoja of ordenInsercion) {
+                    const filas = contenido[hoja];
+                    if (!filas || filas.length === 0) continue;
+                    const tabla = HOJAS_BACKUP.find(h => h.hoja === hoja).tabla;
+                    for (let i = 0; i < filas.length; i += 200) {
+                        const { error } = await db.from(tabla).insert(filas.slice(i, i + 200));
+                        if (error) throw error;
+                    }
+                }
+
+                await initData();
+                appState.reportePaginasGeneradas = null;
+                render();
+                alert('✅ Backup restaurado. El sistema quedó con la información del archivo.');
+            } catch (err) {
+                console.error('Error restaurando backup:', err);
+                alert('⚠️ Error restaurando el backup: ' + (err.message || 'revisa la consola') + '\n\nLa base pudo quedar incompleta. Vuelve a intentar con el archivo correcto.');
+                await initData();
+                render();
+            }
         }
 
         async function agregarAgrupador(event) {
@@ -2639,7 +2832,7 @@
             const thVertical = (txt) => '<th class="py-2 px-0 align-bottom" style="width:26px;"><span style="-webkit-writing-mode:vertical-rl; writing-mode:vertical-rl; -webkit-transform:rotate(180deg); transform:rotate(180deg); display:inline-block; white-space:nowrap; font-weight:600; font-size:12px;">' + txt + '</span></th>';
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
-            html += '<h3 class="font-bold mb-1">📋 Requisitos Pendientes (Boletería)</h3>';
+            html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Boletería)</h3>';
             html += '<p class="text-xs text-gray-500 mb-3">Solo obras activas con al menos un requisito sin completar.</p>';
             const obrasConPendientes = obrasBoleto.filter(o =>
                 !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta
@@ -2664,7 +2857,7 @@
             html += '</div>';
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
-            html += '<h3 class="font-bold mb-1">📋 Requisitos Pendientes (Entrada Libre)</h3>';
+            html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Entrada Libre)</h3>';
             html += '<p class="text-xs text-gray-500 mb-3">Solo obras activas con al menos un requisito sin completar.</p>';
             const obrasEntradaConPendientes = obrasEntrada.filter(o =>
                 !o.piezasDesarrolladas || !o.linkRegistro || !o.fechaRedes
@@ -3343,10 +3536,10 @@
             let y = PAD;
 
             ctx.fillStyle = '#111827';
-            ctx.font = 'bold 34px Arial, sans-serif';
+            ctx.font = 'bold 30px Arial, sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
-            ctx.fillText('\uD83D\uDCCB Requisitos Pendientes', PAD, y + 30);
+            ctx.fillText('\uD83D\uDCCB Herramientas de mercadeo y comunicaciones', PAD, y + 30);
 
             ctx.fillStyle = '#6B7280';
             ctx.font = '18px Arial, sans-serif';
@@ -3417,8 +3610,8 @@
 
             return {
                 dataUrl: canvas.toDataURL('image/png'),
-                etiqueta: 'Requisitos pendientes',
-                nombreArchivo: 'requisitos-pendientes-cna-' + new Date().toISOString().split('T')[0] + '.png'
+                etiqueta: 'Herramientas de mercadeo y comunicaciones',
+                nombreArchivo: 'herramientas-mercadeo-cna-' + new Date().toISOString().split('T')[0] + '.png'
             };
         }
 
