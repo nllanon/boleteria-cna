@@ -2570,6 +2570,33 @@
             }
             html += '</div>';
 
+            // Obras de Boletería con requisitos pendientes (tiquetera, piezas, video, redes, pauta)
+            html += '<div class="bg-white p-4 rounded shadow mb-6">';
+            html += '<h3 class="font-bold mb-1">📋 Requisitos Pendientes (Boletería)</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Solo obras activas con al menos un requisito sin completar.</p>';
+            const obrasConPendientes = obrasBoleto.filter(o =>
+                !o.piezasDesarrolladas || !o.fechaTiquetera || !o.fechaRedes || !o.videoDisponible || !o.fechaPauta
+            );
+            if (obrasConPendientes.length === 0) {
+                html += '<p class="text-sm text-gray-500">Todas las obras activas tienen sus requisitos completos. 🎉</p>';
+            } else {
+                html += '<div class="overflow-x-auto"><table class="w-full text-sm">';
+                html += '<thead><tr class="border-b"><th class="text-left py-2 pr-2">Obra</th><th class="py-2 px-1">Pieza</th><th class="py-2 px-1">Tiquetera</th><th class="py-2 px-1">Redes</th><th class="py-2 px-1">Video</th><th class="py-2 px-1">Pauta</th></tr></thead><tbody>';
+                const check = (ok) => ok ? '<span class="text-green-600 font-bold">✓</span>' : '<span class="text-red-600 font-bold">✕</span>';
+                obrasConPendientes.forEach(o => {
+                    html += '<tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewObra(\'' + o.id + '\')">';
+                    html += '<td class="py-2 pr-2 font-medium">' + o.nombre + '</td>';
+                    html += '<td class="text-center py-2 px-1">' + check(!!o.piezasDesarrolladas) + '</td>';
+                    html += '<td class="text-center py-2 px-1">' + check(!!o.fechaTiquetera) + '</td>';
+                    html += '<td class="text-center py-2 px-1">' + check(!!o.fechaRedes) + '</td>';
+                    html += '<td class="text-center py-2 px-1">' + check(!!o.videoDisponible) + '</td>';
+                    html += '<td class="text-center py-2 px-1">' + check(!!o.fechaPauta) + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+            html += '</div>';
+
             html += '</main></div>';
 
             setTimeout(() => renderGraficosReportes(obrasBoleto, obrasEntrada), 50);
