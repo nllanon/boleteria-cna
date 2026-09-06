@@ -123,7 +123,7 @@
                 db.from('boleteria_salas').select('*').order('id'),
                 db.from('boleteria_obras').select('*'),
                 db.from('boleteria_funciones').select('*'),
-                db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(50),
+                db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(300),
                 db.from('boleteria_acciones').select('*'),
                 db.from('boleteria_categorias').select('*').order('nombre'),
                 db.from('boleteria_agrupadores').select('*').order('nombre')
@@ -198,6 +198,65 @@
             appState.viewingObraId = null;
             localStorage.removeItem('boleteria-user');
             render();
+        }
+
+        // ============================================
+        // HISTORIAL
+        // ============================================
+        function registrarHistorial({ obraId = null, funcionId = null, accion, detalles = '' }) {
+            appState.historial.push({
+                id: Date.now().toString() + Math.random().toString(36).slice(2),
+                timestamp: new Date().toISOString(),
+                usuario: appState.user?.email || 'desconocido',
+                obraId: obraId,
+                funcionId: funcionId,
+                accion: accion,
+                detalles: detalles,
+                _pendingInsert: true
+            });
+        }
+
+        // Campos de la obra que se auditan al editar. Los de mercadeo van primero
+        // porque son los que más interesa rastrear.
+        const CAMPOS_AUDITADOS_OBRA = [
+            { campo: 'piezasDesarrolladas', etiqueta: 'Piezas desarrolladas', tipo: 'bool' },
+            { campo: 'fechaPiezasDesarrolladas', etiqueta: 'Fecha de piezas', tipo: 'fecha' },
+            { campo: 'fechaTiquetera', etiqueta: 'Salida en tiquetera', tipo: 'fecha' },
+            { campo: 'fechaRedes', etiqueta: 'Salida en redes', tipo: 'fecha' },
+            { campo: 'videoDisponible', etiqueta: 'Video disponible', tipo: 'bool' },
+            { campo: 'fechaVideoPatua', etiqueta: 'Fecha de video', tipo: 'fecha' },
+            { campo: 'fechaPauta', etiqueta: 'Salida en pauta', tipo: 'fecha' },
+            { campo: 'linkRegistro', etiqueta: 'Link de registro', tipo: 'texto' },
+            { campo: 'fechaCreacionLink', etiqueta: 'Fecha del link', tipo: 'fecha' },
+            { campo: 'estadoEnlace', etiqueta: 'Estado del enlace', tipo: 'texto' },
+            { campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto' },
+            { campo: 'artista', etiqueta: 'Compañía/Artista', tipo: 'texto' },
+            { campo: 'categoria', etiqueta: 'Categoría', tipo: 'texto' },
+            { campo: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
+            { campo: 'salaId', etiqueta: 'Sala', tipo: 'sala' },
+            { campo: 'agrupadorId', etiqueta: 'Temporada/Festival', tipo: 'agrupador' },
+            { campo: 'cortesias', etiqueta: 'Cortesías', tipo: 'texto' }
+        ];
+
+        function valorAuditable(valor, tipo) {
+            if (valor === null || valor === undefined || valor === '') return 'vacío';
+            if (tipo === 'bool') return valor ? 'sí' : 'no';
+            if (tipo === 'fecha') return formatearFecha(valor);
+            if (tipo === 'sala') return getSala(valor)?.nombre || valor;
+            if (tipo === 'agrupador') return (appState.agrupadores.find(a => a.id === valor)?.nombre) || valor;
+            return String(valor);
+        }
+
+        function diferenciasObra(anterior, nuevo) {
+            const cambios = [];
+            CAMPOS_AUDITADOS_OBRA.forEach(({ campo, etiqueta, tipo }) => {
+                const antes = anterior[campo] === undefined ? null : anterior[campo];
+                const ahora = nuevo[campo] === undefined ? null : nuevo[campo];
+                const normaliza = (v) => (v === null || v === undefined || v === '') ? '' : String(v);
+                if (normaliza(antes) === normaliza(ahora)) return;
+                cambios.push(etiqueta + ': ' + valorAuditable(antes, tipo) + ' → ' + valorAuditable(ahora, tipo));
+            });
+            return cambios;
         }
 
         function tienePermiso(accion) {
@@ -1022,6 +1081,12 @@
 
         async function deleteObra(obraId) {
             if (confirm('¿Eliminar esta obra? Se borrarán todas sus funciones y acciones.')) {
+                const obraBorrada = appState.obras.find(o => o.id === obraId);
+                registrarHistorial({
+                    accion: 'Eliminación de obra',
+                    detalles: (obraBorrada ? obraBorrada.nombre : obraId) + ' — se borraron sus funciones y acciones'
+                });
+                await saveData();
                 appState.obras = appState.obras.filter(o => o.id !== obraId);
                 appState.acciones = appState.acciones.filter(a => a.obraId !== obraId);
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
@@ -1325,14 +1390,11 @@
             funcion.fecha = nuevaFecha;
             funcion.hora = nuevaHora;
 
-            appState.historial.push({
-                id: Date.now().toString() + Math.random().toString(36).slice(2),
-                timestamp: new Date().toISOString(),
-                usuario: appState.user.email,
+            registrarHistorial({
+                obraId: funcion.obraId,
                 funcionId: funcionId,
                 accion: 'Cambio de fecha/hora de función',
-                detalles: formatearFecha(fechaAnterior) + ' ' + formatearHora(horaAnterior) + ' → ' + formatearFecha(nuevaFecha) + ' ' + formatearHora(nuevaHora),
-                _pendingInsert: true
+                detalles: formatearFecha(fechaAnterior) + ' ' + formatearHora(horaAnterior) + ' → ' + formatearFecha(nuevaFecha) + ' ' + formatearHora(nuevaHora)
             });
 
             appState.editingFuncionFechaId = null;
@@ -1407,14 +1469,10 @@
                 usuario: appState.user.email,
                 hecho: false
             });
-            appState.historial.push({
-                id: Date.now().toString() + Math.random().toString(36).slice(2),
-                timestamp: new Date().toISOString(),
-                usuario: appState.user.email,
+            registrarHistorial({
                 obraId: obraId,
                 accion: 'Acción de mercadeo registrada',
-                detalles: desc + ' (' + formatearFecha(fecha) + ')',
-                _pendingInsert: true
+                detalles: desc + ' — fecha de la acción: ' + formatearFecha(fecha)
             });
             saveData();
             document.getElementById('accionDesc').value = '';
@@ -1426,6 +1484,11 @@
             const accion = appState.acciones.find(a => a.id === accionId);
             if (accion) {
                 accion.hecho = !accion.hecho;
+                registrarHistorial({
+                    obraId: accion.obraId,
+                    accion: 'Acción de mercadeo actualizada',
+                    detalles: accion.descripcion + ' → ' + (accion.hecho ? 'hecha' : 'pendiente')
+                });
                 saveData();
                 render();
             }
@@ -1749,12 +1812,33 @@
 
             let obraId;
             if (appState.editingObra) {
+                const antes = { ...appState.editingObra };
+                const funcionesAntes = getFuncionesObra(appState.editingObra.id).length;
                 Object.assign(appState.editingObra, data);
                 obraId = appState.editingObra.id;
                 appState.funciones = appState.funciones.filter(f => f.obraId !== obraId);
+
+                const cambios = diferenciasObra(antes, data);
+                if (funcionesAntes !== functionesAGuardar.length) {
+                    cambios.push('Funciones: ' + funcionesAntes + ' → ' + functionesAGuardar.length);
+                }
+                if (cambios.length > 0) {
+                    registrarHistorial({
+                        obraId: obraId,
+                        accion: 'Edición de obra',
+                        detalles: cambios.join(' | ')
+                    });
+                }
             } else {
                 obraId = Date.now().toString();
                 appState.obras.push({ id: obraId, ...data });
+                const sala = getSala(data.salaId);
+                registrarHistorial({
+                    obraId: obraId,
+                    accion: 'Creación de obra',
+                    detalles: data.nombre + ' — ' + (data.tipo === 'boleteria' ? 'Boletería' : 'Entrada Libre') +
+                        (sala ? ' · ' + sala.nombre : '') + ' · ' + functionesAGuardar.length + ' función(es)'
+                });
             }
 
             // Guardar funciones — preservando el progreso ya registrado
@@ -1889,14 +1973,11 @@
                         const hoy = new Date().toISOString().split('T')[0];
                         funcion.ventasPorDia.push({ fecha: hoy, boletas: boletas });
                         
-                        appState.historial.push({
-                            id: Date.now().toString() + Math.random().toString(36).slice(2),
-                            timestamp: new Date().toISOString(),
-                            usuario: appState.user.email,
+                        registrarHistorial({
+                            obraId: funcion.obraId,
                             funcionId: funcionId,
                             accion: 'Registro de ventas',
-                            detalles: 'Boletas: +' + boletas,
-                            _pendingInsert: true
+                            detalles: 'Boletas: +' + boletas + ' (acumulado: ' + funcion.ventasAcumuladas + ') — función ' + formatearFecha(funcion.fecha) + ' ' + formatearHora(funcion.hora)
                         });
                         
                         guardadas++;
@@ -2068,14 +2149,11 @@
                         const hoy = new Date().toISOString().split('T')[0];
                         funcion.registrosPorDia.push({ fecha: hoy, registrados: cantidad });
 
-                        appState.historial.push({
-                            id: Date.now().toString() + Math.random().toString(36).slice(2),
-                            timestamp: new Date().toISOString(),
-                            usuario: appState.user.email,
+                        registrarHistorial({
+                            obraId: funcion.obraId,
                             funcionId: funcionId,
                             accion: 'Registro de inscritos',
-                            detalles: 'Inscritos: +' + cantidad,
-                            _pendingInsert: true
+                            detalles: 'Inscritos: +' + cantidad + ' (acumulado: ' + funcion.registrados + ') — función ' + formatearFecha(funcion.fecha) + ' ' + formatearHora(funcion.hora)
                         });
 
                         guardados++;
