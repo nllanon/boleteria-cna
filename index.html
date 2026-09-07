@@ -2934,7 +2934,7 @@
             html += '</div>';
 
             // Obras de Boletería con requisitos pendientes (tiquetera, piezas, video, redes, pauta)
-            const check = (ok) => ok ? '<span class="text-green-600 font-bold">✓</span>' : '<span class="text-red-600 font-bold">✕</span>';
+            const check = (ok) => '<span title="' + (ok ? 'Listo' : 'Pendiente') + '" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:' + (ok ? '#16A34A' : '#DC2626') + ';"></span>';
             const thVertical = (txt) => '<th class="py-2 px-0 align-bottom" style="width:26px;"><span style="-webkit-writing-mode:vertical-rl; writing-mode:vertical-rl; -webkit-transform:rotate(180deg); transform:rotate(180deg); display:inline-block; white-space:nowrap; font-weight:600; font-size:12px;">' + txt + '</span></th>';
 
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
@@ -3726,13 +3726,14 @@
                         ctx.fillText(linea, PAD + 10, yTexto + li * 26);
                     });
 
-                    ctx.textAlign = 'center';
-                    ctx.font = 'bold 24px Arial, sans-serif';
                     fila.valores.forEach((ok, i) => {
                         ctx.fillStyle = ok ? '#16A34A' : '#DC2626';
-                        ctx.fillText(ok ? '\u2713' : '\u2715',
+                        ctx.beginPath();
+                        ctx.arc(
                             PAD + ANCHO_NOMBRE + anchoColumnas * i + anchoColumnas / 2,
-                            y + fila.alto / 2 + 9);
+                            y + fila.alto / 2,
+                            9, 0, Math.PI * 2);
+                        ctx.fill();
                     });
 
                     y += fila.alto;
