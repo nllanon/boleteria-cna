@@ -3445,7 +3445,8 @@
         }
 
         function construirMesesReporte() {
-            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const alcance = tipoDeTrabajo();
+            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o) && (!alcance || o.tipo === alcance));
             const mesesMap = {};
             const ordenMeses = [];
 
@@ -3636,7 +3637,8 @@
         const REPORTE_ALTO_RESUMEN = 150;
 
         function calcularResumenGeneralReporte() {
-            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const alcance = tipoDeTrabajo();
+            const obrasActivas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o) && (!alcance || o.tipo === alcance));
             let ventas = 0, disponibleB = 0, registrados = 0, aforoE = 0;
             obrasActivas.forEach(obra => {
                 const sala = getSala(obra.salaId);
@@ -3794,7 +3796,8 @@
         // Se dibuja íntegramente con Canvas 2D (no html2canvas) porque las tablas
         // con CSS se interpretan distinto entre navegadores.
         function construirTablasRequisitos() {
-            const activas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o));
+            const alcanceHerramientas = tipoDeTrabajo();
+            const activas = appState.obras.filter(o => puedeVerObra(o) && !obraEstaFinalizada(o) && (!alcanceHerramientas || o.tipo === alcanceHerramientas));
 
             const ordenarPorPendientes = (lista) => lista.sort((a, b) => {
                 const faltaA = a.valores.some(v => !v) ? 1 : 0;
