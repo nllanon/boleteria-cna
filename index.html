@@ -1487,6 +1487,11 @@
         }
 
         function guardarBaselineVentas(event, obraId) {
+            if (!tienePermiso('registrar_venta') && !tienePermiso('registrar_entrada')) {
+                event.preventDefault();
+                alert('⚠️ Tu usuario solo puede consultar la información.');
+                return;
+            }
             event.preventDefault();
             const funciones = getFuncionesObra(obraId);
             let actualizadas = 0;
@@ -1566,6 +1571,10 @@
         }
 
         function openCrearObra() {
+            if (!tienePermiso('crear_obra')) {
+                alert('⚠️ Tu usuario solo puede consultar la información.');
+                return;
+            }
             appState.editingObra = null;
             appState.editingFunciones = [];
             appState.editingMultipleFunciones = false;
@@ -1574,7 +1583,12 @@
         }
 
         function openEditarObra(id) {
-            appState.editingObra = appState.obras.find(o => o.id === id);
+            const objetivo = appState.obras.find(o => o.id === id);
+            if (!tienePermiso('editar_obra') || !puedeEditarObra(objetivo)) {
+                alert('⚠️ Tu usuario no puede editar esta obra.');
+                return;
+            }
+            appState.editingObra = objetivo;
             appState.editingFunciones = getFuncionesObra(id).map(f => ({...f}));
             appState.editingMultipleFunciones = appState.editingFunciones.length > 1;
             appState.currentPage = 'crear-obra';
@@ -1812,6 +1826,14 @@
 
         function handleGuardarObra(e) {
             e.preventDefault();
+            if (!tienePermiso(appState.editingObra ? 'editar_obra' : 'crear_obra')) {
+                alert('⚠️ Tu usuario solo puede consultar la información.');
+                return;
+            }
+            if (appState.editingObra && !puedeEditarObra(appState.editingObra)) {
+                alert('⚠️ No puedes editar obras de este tipo.');
+                return;
+            }
             
             let functionesAGuardar = [];
 
@@ -2031,6 +2053,11 @@
         }
 
         function guardarCortesVentasFunciones(event) {
+            if (!tienePermiso('registrar_venta')) {
+                event.preventDefault();
+                alert('⚠️ Tu usuario no puede registrar ventas.');
+                return;
+            }
             event.preventDefault();
             const inputs = document.querySelectorAll('input[data-funcion-id]');
 
@@ -2273,6 +2300,11 @@
         }
 
         function guardarRegistrosEntrada(event, obraId) {
+            if (!tienePermiso('registrar_entrada')) {
+                event.preventDefault();
+                alert('⚠️ Tu usuario no puede registrar inscritos.');
+                return;
+            }
             event.preventDefault();
             const funciones = getFuncionesObra(obraId);
             let actualizadas = 0;
