@@ -4067,44 +4067,6 @@
             return html;
         }
 
-        function flatItemsDesdeMeses(meses) {
-            const items = [];
-            meses.forEach(mes => {
-                items.push({ tipo: 'mes', label: mes.mesLabel });
-                mes.temporadas.forEach(temporada => {
-                    items.push({ tipo: 'subtipo', label: temporada.nombre });
-                    temporada.obras.forEach(obraItem => {
-                        obraItem.funciones.forEach(f => {
-                            items.push({
-                                tipo: 'funcion', icono: obraItem.icono, nombre: obraItem.nombre, sala: obraItem.sala,
-                                fecha: f.fecha, hora: f.hora, metricaTexto: f.texto, metricaValor: f.valor, metricaPct: f.pct
-                            });
-                        });
-                    });
-                });
-            });
-            return items;
-        }
-
-        function renderFilaReportePreviewHTML(item) {
-            if (item.tipo === 'mes') {
-                return '<div style="font-size:13px; font-weight:bold; color:#374151; background:#f3f4f6; padding:6px 8px; margin-top:4px; margin-bottom:2px; border-radius:4px;">📅 ' + item.label + '</div>';
-            }
-            if (item.tipo === 'subtipo') {
-                return '<div style="font-size:10px; font-weight:bold; color:#6b7280; padding:3px 6px 1px; text-transform:uppercase; letter-spacing:0.3px;">' + item.label + '</div>';
-            }
-            let html = '<div style="display:flex; align-items:center; padding:8px 4px; border-bottom:1px solid #e5e7eb;">';
-            html += '<div style="flex:1; min-width:0;">';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:#111827;"><strong>' + item.icono + ' ' + item.nombre + '</strong></div>';
-            html += '<div style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#6b7280; font-size:11px; margin-top:3px;">' + item.sala + ' · ' + formatearFecha(item.fecha) + ' ' + item.hora + '</div>';
-            html += '</div>';
-            html += '<div style="flex-shrink:0; text-align:right; margin-left:10px;">';
-            html += '<div style="font-size:9px; color:#6b7280; white-space:nowrap;">' + item.metricaTexto + '</div>';
-            html += renderBadgePct(item.metricaPct || 0, item.metricaValor);
-            html += '</div></div>';
-            return html;
-        }
-
         function renderReporteDiario() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-full mx-auto px-4 py-6">';
@@ -4112,23 +4074,31 @@
             html += '<h2 class="text-xl font-bold">🖨️ Reporte Diario de Avance</h2>';
             html += '<button onclick="descargarReportePNG()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700">📥 Descargar PNG</button>';
             html += '</div>';
-            html += '<p class="text-xs text-gray-500 mb-4">Se generan una o más imágenes de 1080×1920 (según cuántas funciones haya), en dos columnas por mes: Boletería y Entrada Libre.</p>';
+            html += '<p class="text-sm text-gray-600 mb-4">Genera las imágenes del reporte listas para compartir por correo o WhatsApp. La información se toma de lo que hay cargado en este momento.</p>';
 
-            const meses = construirMesesReporte();
-            const items = flatItemsDesdeMeses(meses);
+            // La vista previa en pantalla repetía lo que ya se ve en el Dashboard,
+            // así que esta pantalla se dejó solo para generar y descargar.
+            const totalFuncionesReporte = construirMesesReporte().reduce((s, m) =>
+                s + m.temporadas.reduce((s2, t) => s2 + t.obras.reduce((s3, o) => s3 + o.funciones.length, 0), 0), 0);
 
-            html += '<div style="background:white; max-width:700px; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1);">';
-            html += '<div style="padding:16px;">';
-            if (items.filter(i => i.tipo === 'funcion').length === 0) {
-                html += '<p style="color:#6b7280; font-size:14px;">No hay funciones activas para mostrar.</p>';
-            } else {
-                items.forEach(item => { html += renderFilaReportePreviewHTML(item); });
+            if (totalFuncionesReporte === 0) {
+                html += '<div class="bg-white rounded shadow p-4 max-w-2xl"><p class="text-sm text-gray-500">No hay funciones activas para incluir en el reporte.</p></div>';
+            } else if (!appState.reportePaginasGeneradas || appState.reportePaginasGeneradas.length === 0) {
+                html += '<div class="bg-white rounded shadow p-4 max-w-2xl">';
+                html += '<p class="text-sm text-gray-700 mb-2">Se van a generar hasta tres tipos de imagen:</p>';
+                html += '<ul class="text-sm text-gray-600 list-disc pl-5 space-y-1">';
+                html += '<li><strong>Reporte de avance</strong> — funciones organizadas por mes, temporada y obra, con su porcentaje. Puede ocupar varias imágenes.</li>';
+                html += '<li><strong>Herramientas de mercadeo y comunicaciones</strong> — el estado de cada herramienta por obra.</li>';
+                html += '<li><strong>Acciones de mercadeo y comunicaciones</strong> — la bitácora con fechas y responsables.</li>';
+                html += '</ul>';
+                html += '<p class="text-xs text-gray-500 mt-3">Cubre ' + totalFuncionesReporte + ' función(es) activa(s). Toca "Descargar PNG" para generarlas.</p>';
+                html += '</div>';
             }
-            html += '</div></div>';
 
             if (appState.reportePaginasGeneradas && appState.reportePaginasGeneradas.length > 0) {
                 html += '<div id="reportePaginasGeneradas" class="mt-8 max-w-2xl">';
                 html += '<h3 class="text-base font-bold mb-1">✅ ' + appState.reportePaginasGeneradas.length + ' imagen(es) lista(s)</h3>';
+                html += '<p class="text-xs text-gray-500 mb-1">Generadas con la información de este momento. Si registras algo nuevo, vuelve a tocar "Descargar PNG" para rehacerlas.</p>';
                 html += '<p class="text-xs text-gray-500 mb-3">Descarga cada una por separado tocando su botón — el navegador del celular no permite descargar varias a la vez automáticamente.</p>';
                 appState.reportePaginasGeneradas.forEach((pagina, idx) => {
                     html += '<div class="bg-white rounded shadow mb-4 p-3">';
