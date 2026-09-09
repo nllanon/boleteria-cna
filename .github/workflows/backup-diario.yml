@@ -1,0 +1,44 @@
+name: Backup diario
+
+on:
+  schedule:
+    # 20:00 en Colombia (UTC-5) = 01:00 UTC del día siguiente
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install openpyxl
+
+      - name: Generar backup y enviarlo por correo
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          BACKUP_EMAIL_TO: ${{ secrets.BACKUP_EMAIL_TO }}
+        run: python scripts/backup_diario.py
+
+      - name: Guardar la copia en el repositorio
+        run: |
+          git config user.name "Nicolas Llano"
+          git config user.email "nllanon@gmail.com"
+          git add backups
+          if git diff --staged --quiet; then
+            echo "Sin cambios en la carpeta de backups"
+          else
+            git commit -m "Backup automatico $(TZ=America/Bogota date +%Y-%m-%d)"
+            git push
+          fi
