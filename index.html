@@ -1712,7 +1712,8 @@
         }
 
         function renderCrearObra() {
-            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, aforo: '', sillasBloqueadas: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
+            const tipoPermitido = tipoQuePuedeCrear();
+            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: (tipoPermitido === 'ambos' ? 'boleteria' : tipoPermitido), cortesias: 0, aforo: '', sillasBloqueadas: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
             html += '<div class="bg-white p-6 rounded shadow">';
@@ -1726,7 +1727,18 @@
             html += '<div><label class="block text-sm font-medium mb-1">Sala</label><select id="obraSala" required class="w-full px-3 py-2 border rounded text-sm">';
             appState.salas.forEach(s => html += '<option value="' + s.id + '" ' + (obra.salaId === s.id ? 'selected' : '') + '>' + s.nombre + ' (Aforo: ' + s.aforo + ')</option>');
             html += '</select></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" onchange="toggleCamposTipo()" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
+            // Al crear, un registrador solo puede elegir su propio tipo. Al editar sí
+            // puede cambiarlo, con la advertencia que ya muestra handleGuardarObra.
+            const puedeElegirTipo = (tipoPermitido === 'ambos') || !!appState.editingObra;
+            html += '<div><label class="block text-sm font-medium mb-1">Tipo</label>';
+            if (puedeElegirTipo) {
+                html += '<select id="obraTipo" onchange="toggleCamposTipo()" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select>';
+            } else {
+                html += '<input type="hidden" id="obraTipo" value="' + tipoPermitido + '" />';
+                html += '<div class="w-full px-3 py-2 border rounded text-sm bg-gray-100 text-gray-700">' + (tipoPermitido === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre') + '</div>';
+                html += '<p class="text-xs text-gray-500 mt-1">Tu perfil solo registra obras de este tipo.</p>';
+            }
+            html += '</div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Aforo de esta obra</label><input type="number" id="obraAforo" value="' + (obra.aforo ?? '') + '" min="1" placeholder="Aforo de la sala" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Déjalo vacío para usar el aforo de la sala. Úsalo cuando el montaje cambia la capacidad.</p></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Sillas bloqueadas</label><input type="number" id="obraSillasBloqueadas" value="' + (obra.sillasBloqueadas || 0) + '" min="0" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Informativo: sillas que no salen a la venta.</p></div>';
@@ -1884,6 +1896,12 @@
                 fechaCreacionLink: document.getElementById('obraFechaCreacionLink')?.value || null,
                 estadoEnlace: document.getElementById('obraEstadoEnlace')?.value || 'Activo'
             };
+
+            const permitidoCrear = tipoQuePuedeCrear();
+            if (!appState.editingObra && permitidoCrear !== 'ambos' && data.tipo !== permitidoCrear) {
+                alert('⚠️ Tu perfil solo puede crear obras de ' + nombreTipo(permitidoCrear) + '.');
+                return;
+            }
 
             let obraId;
             if (appState.editingObra) {
@@ -4251,7 +4269,7 @@
                     case 'ver-obra': app.innerHTML = renderVerObra(); break;
                     case 'crear-obra': 
                         app.innerHTML = renderCrearObra();
-                        setTimeout(() => updateFunctionsSectionDisplay(), 0);
+                        setTimeout(() => { toggleCamposTipo(); updateFunctionsSectionDisplay(); }, 0);
                         break;
                     case 'salas': app.innerHTML = renderSalas(); break;
                     case 'admin': app.innerHTML = renderAdmin(); break;
