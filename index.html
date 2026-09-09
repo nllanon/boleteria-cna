@@ -56,6 +56,7 @@
             'admin@test.com': { password: 'admin123', nombre: 'Administrador CNA', rol: 'admin' },
             'registrador.boleto@test.com': { password: '123456', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
             'registrador.entrada@test.com': { password: '123456', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
+            'mercadeo@test.com': { password: '123456', nombre: 'Líder de Mercadeo', rol: 'admin_mercadeo' },
             'visualizador@test.com': { password: '123456', nombre: 'Visualizador', rol: 'visualizador' }
         };
 
@@ -267,20 +268,36 @@
         function tienePermiso(accion) {
             const rol = appState.user?.rol;
             const permisos = {
-                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
-                'registrador_boleto': ['crear_obra', 'editar_obra', 'registrar_venta', 'registrar_accion_mercadeo', 'generar_reportes'],
-                'registrador_entrada': ['crear_obra', 'editar_obra', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes', 'administrar'],
+                'admin_mercadeo': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'registrador_boleto': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'registrador_entrada': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
                 'visualizador': ['ver_todo']
             };
             return permisos[rol]?.includes(accion) || false;
         }
 
+        // Todos los roles VEN toda la programación. Lo que cambia es qué puede
+        // EDITAR cada uno: los registradores solo su tipo de obra.
         function puedeVerObra(obra) {
+            return !!appState.user;
+        }
+
+        function puedeEditarObra(obra) {
+            if (!obra) return false;
             const rol = appState.user?.rol;
-            if (rol === 'admin' || rol === 'visualizador') return true;
+            if (rol === 'admin' || rol === 'admin_mercadeo') return true;
             if (rol === 'registrador_boleto') return obra.tipo === 'boleteria';
             if (rol === 'registrador_entrada') return obra.tipo === 'entrada_libre';
             return false;
+        }
+
+        // Tipo de obra que puede crear el usuario ('ambos' para los administradores)
+        function tipoQuePuedeCrear() {
+            const rol = appState.user?.rol;
+            if (rol === 'registrador_boleto') return 'boleteria';
+            if (rol === 'registrador_entrada') return 'entrada_libre';
+            return 'ambos';
         }
 
         function getSala(salaId) {
@@ -642,42 +659,32 @@
 
         function renderNav() {
             let items = [];
-            if (appState.user.rol === 'admin') {
-                items = [
-                    { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'ventas', label: '💵 Registro de Ventas' },
-                    { id: 'entrada', label: '🎟️ Entrada Libre' },
-                    { id: 'calendario', label: '📅 Calendario' },
-                    { id: 'reportes', label: '📈 Reportes' },
-                    { id: 'reporte-diario', label: '🖨️ Reporte Diario' },
-                    { id: 'historial', label: '📝 Historial' },
-                    { id: 'admin', label: '⚙️ Administración' }
-                ];
-            } else if (appState.user.rol === 'registrador_boleto') {
-                items = [
-                    { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'ventas', label: '💵 Registro de Ventas' },
-                    { id: 'calendario', label: '📅 Calendario' },
-                    { id: 'reportes', label: '📈 Reportes' },
-                    { id: 'reporte-diario', label: '🖨️ Reporte Diario' }
-                ];
-            } else if (appState.user.rol === 'registrador_entrada') {
-                items = [
-                    { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'entrada', label: '🎟️ Entrada Libre' },
-                    { id: 'calendario', label: '📅 Calendario' },
-                    { id: 'reportes', label: '📈 Reportes' },
-                    { id: 'reporte-diario', label: '🖨️ Reporte Diario' }
-                ];
-            } else {
-                items = [
-                    { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'obras', label: '📚 Registro de Obras' },
-                    { id: 'calendario', label: '📅 Calendario' }
-                ];
+            const rol = appState.user.rol;
+
+            // Todos ven la programación completa; el menú solo cambia en las
+            // pantallas de registro y de configuración.
+            items.push({ id: 'dashboard', label: '📊 Dashboard' });
+            items.push({ id: 'obras', label: '📚 Registro de Obras' });
+
+            if (rol === 'admin' || rol === 'admin_mercadeo' || rol === 'registrador_boleto') {
+                items.push({ id: 'ventas', label: '💵 Registro de Ventas' });
+            }
+            if (rol === 'admin' || rol === 'admin_mercadeo' || rol === 'registrador_entrada') {
+                items.push({ id: 'entrada', label: '🎟️ Entrada Libre' });
+            }
+
+            items.push({ id: 'calendario', label: '📅 Calendario' });
+            items.push({ id: 'reportes', label: '📈 Reportes' });
+
+            // El visualizador consulta y navega, pero no descarga informes
+            if (rol !== 'visualizador') {
+                items.push({ id: 'reporte-diario', label: '🖨️ Reporte Diario' });
+            }
+            if (rol === 'admin' || rol === 'admin_mercadeo') {
+                items.push({ id: 'historial', label: '📝 Historial' });
+            }
+            if (rol === 'admin') {
+                items.push({ id: 'admin', label: '⚙️ Administración' });
             }
             const abierto = !!appState.sidebarOpen;
             let html = '';
@@ -1090,8 +1097,8 @@
                 html += '<td class="px-4 py-2 text-xs">' + (ultimaFunc ? formatearFecha(ultimaFunc.fecha) : '-') + '</td>';
                 html += '<td class="px-4 py-2 text-xs font-bold">' + diasTotales + 'd</td>';
                 html += '<td class="px-4 py-2 text-xs"><button onclick="viewObra(\'' + obra.id + '\')" class="text-blue-600 font-medium">Ver (' + accionesCount + ')</button>';
-                if (tienePermiso('editar_obra')) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
-                if (appState.user.rol === 'admin') html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600">Eliminar</button>';
+                if (tienePermiso('editar_obra') && puedeEditarObra(obra)) html += ' <button onclick="openEditarObra(\'' + obra.id + '\')" class="text-green-600">Editar</button>';
+                if (tienePermiso('eliminar_obra') && puedeEditarObra(obra)) html += ' <button onclick="deleteObra(\'' + obra.id + '\')" class="text-red-600">Eliminar</button>';
                 html += '</td></tr>';
             });
 
@@ -1100,6 +1107,11 @@
         }
 
         async function deleteObra(obraId) {
+            const obraAEliminar = appState.obras.find(o => o.id === obraId);
+            if (!tienePermiso('eliminar_obra') || !puedeEditarObra(obraAEliminar)) {
+                alert('⚠️ Tu usuario no puede eliminar esta obra.');
+                return;
+            }
             if (confirm('¿Eliminar esta obra? Se borrarán todas sus funciones y acciones.')) {
                 const obraBorrada = appState.obras.find(o => o.id === obraId);
                 registrarHistorial({
@@ -1133,7 +1145,7 @@
             const ultimaFuncion = getUltimaFuncion(obra.id);
             const diasTotalesParaVender = calcularDiasTotalesParaVender(obra.fechaTiquetera, obra.id);
             const diasPorVender = ultimaFuncion ? calcularDiasPorVender(ultimaFuncion.fecha) : 'N/A';
-            const canEdit = tienePermiso('editar_obra');
+            const canEdit = tienePermiso('editar_obra') && puedeEditarObra(obra);
 
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-4xl mx-auto px-4 py-6">';
@@ -1315,7 +1327,7 @@
 
             // Sección de Acciones de Mercadeo y Comunicaciones
             html += '<div class="bg-white p-6 rounded shadow"><h3 class="text-xl font-bold mb-4">📣 Acciones de Mercadeo y Comunicaciones (' + acciones.length + ')</h3>';
-            const puedeRegistrarAccion = tienePermiso('registrar_accion_mercadeo');
+            const puedeRegistrarAccion = tienePermiso('registrar_accion_mercadeo') && puedeEditarObra(obra);
             if (puedeRegistrarAccion) {
                 html += '<form onsubmit="handleAgregarAccion(event, \'' + obra.id + '\')" class="mb-6 p-4 bg-gray-50 rounded border">';
                 html += '<div class="mb-3"><label class="block text-sm font-medium mb-1">Descripción</label><input type="text" id="accionDesc" required placeholder="Ej: Activamos pauta digital adicional por $500.000" class="w-full px-3 py-2 border rounded text-sm" /></div>';
@@ -1474,7 +1486,7 @@
                 return;
             }
             const obraDestino = appState.obras.find(o => o.id === obraId);
-            if (!obraDestino || !puedeVerObra(obraDestino)) {
+            if (!obraDestino || !puedeEditarObra(obraDestino)) {
                 alert('⚠️ No puedes registrar acciones sobre esta obra.');
                 return;
             }
@@ -1837,6 +1849,14 @@
             let obraId;
             if (appState.editingObra) {
                 const antes = { ...appState.editingObra };
+                if (antes.tipo !== data.tipo) {
+                    const nombreTipo = (t) => t === 'boleteria' ? 'Boletería' : 'Entrada Libre';
+                    const seguira = puedeEditarObra({ tipo: data.tipo });
+                    const aviso = '⚠️ Vas a cambiar esta obra de ' + nombreTipo(antes.tipo) + ' a ' + nombreTipo(data.tipo) + '.' +
+                        (seguira ? '' : '\n\nDespués del cambio ya no vas a poder editarla, porque queda fuera de tu tipo de obras.') +
+                        '\n\nEl cambio queda registrado en el Historial. ¿Continuar?';
+                    if (!confirm(aviso)) return;
+                }
                 const funcionesAntes = getFuncionesObra(appState.editingObra.id).length;
                 Object.assign(appState.editingObra, data);
                 obraId = appState.editingObra.id;
@@ -1898,7 +1918,7 @@
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">💵 Registro de Ventas</h2>';
 
-            const obras = appState.obras.filter(o => o.tipo === 'boleteria');
+            const obras = appState.obras.filter(o => o.tipo === 'boleteria' && puedeEditarObra(o));
 
             if (obras.length === 0) {
                 html += '<p class="text-gray-600">Sin obras registradas</p>';
@@ -2023,7 +2043,7 @@
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-7xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">🎟️ Registro de Entrada Libre</h2>';
 
-            const obras = appState.obras.filter(o => o.tipo === 'entrada_libre' && puedeVerObra(o));
+            const obras = appState.obras.filter(o => o.tipo === 'entrada_libre' && puedeEditarObra(o));
 
             if (obras.length === 0) {
                 html += '<p class="text-gray-600">Sin actividades de entrada libre registradas</p></main></div>';
