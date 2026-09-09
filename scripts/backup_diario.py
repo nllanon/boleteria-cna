@@ -32,6 +32,7 @@ TABLAS = [
     ("funciones", "boleteria_funciones"),
     ("acciones", "boleteria_acciones"),
     ("historial", "boleteria_historial"),
+    ("usuarios", "boleteria_usuarios"),
 ]
 
 # Columnas que guardan arreglos JSON: se serializan como texto, igual que en la app

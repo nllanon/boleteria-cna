@@ -34,6 +34,7 @@
             historial: [],
             currentPage: 'dashboard',
             editingObra: null,
+            usuarios: [],
             editingSala: null,
             editingFunciones: [],
             editingMultipleFunciones: false,
@@ -130,15 +131,21 @@
         }
 
         async function initData() {
-            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes, agrupadoresRes] = await Promise.all([
+            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes, agrupadoresRes, usuariosRes] = await Promise.all([
                 db.from('boleteria_salas').select('*').order('id'),
                 db.from('boleteria_obras').select('*'),
                 db.from('boleteria_funciones').select('*'),
                 db.from('boleteria_historial').select('*').order('timestamp', { ascending: false }).limit(300),
                 db.from('boleteria_acciones').select('*'),
                 db.from('boleteria_categorias').select('*').order('nombre'),
-                db.from('boleteria_agrupadores').select('*').order('nombre')
+                db.from('boleteria_agrupadores').select('*').order('nombre'),
+                db.from('boleteria_usuarios').select('*').order('nombre')
             ]);
+
+            appState.usuarios = (usuariosRes.data || []).map(r => ({
+                id: r.id, email: r.email, nombre: r.nombre, rol: r.rol,
+                activo: r.activo !== false, creadoPor: r.creado_por
+            }));
 
             appState.categorias = (categoriasRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
             appState.agrupadores = (agrupadoresRes.data || []).map(r => ({ id: r.id, nombre: r.nombre }));
@@ -193,7 +200,17 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const usuario = USUARIOS[email];
+            let usuario = USUARIOS[email];
+            // El perfil manda desde la tabla de usuarios; el archivo solo aporta la
+            // contraseña provisional mientras se conecta la autenticación real.
+            const registro = appState.usuarios.find(u => u.email === email);
+            if (usuario && registro) {
+                if (!registro.activo) {
+                    alert('⚠️ Este usuario está desactivado. Habla con el administrador.');
+                    return;
+                }
+                usuario = { ...usuario, nombre: registro.nombre, rol: registro.rol };
+            }
             if (usuario && usuario.password === password) {
                 appState.user = { email, ...usuario };
                 localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
@@ -297,6 +314,20 @@
             if (rol === 'registrador_boleto') return obra.tipo === 'boleteria';
             if (rol === 'registrador_entrada') return obra.tipo === 'entrada_libre';
             return false;
+        }
+
+        // Catálogo de roles: la lista de la que salen el selector de Administración
+        // y los nombres que se muestran en pantalla.
+        const ROLES_DISPONIBLES = [
+            { id: 'admin', nombre: '👑 Administrador general', descripcion: 'Todo, incluida Administración y las copias de seguridad.' },
+            { id: 'admin_mercadeo', nombre: '📣 Líder de Mercadeo', descripcion: 'Lo mismo que el administrador general.' },
+            { id: 'registrador_boleto', nombre: '💵 Registrador Boletería', descripcion: 'Ve todo; crea, edita y registra ventas solo en boletería.' },
+            { id: 'registrador_entrada', nombre: '🎟️ Registrador Entrada Libre', descripcion: 'Ve todo; crea, edita y registra inscritos solo en entrada libre.' },
+            { id: 'visualizador', nombre: '👁️ Visualizador', descripcion: 'Solo consulta. No edita ni descarga informes.' }
+        ];
+
+        function nombreRol(rol) {
+            return (ROLES_DISPONIBLES.find(r => r.id === rol) || {}).nombre || rol || 'Sin rol';
         }
 
         // Tipo de obra sobre el que trabaja el usuario. Devuelve null para quienes
@@ -670,16 +701,7 @@
         }
 
         function renderHeader() {
-            const ROLES_TEXTO = {
-                admin: '👑 Administrador general',
-                admin_mercadeo: '📣 Líder de Mercadeo',
-                registrador_boleto: '💵 Registrador Boletería',
-                registrador_entrada: '🎟️ Registrador Entrada Libre',
-                visualizador: '👁️ Visualizador'
-            };
-            // Si algún día se agrega un rol y se olvida esta lista, mejor mostrar el
-            // identificador del rol que un "undefined" en pantalla.
-            const rolTexto = ROLES_TEXTO[appState.user.rol] || appState.user.rol || 'Sin rol';
+            const rolTexto = nombreRol(appState.user.rol);
             let html = '<header class="bg-white shadow"><div class="px-4 py-3 flex justify-between items-center">';
             html += '<div class="flex items-center gap-3">';
             html += '<button onclick="toggleSidebar()" class="md:hidden text-2xl leading-none px-1" aria-label="Abrir menú">☰</button>';
@@ -2381,6 +2403,50 @@
             }
             html += '</div>';
 
+            // USUARIOS Y PERFILES
+            html += '<div class="bg-white rounded shadow p-4 mt-6">';
+            html += '<h3 class="text-lg font-bold mb-1">👥 Usuarios y perfiles</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Quién entra al sistema y con qué perfil. El rol define lo que cada persona puede ver y editar.</p>';
+
+            html += '<form onsubmit="agregarUsuario(event)" class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4 p-3 bg-gray-50 rounded border">';
+            html += '<input type="text" id="nuevoUsuarioNombre" required placeholder="Nombre y apellido" class="px-3 py-2 border rounded text-sm" />';
+            html += '<input type="email" id="nuevoUsuarioEmail" required placeholder="correo@cna.gov.co" class="px-3 py-2 border rounded text-sm" />';
+            html += '<select id="nuevoUsuarioRol" class="px-3 py-2 border rounded text-sm">';
+            ROLES_DISPONIBLES.forEach(r => { html += '<option value="' + r.id + '">' + r.nombre + '</option>'; });
+            html += '</select>';
+            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">+ Agregar</button>';
+            html += '</form>';
+
+            if (appState.usuarios.length === 0) {
+                html += '<p class="text-sm text-gray-500">Todavía no hay usuarios registrados.</p>';
+            } else {
+                html += '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left">';
+                html += '<th class="py-2 pr-2">Nombre</th><th class="py-2 pr-2">Correo</th><th class="py-2 pr-2">Perfil</th><th class="py-2 pr-2">Estado</th><th class="py-2"></th>';
+                html += '</tr></thead><tbody>';
+                appState.usuarios.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(u => {
+                    html += '<tr class="border-b' + (u.activo ? '' : ' opacity-50') + '">';
+                    html += '<td class="py-2 pr-2 font-medium">' + u.nombre + '</td>';
+                    html += '<td class="py-2 pr-2 text-xs text-gray-600">' + u.email + '</td>';
+                    html += '<td class="py-2 pr-2">';
+                    html += '<select onchange="cambiarRolUsuario(\'' + u.id + '\', this.value)" class="px-2 py-1 border rounded text-xs">';
+                    ROLES_DISPONIBLES.forEach(r => {
+                        html += '<option value="' + r.id + '"' + (u.rol === r.id ? ' selected' : '') + '>' + r.nombre + '</option>';
+                    });
+                    html += '</select></td>';
+                    html += '<td class="py-2 pr-2 text-xs">' + (u.activo ? '<span class="text-green-600 font-bold">Activo</span>' : '<span class="text-gray-500 font-bold">Inactivo</span>') + '</td>';
+                    html += '<td class="py-2 text-right whitespace-nowrap">';
+                    html += '<button onclick="alternarUsuarioActivo(\'' + u.id + '\')" class="text-xs ' + (u.activo ? 'text-orange-600' : 'text-green-600') + ' font-medium mr-2">' + (u.activo ? 'Desactivar' : 'Reactivar') + '</button>';
+                    html += '<button onclick="eliminarUsuario(\'' + u.id + '\')" class="text-xs text-red-600 font-medium">Eliminar</button>';
+                    html += '</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+
+            html += '<div class="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">';
+            html += '<p class="text-xs text-yellow-900"><strong>Pendiente:</strong> agregar a alguien aquí define su perfil, pero todavía no le crea la contraseña. El acceso con contraseña propia queda listo cuando se conecte la autenticación de Supabase.</p>';
+            html += '</div>';
+            html += '</div>';
+
             // COPIA DE SEGURIDAD
             html += '<div class="bg-white rounded shadow p-4 mt-6">';
             html += '<h3 class="text-lg font-bold mb-1">💾 Copia de seguridad</h3>';
@@ -2412,7 +2478,8 @@
             { hoja: 'obras', tabla: 'boleteria_obras' },
             { hoja: 'funciones', tabla: 'boleteria_funciones' },
             { hoja: 'acciones', tabla: 'boleteria_acciones' },
-            { hoja: 'historial', tabla: 'boleteria_historial' }
+            { hoja: 'historial', tabla: 'boleteria_historial' },
+            { hoja: 'usuarios', tabla: 'boleteria_usuarios' }
         ];
         const COLUMNAS_JSON_BACKUP = ['ventas_por_dia', 'registros_por_dia'];
 
@@ -2424,7 +2491,11 @@
                 obras: appState.obras.map(obraToDb),
                 funciones: appState.funciones.map(funcionToDb),
                 acciones: appState.acciones.map(accionToDb),
-                historial: appState.historial.map(historialToDb)
+                historial: appState.historial.map(historialToDb),
+                usuarios: appState.usuarios.map(u => ({
+                    id: u.id, email: u.email, nombre: u.nombre,
+                    rol: u.rol, activo: u.activo, creado_por: u.creadoPor || null
+                }))
             };
         }
 
@@ -2547,14 +2618,14 @@
 
             try {
                 // Borrar primero lo que depende de obras, luego el resto
-                const ordenBorrado = ['boleteria_historial', 'boleteria_acciones', 'boleteria_funciones', 'boleteria_obras', 'boleteria_agrupadores', 'boleteria_categorias', 'boleteria_salas'];
+                const ordenBorrado = ['boleteria_historial', 'boleteria_acciones', 'boleteria_funciones', 'boleteria_obras', 'boleteria_agrupadores', 'boleteria_categorias', 'boleteria_salas', 'boleteria_usuarios'];
                 for (const tabla of ordenBorrado) {
                     const { error } = await db.from(tabla).delete().not('id', 'is', null);
                     if (error) throw error;
                 }
 
                 // Insertar en orden inverso para respetar las llaves foráneas
-                const ordenInsercion = ['salas', 'categorias', 'agrupadores', 'obras', 'funciones', 'acciones', 'historial'];
+                const ordenInsercion = ['salas', 'categorias', 'agrupadores', 'obras', 'funciones', 'acciones', 'historial', 'usuarios'];
                 for (const hoja of ordenInsercion) {
                     const filas = contenido[hoja];
                     if (!filas || filas.length === 0) continue;
@@ -2575,6 +2646,151 @@
                 await initData();
                 render();
             }
+        }
+
+        // ============================================
+        // USUARIOS Y PERFILES
+        // ============================================
+        function puedeAdministrarUsuarios() {
+            if (!tienePermiso('administrar')) {
+                alert('⚠️ Tu usuario no puede administrar perfiles.');
+                return false;
+            }
+            return true;
+        }
+
+        async function agregarUsuario(event) {
+            event.preventDefault();
+            if (!puedeAdministrarUsuarios()) return;
+
+            const nombre = document.getElementById('nuevoUsuarioNombre').value.trim();
+            const email = document.getElementById('nuevoUsuarioEmail').value.trim().toLowerCase();
+            const rol = document.getElementById('nuevoUsuarioRol').value;
+
+            if (!nombre || !email) return;
+            if (appState.usuarios.some(u => u.email === email)) {
+                alert('⚠️ Ya existe un usuario con el correo ' + email + '.');
+                return;
+            }
+
+            const nuevo = {
+                id: 'u-' + Date.now().toString(36),
+                email: email,
+                nombre: nombre,
+                rol: rol,
+                activo: true,
+                creadoPor: appState.user.email
+            };
+
+            const { error } = await db.from('boleteria_usuarios').insert({
+                id: nuevo.id, email: nuevo.email, nombre: nuevo.nombre,
+                rol: nuevo.rol, activo: true, creado_por: nuevo.creadoPor
+            });
+            if (error) {
+                alert('⚠️ No se pudo crear el usuario: ' + error.message);
+                return;
+            }
+
+            appState.usuarios.push(nuevo);
+            registrarHistorial({
+                accion: 'Usuario creado',
+                detalles: nombre + ' (' + email + ') con perfil ' + nombreRol(rol)
+            });
+            await saveData();
+            render();
+        }
+
+        async function cambiarRolUsuario(id, nuevoRol) {
+            if (!puedeAdministrarUsuarios()) { render(); return; }
+            const usuario = appState.usuarios.find(u => u.id === id);
+            if (!usuario || usuario.rol === nuevoRol) return;
+
+            // Nunca dejar el sistema sin nadie que pueda administrar
+            if (tieneQueQuedarUnAdmin(usuario, nuevoRol, usuario.activo)) return;
+
+            const rolAnterior = usuario.rol;
+            const { error } = await db.from('boleteria_usuarios').update({ rol: nuevoRol }).eq('id', id);
+            if (error) {
+                alert('⚠️ No se pudo cambiar el perfil: ' + error.message);
+                render();
+                return;
+            }
+
+            usuario.rol = nuevoRol;
+            registrarHistorial({
+                accion: 'Perfil de usuario cambiado',
+                detalles: usuario.nombre + ' (' + usuario.email + '): ' + nombreRol(rolAnterior) + ' → ' + nombreRol(nuevoRol)
+            });
+            await saveData();
+            render();
+        }
+
+        async function alternarUsuarioActivo(id) {
+            if (!puedeAdministrarUsuarios()) return;
+            const usuario = appState.usuarios.find(u => u.id === id);
+            if (!usuario) return;
+
+            const nuevoEstado = !usuario.activo;
+            if (tieneQueQuedarUnAdmin(usuario, usuario.rol, nuevoEstado)) return;
+
+            const { error } = await db.from('boleteria_usuarios').update({ activo: nuevoEstado }).eq('id', id);
+            if (error) {
+                alert('⚠️ No se pudo cambiar el estado: ' + error.message);
+                return;
+            }
+
+            usuario.activo = nuevoEstado;
+            registrarHistorial({
+                accion: nuevoEstado ? 'Usuario reactivado' : 'Usuario desactivado',
+                detalles: usuario.nombre + ' (' + usuario.email + ')'
+            });
+            await saveData();
+            render();
+        }
+
+        async function eliminarUsuario(id) {
+            if (!puedeAdministrarUsuarios()) return;
+            const usuario = appState.usuarios.find(u => u.id === id);
+            if (!usuario) return;
+
+            if (usuario.email === appState.user.email) {
+                alert('⚠️ No puedes eliminar tu propio usuario.');
+                return;
+            }
+            if (tieneQueQuedarUnAdmin(usuario, null, false)) return;
+            if (!confirm('¿Eliminar a ' + usuario.nombre + '? Perderá el acceso al sistema.\n\nSi solo quieres suspenderlo temporalmente, usa Desactivar.')) return;
+
+            const { error } = await db.from('boleteria_usuarios').delete().eq('id', id);
+            if (error) {
+                alert('⚠️ No se pudo eliminar: ' + error.message);
+                return;
+            }
+
+            appState.usuarios = appState.usuarios.filter(u => u.id !== id);
+            registrarHistorial({
+                accion: 'Usuario eliminado',
+                detalles: usuario.nombre + ' (' + usuario.email + ')'
+            });
+            await saveData();
+            render();
+        }
+
+        // Evita quedarse sin ningún usuario capaz de entrar a Administración,
+        // que dejaría el sistema sin quien pueda arreglarlo desde la app.
+        function tieneQueQuedarUnAdmin(usuario, rolResultante, activoResultante) {
+            const esAdmin = (r) => r === 'admin' || r === 'admin_mercadeo';
+            if (!esAdmin(usuario.rol) || !usuario.activo) return false;
+
+            const seguiraSiendoAdmin = activoResultante && esAdmin(rolResultante);
+            if (seguiraSiendoAdmin) return false;
+
+            const otrosAdmins = appState.usuarios.filter(u => u.id !== usuario.id && u.activo && esAdmin(u.rol));
+            if (otrosAdmins.length === 0) {
+                alert('⚠️ No se puede dejar el sistema sin ningún administrador activo.\n\nAsigna primero ese perfil a otra persona.');
+                render();
+                return true;
+            }
+            return false;
         }
 
         async function agregarAgrupador(event) {
