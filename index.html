@@ -53,20 +53,6 @@
             reportePaginasGeneradas: null
         };
 
-        // Usuarios de PRUEBA. Provisionales: las claves quedan visibles en el código
-        // fuente, así que esto debe reemplazarse por Supabase Auth antes de repartir
-        // accesos reales.
-        const USUARIOS = {
-            'admin@test.com': { password: 'admin123', nombre: 'Administrador General', rol: 'admin' },
-            'mercadeo@test.com': { password: 'mercadeo123', nombre: 'Líder de Mercadeo', rol: 'admin_mercadeo' },
-            'boleteria@test.com': { password: 'boleteria123', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
-            'entradalibre@test.com': { password: 'entrada123', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
-            'consulta@test.com': { password: 'consulta123', nombre: 'Visualizador', rol: 'visualizador' },
-            // Se mantienen los correos anteriores para no romper sesiones guardadas
-            'registrador.boleto@test.com': { password: '123456', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
-            'registrador.entrada@test.com': { password: '123456', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
-            'visualizador@test.com': { password: '123456', nombre: 'Visualizador', rol: 'visualizador' }
-        };
 
         // ============================================
         // MAPEO camelCase (JS) <-> snake_case (Supabase)
@@ -196,36 +182,95 @@
         }
 
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim().toLowerCase();
             const password = document.getElementById('password').value;
-            let usuario = USUARIOS[email];
-            // El perfil manda desde la tabla de usuarios; el archivo solo aporta la
-            // contraseña provisional mientras se conecta la autenticación real.
-            const registro = appState.usuarios.find(u => u.email === email);
-            if (usuario && registro) {
-                if (!registro.activo) {
-                    alert('⚠️ Este usuario está desactivado. Habla con el administrador.');
+            const boton = e.target.querySelector('button[type="submit"]');
+            if (boton) { boton.disabled = true; boton.textContent = 'Entrando...'; }
+
+            const restaurarBoton = () => { if (boton) { boton.disabled = false; boton.textContent = 'Ingresar'; } };
+
+            try {
+                const { data, error } = await db.auth.signInWithPassword({ email, password });
+                if (error) {
+                    alert(error.message === 'Invalid login credentials'
+                        ? '⚠️ Correo o contraseña incorrectos.'
+                        : '⚠️ No se pudo entrar: ' + error.message);
+                    restaurarBoton();
                     return;
                 }
-                usuario = { ...usuario, nombre: registro.nombre, rol: registro.rol };
-            }
-            if (usuario && usuario.password === password) {
-                appState.user = { email, ...usuario };
-                localStorage.setItem('boleteria-user', JSON.stringify(appState.user));
-                render();
-            } else {
-                alert('Credenciales inválidas.');
+
+                const listo = await cargarPerfilDeSesion(data.user);
+                restaurarBoton();
+                if (listo) render();
+            } catch (err) {
+                console.error(err);
+                alert('⚠️ Error de conexión al entrar. Intenta de nuevo.');
+                restaurarBoton();
             }
         }
 
-        function handleLogout() {
+        // Con la sesión abierta, el perfil (nombre y rol) sale de la tabla de usuarios.
+        // Un correo autenticado sin perfil no entra: evita que alguien con cuenta en
+        // Supabase acceda sin que un administrador lo haya dado de alta aquí.
+        async function cargarPerfilDeSesion(usuarioAuth) {
+            if (!usuarioAuth) return false;
+            const email = (usuarioAuth.email || '').toLowerCase();
+
+            const { data, error } = await db.from('boleteria_usuarios').select('*').eq('email', email).maybeSingle();
+            if (error) {
+                alert('⚠️ No se pudo leer tu perfil: ' + error.message);
+                await db.auth.signOut();
+                return false;
+            }
+            if (!data) {
+                alert('⚠️ Tu cuenta no tiene un perfil asignado en el sistema. Habla con el administrador.');
+                await db.auth.signOut();
+                return false;
+            }
+            if (data.activo === false) {
+                alert('⚠️ Tu usuario está desactivado. Habla con el administrador.');
+                await db.auth.signOut();
+                return false;
+            }
+
+            appState.user = { email: email, nombre: data.nombre, rol: data.rol };
+            return true;
+        }
+
+        async function handleLogout() {
+            await db.auth.signOut();
             appState.user = null;
             appState.currentPage = 'dashboard';
             appState.viewingObraId = null;
             localStorage.removeItem('boleteria-user');
             render();
+        }
+
+        // Cambio de contraseña, para que cada quien reemplace la temporal
+        async function cambiarMiContrasena(event) {
+            event.preventDefault();
+            const nueva = document.getElementById('nuevaContrasena').value;
+            const repetida = document.getElementById('repetirContrasena').value;
+
+            if (nueva.length < 8) {
+                alert('⚠️ La contraseña debe tener al menos 8 caracteres.');
+                return;
+            }
+            if (nueva !== repetida) {
+                alert('⚠️ Las dos contraseñas no coinciden.');
+                return;
+            }
+
+            const { error } = await db.auth.updateUser({ password: nueva });
+            if (error) {
+                alert('⚠️ No se pudo cambiar la contraseña: ' + error.message);
+                return;
+            }
+            document.getElementById('nuevaContrasena').value = '';
+            document.getElementById('repetirContrasena').value = '';
+            alert('✅ Contraseña actualizada. Úsala la próxima vez que entres.');
         }
 
         // ============================================
@@ -693,9 +738,7 @@
             html += '<input type="password" id="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" /></div>';
             html += '<button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">Ingresar</button>';
             html += '</form>';
-            html += '<div class="mt-6 p-3 bg-gray-100 rounded-lg text-xs text-gray-700">';
-            html += '<strong>Prueba:</strong><br/>admin@test.com / admin123';
-            html += '</div>';
+            html += '<p class="mt-6 text-xs text-center text-gray-500">¿No puedes entrar? Escríbele al administrador del sistema.</p>';
             html += '</div></div>';
             return html;
         }
@@ -747,6 +790,7 @@
             if (tienePermiso('administrar')) {
                 items.push({ id: 'admin', label: '⚙️ Administración' });
             }
+            items.push({ id: 'mi-cuenta', label: '🔑 Mi cuenta' });
             const abierto = !!appState.sidebarOpen;
             let html = '';
             // Overlay oscuro en móvil cuando el menú está abierto
@@ -2354,6 +2398,29 @@
                 alert('✅ Registros actualizados');
                 render();
             }
+        }
+
+        function renderMiCuenta() {
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
+            html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">🔑 Mi cuenta</h2>';
+
+            html += '<div class="bg-white rounded shadow p-4 mb-6">';
+            html += '<p class="text-sm text-gray-700 mb-1"><strong>' + appState.user.nombre + '</strong></p>';
+            html += '<p class="text-xs text-gray-500">' + appState.user.email + '</p>';
+            html += '<p class="text-xs text-gray-500 mt-1">Perfil: ' + nombreRol(appState.user.rol) + '</p>';
+            html += '</div>';
+
+            html += '<div class="bg-white rounded shadow p-4">';
+            html += '<h3 class="font-bold mb-1">Cambiar mi contraseña</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Si entraste con una contraseña temporal, cámbiala por una tuya. Mínimo 8 caracteres.</p>';
+            html += '<form onsubmit="cambiarMiContrasena(event)" class="space-y-3">';
+            html += '<input type="password" id="nuevaContrasena" required minlength="8" placeholder="Nueva contraseña" class="w-full px-3 py-2 border rounded text-sm" />';
+            html += '<input type="password" id="repetirContrasena" required minlength="8" placeholder="Repite la nueva contraseña" class="w-full px-3 py-2 border rounded text-sm" />';
+            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">Guardar contraseña</button>';
+            html += '</form></div>';
+
+            html += '</main></div>';
+            return html;
         }
 
         function renderAdmin() {
@@ -4527,6 +4594,7 @@
                         break;
                     case 'salas': app.innerHTML = renderSalas(); break;
                     case 'admin': app.innerHTML = renderAdmin(); break;
+                    case 'mi-cuenta': app.innerHTML = renderMiCuenta(); break;
                     case 'crear-sala': app.innerHTML = renderCrearSala(); break;
                     case 'ventas': app.innerHTML = renderVentas(); break;
                     case 'entrada': app.innerHTML = renderEntrada(); break;
@@ -4598,8 +4666,12 @@
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('app').innerHTML = '<div class="min-h-screen flex items-center justify-center bg-gray-50"><p class="text-gray-500">Cargando datos...</p></div>';
             await initData();
-            const savedUser = localStorage.getItem('boleteria-user');
-            if (savedUser) appState.user = JSON.parse(savedUser);
+            // La sesión la maneja Supabase; ya no se guarda el usuario en el navegador
+            localStorage.removeItem('boleteria-user');
+            const { data: sesion } = await db.auth.getSession();
+            if (sesion && sesion.session) {
+                await cargarPerfilDeSesion(sesion.session.user);
+            }
             render();
         });
     </script>
