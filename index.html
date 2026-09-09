@@ -66,6 +66,7 @@
             return {
                 id: r.id, nombre: r.nombre, artista: r.artista, categoria: r.categoria,
                 salaId: r.sala_id, tipo: r.tipo, cortesias: r.cortesias,
+                aforo: r.aforo, sillasBloqueadas: r.sillas_bloqueadas,
                 fechaTiquetera: r.fecha_tiquetera, fechaUltimaFuncion: r.fecha_ultima_funcion,
                 fechaRedes: r.fecha_redes, fechaPauta: r.fecha_pauta,
                 piezasDesarrolladas: r.piezas_desarrolladas, fechaPiezasDesarrolladas: r.fecha_piezas_desarrolladas,
@@ -84,7 +85,9 @@
                 video_disponible: o.videoDisponible, fecha_video_pauta: o.fechaVideoPatua || null,
                 link_registro: o.linkRegistro || null, fecha_creacion_link: o.fechaCreacionLink || null,
                 estado_enlace: o.estadoEnlace || 'Activo',
-                agrupador_id: o.agrupadorId || null
+                agrupador_id: o.agrupadorId || null,
+                aforo: (o.aforo === '' || o.aforo === undefined) ? null : o.aforo,
+                sillas_bloqueadas: o.sillasBloqueadas || 0
             };
         }
         function funcionFromDb(r) {
@@ -235,7 +238,9 @@
             { campo: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
             { campo: 'salaId', etiqueta: 'Sala', tipo: 'sala' },
             { campo: 'agrupadorId', etiqueta: 'Temporada/Festival', tipo: 'agrupador' },
-            { campo: 'cortesias', etiqueta: 'Cortesías', tipo: 'texto' }
+            { campo: 'cortesias', etiqueta: 'Cortesías', tipo: 'texto' },
+            { campo: 'aforo', etiqueta: 'Aforo de la obra', tipo: 'texto' },
+            { campo: 'sillasBloqueadas', etiqueta: 'Sillas bloqueadas', tipo: 'texto' }
         ];
 
         function valorAuditable(valor, tipo) {
@@ -281,6 +286,15 @@
         function getSala(salaId) {
             return appState.salas.find(s => s.id === salaId);
         }
+
+        // Aforo efectivo de una obra: el propio si se definió (los montajes cambian
+        // la capacidad de la sala), y si no, el aforo base de la sala.
+        function getAforo(obra) {
+            if (!obra) return 0;
+            if (obra.aforo !== null && obra.aforo !== undefined && obra.aforo !== '') return parseInt(obra.aforo) || 0;
+            return getSala(obra.salaId)?.aforo || 0;
+        }
+
 
         function getAccionesObra(obraId) {
             return appState.acciones.filter(a => a.obraId === obraId);
@@ -740,7 +754,7 @@
                 const obra = appState.obras.find(o => o.id === f.obraId);
                 if (!obra || obra.tipo !== 'boleteria') return sum;
                 const sala = getSala(obra.salaId);
-                return sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                return sum + Math.max(0, getAforo(obra) - (f.cortesias || 0));
             }, 0);
             const porVenderBoleteria = Math.max(0, totalDisponibleBoleteria - totalVentas);
             const pctBoleteria = totalDisponibleBoleteria > 0 ? Math.round((totalVentas / totalDisponibleBoleteria) * 100) : 0;
@@ -754,7 +768,7 @@
                 const obra = appState.obras.find(o => o.id === f.obraId);
                 if (!obra || obra.tipo !== 'entrada_libre') return sum;
                 const sala = getSala(obra.salaId);
-                return sum + (sala?.aforo || 0);
+                return sum + getAforo(obra);
             }, 0);
             const porOcuparEntrada = Math.max(0, totalAforoEntrada - totalRegistrados);
             const pctEntrada = totalAforoEntrada > 0 ? Math.round((totalRegistrados / totalAforoEntrada) * 100) : 0;
@@ -831,10 +845,10 @@
                     getFuncionesObra(obra.id).forEach(f => {
                         if (obra.tipo === 'boleteria') {
                             numB += f.ventasAcumuladas || 0;
-                            denB += Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                            denB += Math.max(0, getAforo(obra) - (f.cortesias || 0));
                         } else {
                             numE += f.registrados || 0;
-                            denE += sala?.aforo || 0;
+                            denE += getAforo(obra);
                         }
                     });
                 });
@@ -923,12 +937,12 @@
                 let numerador, denominador, etiquetaIzq, etiquetaDer;
                 if (esBoleteria) {
                     numerador = f.ventasAcumuladas || 0;
-                    denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                    denominador = Math.max(1, getAforo(obra) - (f.cortesias || 0));
                     etiquetaIzq = numerador + ' vendidas';
                     etiquetaDer = Math.max(0, denominador - numerador) + ' por vender';
                 } else {
                     numerador = f.registrados || 0;
-                    denominador = sala?.aforo || 0;
+                    denominador = getAforo(obra);
                     etiquetaIzq = numerador + ' registrados';
                     etiquetaDer = Math.max(0, denominador - numerador) + ' cupos libres';
                 }
@@ -1121,7 +1135,7 @@
             html += '<div class="bg-white p-6 rounded shadow mb-6">';
             html += '<div class="flex justify-between items-start mb-4">';
             html += '<div><h2 class="text-2xl font-bold text-gray-800">' + obra.nombre + '</h2>';
-            html += '<p class="text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</p>';
+            html += '<p class="text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + getAforo(obra) + ')</p>';
             html += '<p class="text-sm text-gray-500 mt-2"><strong>Categoría:</strong> ' + (obra.categoria || 'Sin categoría') + '</p></div>';
             html += '<div class="text-right"><span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">' + (obra.tipo === 'boleteria' ? '💵 Boletería' : '🎟️ Entrada Libre') + '</span></div>';
             html += '</div>';
@@ -1190,12 +1204,12 @@
                         html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
                         if (obra.tipo === 'boleteria') {
                             const ventasFunc = f.ventasAcumuladas || 0;
-                            const disponibleFunc = Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                            const disponibleFunc = Math.max(0, getAforo(obra) - (f.cortesias || 0));
                             const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
                             html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong>' + ventasFunc + ' / ' + disponibleFunc + '</strong> ' + renderBadgePct(pctFunc, pctFunc + '%') + '</div>';
                         } else {
                             const registradosFunc = f.registrados || 0;
-                            const aforoSala = sala?.aforo || 0;
+                            const aforoSala = getAforo(obra);
                             const pctRegistro = aforoSala > 0 ? Math.round((registradosFunc / aforoSala) * 100) : 0;
                             html += '<div class="text-xs text-gray-600 mt-0.5">🎟️ Registrados: <strong>' + registradosFunc + '</strong> ' + renderBadgePct(pctRegistro, pctRegistro + '%') + '</div>';
                         }
@@ -1227,10 +1241,10 @@
                     html += '<div class="bg-white p-3 rounded border-l-4 border-yellow-500">';
                     html += '<div class="flex justify-between items-center mb-2">';
                     html += '<strong>' + formatearFecha(f.fecha) + ' ' + formatearHora(f.hora) + '</strong>';
-                    html += '<span class="text-xs text-gray-600">Aforo: ' + (sala_info?.aforo || 0) + '</span>';
+                    html += '<span class="text-xs text-gray-600">Aforo: ' + getAforo(obra) + '</span>';
                     html += '</div>';
                     html += '<label class="block text-sm font-medium mb-1">Boletas vendidas hasta ayer</label>';
-                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-baseline-' + f.id + ' value="' + (f.ventasAcumuladas || 0) + '" min="0" max="' + (sala_info?.aforo || 1000) + '" />';
+                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-baseline-' + f.id + ' value="' + (f.ventasAcumuladas || 0) + '" min="0" max="' + (getAforo(obra) || 1000) + '" />';
                     html += '</div>';
                 });
             }
@@ -1265,7 +1279,7 @@
             const totalVentasObra = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
             const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
             const totalCortesiasEntregadas = funciones.reduce((sum, f) => sum + (f.cortesiasEntregadas || 0), 0);
-            const aforo = sala?.aforo || 0;
+            const aforo = getAforo(obra);
             const disponible = funciones.reduce((sum, f) => sum + Math.max(0, aforo - (f.cortesias || 0)), 0);
             html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
             html += '<h3 class="text-lg font-bold mb-4 text-purple-900">💰 VENTAS Y CORTESÍAS</h3>';
@@ -1279,7 +1293,7 @@
             } else {
             const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
             const totalAsistencia = funciones.reduce((sum, f) => sum + (f.asistenciaTotal || 0), 0);
-            const aforoEL = sala?.aforo || 0;
+            const aforoEL = getAforo(obra);
             const aforoTotalEL = aforoEL * funciones.length;
             const pctOcupEL = aforoTotalEL > 0 ? Math.round((totalAsistencia / aforoTotalEL) * 100) : 0;
             html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
@@ -1641,7 +1655,7 @@
         }
 
         function renderCrearObra() {
-            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
+            const obra = appState.editingObra || { nombre: '', artista: '', salaId: '', tipo: 'boleteria', cortesias: 0, aforo: '', sillasBloqueadas: 0, fechaTiquetera: '', fechaUltimaFuncion: '', fechaRedes: '', fechaPauta: '', piezasDesarrolladas: false, fechaPiezasDesarrolladas: null, videoDisponible: false, fechaVideoPatua: null };
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-4">' + (appState.editingObra ? 'Editar Obra' : 'Nueva Obra') + '</h2>';
             html += '<div class="bg-white p-6 rounded shadow">';
@@ -1657,6 +1671,8 @@
             html += '</select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Tipo</label><select id="obraTipo" onchange="toggleCamposTipo()" class="w-full px-3 py-2 border rounded text-sm"><option value="boleteria" ' + (obra.tipo === 'boleteria' ? 'selected' : '') + '>💵 Boletería</option><option value="entrada_libre" ' + (obra.tipo === 'entrada_libre' ? 'selected' : '') + '>🎟️ Entrada Libre</option></select></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Aforo de esta obra</label><input type="number" id="obraAforo" value="' + (obra.aforo ?? '') + '" min="1" placeholder="Aforo de la sala" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Déjalo vacío para usar el aforo de la sala. Úsalo cuando el montaje cambia la capacidad.</p></div>';
+            html += '<div><label class="block text-sm font-medium mb-1">Sillas bloqueadas</label><input type="number" id="obraSillasBloqueadas" value="' + (obra.sillasBloqueadas || 0) + '" min="0" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Informativo: sillas que no salen a la venta.</p></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Temporada / Festival / Encuentro (opcional)</label><select id="obraAgrupador" class="w-full px-3 py-2 border rounded text-sm"><option value="">— Ninguno —</option>';
             appState.agrupadores.forEach(a => html += '<option value="' + a.id + '" ' + (obra.agrupadorId === a.id ? 'selected' : '') + '>' + a.nombre + '</option>');
             html += '</select></div>';
@@ -1797,6 +1813,8 @@
                 tipo: document.getElementById('obraTipo').value,
                 agrupadorId: document.getElementById('obraAgrupador').value || null,
                 cortesias: parseInt(document.getElementById('obraCortesias').value) || 0,
+                aforo: document.getElementById('obraAforo').value === '' ? null : (parseInt(document.getElementById('obraAforo').value) || null),
+                sillasBloqueadas: parseInt(document.getElementById('obraSillasBloqueadas').value) || 0,
                 fechaTiquetera: fechaTiquetera,
                 fechaUltimaFuncion: ultimaFuncion.toISOString().split('T')[0],
                 fechaRedes: fechaRedes || null,
@@ -1894,7 +1912,7 @@
                 html += '<div class="bg-white rounded shadow mb-6">';
                 html += '<div class="bg-blue-50 p-4 border-b-2 border-blue-300">';
                 html += '<h3 class="text-lg font-bold text-gray-800">' + obra.nombre + '</h3>';
-                html += '<p class="text-sm text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + sala?.aforo + ')</p>';
+                html += '<p class="text-sm text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + getAforo(obra) + ')</p>';
                 html += '<p class="text-sm font-medium text-blue-700 mt-2">Total vendido: <strong>' + totalVentas + ' boletas</strong></p>';
                 html += '</div>';
                 
@@ -1944,7 +1962,7 @@
                 if (!funcion) return;
                 const obra = appState.obras.find(o => o.id === funcion.obraId);
                 const sala = obra ? getSala(obra.salaId) : null;
-                const disponible = Math.max(0, (sala?.aforo || 0) - (funcion.cortesias || 0));
+                const disponible = Math.max(0, getAforo(obra) - (funcion.cortesias || 0));
                 const nuevoTotal = (funcion.ventasAcumuladas || 0) + boletas;
                 if (nuevoTotal > disponible) {
                     const maxPermitido = Math.max(0, disponible - (funcion.ventasAcumuladas || 0));
@@ -2051,7 +2069,7 @@
             obras.forEach(obra => {
                 const sala = getSala(obra.salaId);
                 const funciones = getFuncionesObra(obra.id);
-                const aforo = sala?.aforo || 0;
+                const aforo = getAforo(obra);
 
                 html += '<div class="bg-white rounded shadow mb-6 overflow-hidden">';
                 html += '<div class="bg-purple-100 p-4 border-b-2 border-purple-300">';
@@ -3033,7 +3051,7 @@
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
                     const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0)), 0);
+                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, getAforo(obra) - (f.cortesias || 0)), 0);
                     const pct = totalDisponible > 0 ? Math.round((totalVentas / totalDisponible) * 100) : 0;
                     return { nombre: obra.nombre, pct };
                 }).sort((a, b) => b.pct - a.pct);
@@ -3065,7 +3083,7 @@
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
                     const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
-                    const aforoTotal = (sala?.aforo || 0) * funciones.length;
+                    const aforoTotal = getAforo(obra) * funciones.length;
                     const pct = aforoTotal > 0 ? Math.round((totalRegistrados / aforoTotal) * 100) : 0;
                     return { nombre: obra.nombre, pct };
                 }).sort((a, b) => b.pct - a.pct);
@@ -3264,10 +3282,10 @@
                     let numerador, denominador;
                     if (obra.tipo === 'boleteria') {
                         numerador = f.ventasAcumuladas || 0;
-                        denominador = Math.max(1, (sala?.aforo || 0) - (f.cortesias || 0));
+                        denominador = Math.max(1, getAforo(obra) - (f.cortesias || 0));
                     } else {
                         numerador = f.registrados || 0;
-                        denominador = sala?.aforo || 0;
+                        denominador = getAforo(obra);
                     }
                     const m = formatearMetricaFuncion(obra.tipo, numerador, denominador);
                     return { fecha: f.fecha, hora: f.hora, numerador, denominador, pct: m.pct, valor: m.valor, texto: m.texto };
@@ -3432,10 +3450,10 @@
                 getFuncionesObra(obra.id).forEach(f => {
                     if (obra.tipo === 'boleteria') {
                         ventas += f.ventasAcumuladas || 0;
-                        disponibleB += Math.max(0, (sala?.aforo || 0) - (f.cortesias || 0));
+                        disponibleB += Math.max(0, getAforo(obra) - (f.cortesias || 0));
                     } else {
                         registrados += f.registrados || 0;
-                        aforoE += sala?.aforo || 0;
+                        aforoE += getAforo(obra);
                     }
                 });
             });
