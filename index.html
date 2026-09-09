@@ -2716,17 +2716,134 @@
             });
         }
 
+        // Documento imprimible con toda la programación en formato calendario.
+        // Se abre en una ventana nueva y se manda a imprimir; el navegador ofrece
+        // "Guardar como PDF" y el texto queda seleccionable, no es una imagen.
+        function descargarProgramacionPDF() {
+            const funciones = appState.funciones.filter(f => {
+                const obra = appState.obras.find(o => o.id === f.obraId);
+                if (!obra) return false;
+                if (appState.calFiltroTipo !== 'todas' && obra.tipo !== appState.calFiltroTipo) return false;
+                if (appState.calFiltroSala !== 'todas' && obra.salaId !== appState.calFiltroSala) return false;
+                return true;
+            });
+
+            if (funciones.length === 0) {
+                alert('No hay funciones programadas con los filtros actuales.');
+                return;
+            }
+
+            const MESES_PDF = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const DIAS_PDF = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const escapar = (t) => String(t === null || t === undefined ? '' : t)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            // Un bloque por cada mes que tenga programación, en orden cronológico
+            const mesesConDatos = Array.from(new Set(funciones.map(f => f.fecha.slice(0, 7)))).sort();
+
+            let cuerpo = '';
+            mesesConDatos.forEach((clave, indice) => {
+                const anio = parseInt(clave.slice(0, 4));
+                const mes = parseInt(clave.slice(5, 7));
+                const primerDiaSemana = new Date(anio, mes - 1, 1).getDay();
+                const diasDelMes = new Date(anio, mes, 0).getDate();
+
+                cuerpo += '<section' + (indice > 0 ? ' class="salto"' : '') + '>';
+                cuerpo += '<h2>' + MESES_PDF[mes - 1] + ' de ' + anio + '</h2>';
+                cuerpo += '<table><thead><tr>';
+                DIAS_PDF.forEach(d => { cuerpo += '<th>' + d + '</th>'; });
+                cuerpo += '</tr></thead><tbody><tr>';
+
+                let columna = 0;
+                for (let i = 0; i < primerDiaSemana; i++) {
+                    cuerpo += '<td class="vacio"></td>';
+                    columna++;
+                }
+
+                for (let dia = 1; dia <= diasDelMes; dia++) {
+                    if (columna === 7) { cuerpo += '</tr><tr>'; columna = 0; }
+                    const fecha = anio + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+                    const delDia = funciones.filter(f => f.fecha === fecha)
+                        .sort((a, b) => String(a.hora || '').localeCompare(String(b.hora || '')));
+
+                    cuerpo += '<td><div class="numero">' + dia + '</div>';
+                    delDia.forEach(f => {
+                        const obra = appState.obras.find(o => o.id === f.obraId);
+                        cuerpo += '<div class="evento" style="border-left:4px solid ' + getColorSala(obra.salaId) + ';">';
+                        cuerpo += '<span class="hora">' + formatearHora(f.hora) + '</span> ';
+                        cuerpo += '<span class="tipo">' + (obra.tipo === 'boleteria' ? 'B' : 'EL') + '</span> ';
+                        cuerpo += escapar(obra.nombre);
+                        cuerpo += '<div class="sala">' + escapar(getSala(obra.salaId)?.nombre || '') + '</div>';
+                        cuerpo += '</div>';
+                    });
+                    cuerpo += '</td>';
+                    columna++;
+                }
+                while (columna < 7) { cuerpo += '<td class="vacio"></td>'; columna++; }
+                cuerpo += '</tr></tbody></table></section>';
+            });
+
+            let leyenda = '';
+            appState.salas.forEach(sala => {
+                leyenda += '<span class="chip"><i style="background:' + getColorSala(sala.id) + '"></i>' + escapar(sala.nombre) + '</span>';
+            });
+
+            const filtroSala = appState.calFiltroSala === 'todas' ? 'Todas las salas' : (getSala(appState.calFiltroSala)?.nombre || '');
+            const filtroTipo = appState.calFiltroTipo === 'todas' ? 'Boletería y Entrada Libre'
+                : (appState.calFiltroTipo === 'boleteria' ? 'Solo Boletería' : 'Solo Entrada Libre');
+
+            const estilos = [
+                '@page { size: A4 landscape; margin: 12mm; }',
+                'body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; }',
+                'h1 { font-size:20px; margin:0 0 4px; }',
+                'h2 { font-size:15px; margin:0 0 8px; }',
+                '.meta { font-size:11px; color:#555; margin-bottom:10px; }',
+                '.chip { font-size:10px; margin-right:10px; white-space:nowrap; }',
+                '.chip i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px; }',
+                'table { width:100%; border-collapse:collapse; table-layout:fixed; }',
+                'th { font-size:10px; text-transform:uppercase; color:#555; border-bottom:1px solid #999; padding:4px 2px; }',
+                'td { border:1px solid #ddd; vertical-align:top; padding:3px; height:92px; width:14.28%; }',
+                'td.vacio { background:#fafafa; }',
+                '.numero { font-size:12px; font-weight:bold; color:#333; margin-bottom:2px; }',
+                '.evento { font-size:9px; line-height:1.25; padding:2px 3px; margin-bottom:3px; background:#f6f6f6; word-break:break-word; }',
+                '.hora { font-weight:bold; }',
+                '.tipo { font-size:8px; border:1px solid #999; padding:0 2px; border-radius:2px; }',
+                '.sala { color:#666; font-size:8px; }',
+                'section { page-break-inside:avoid; }',
+                'section.salto { page-break-before:always; }'
+            ].join(' ');
+
+            const doc = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+                '<title>Programación CNA</title><style>' + estilos + '</style></head><body>' +
+                '<h1>Programación CNA</h1>' +
+                '<div class="meta">Generado el ' + formatearFecha(new Date().toISOString().split('T')[0]) +
+                ' · ' + escapar(filtroSala) + ' · ' + filtroTipo + ' · ' + funciones.length + ' funciones<br>' +
+                'B = Boletería · EL = Entrada Libre &nbsp; ' + leyenda + '</div>' +
+                cuerpo + '</body></html>';
+
+            const ventana = window.open('', '_blank');
+            if (!ventana) {
+                alert('El navegador bloqueó la ventana emergente. Permítelas para este sitio e intenta de nuevo.');
+                return;
+            }
+            ventana.document.write(doc);
+            ventana.document.close();
+            ventana.focus();
+            setTimeout(() => ventana.print(), 400);
+        }
+
         function renderEventoCalendario(f, compacto) {
             const obra = appState.obras.find(o => o.id === f.obraId);
             const sala = getSala(obra.salaId);
             const colorFondo = getColorSala(obra.salaId);
             const colorTexto = colorTextoContraste(colorFondo);
             const icono = obra.tipo === 'boleteria' ? '💵' : '🎟️';
-            const limite = compacto ? 20 : 60;
-            const nombreCorto = obra.nombre.length > limite ? obra.nombre.substring(0, limite) + '…' : obra.nombre;
-            const fontSize = compacto ? '10px' : '12px';
-            let html = '<div style="background:' + colorFondo + '; color:' + colorTexto + '; font-size:' + fontSize + '; line-height:1.3;" class="px-1.5 py-1 rounded-sm cursor-pointer hover:opacity-90 truncate mb-0.5" onclick="viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + f.hora + '">';
-            html += icono + ' ' + nombreCorto + ' · ' + f.hora;
+            const fontSize = compacto ? '11px' : '12px';
+            // El nombre va completo y se parte en varias líneas: vale más una celda
+            // alta que un título cortado del que no se sabe de qué obra se trata.
+            let html = '<div style="background:' + colorFondo + '; color:' + colorTexto + '; font-size:' + fontSize + '; line-height:1.25; white-space:normal; word-break:break-word;" class="px-1.5 py-1 rounded-sm cursor-pointer hover:opacity-90 mb-1" onclick="event.stopPropagation(); viewObra(\'' + obra.id + '\')" title="' + icono + ' ' + obra.nombre + ' — ' + (sala?.nombre || '') + ' — ' + formatearHora(f.hora) + '">';
+            html += '<div style="font-weight:700;">' + formatearHora(f.hora) + '</div>';
+            html += '<div>' + icono + ' ' + obra.nombre + '</div>';
             html += '</div>';
             return html;
         }
@@ -2769,6 +2886,7 @@
             html += '<button onclick="cambiarPeriodoCalendario(-1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">← Anterior</button>';
             html += '<button onclick="irCalendarioHoy()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border font-medium">Hoy</button>';
             html += '<button onclick="cambiarPeriodoCalendario(1)" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded border">Siguiente →</button>';
+            html += '<button onclick="descargarProgramacionPDF()" class="px-4 py-2 bg-gray-800 text-white rounded font-medium hover:bg-gray-900">🖨️ PDF</button>';
             html += '</div>';
             html += '</div>';
 
@@ -2888,23 +3006,20 @@
 
             html += '<div class="grid grid-cols-7 gap-px bg-gray-300">';
             for (let i = 0; i < primerDia; i++) {
-                html += '<div class="bg-gray-50 min-h-32 p-2"></div>';
+                html += '<div class="bg-gray-50 p-2" style="min-height:150px;"></div>';
             }
             for (let dia = 1; dia <= diasMes; dia++) {
                 const fecha = String(anio) + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
                 const funcionesDia = getFuncionesFiltradasFecha(fecha);
                 const esHoy = fecha === hoyReal.toISOString().split('T')[0];
 
-                html += '<div class="bg-white min-h-32 p-2 hover:bg-gray-50 cursor-pointer" onclick="irADiaCalendario(' + anio + ',' + mes + ',' + dia + ')">';
+                html += '<div class="bg-white p-2 hover:bg-gray-50 cursor-pointer" style="min-height:150px;" onclick="irADiaCalendario(' + anio + ',' + mes + ',' + dia + ')">';
                 html += esHoy
                     ? '<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold mb-1">' + dia + '</div>'
                     : '<div class="text-xl font-light text-gray-900 mb-1">' + dia + '</div>';
 
                 html += '<div class="space-y-0.5">';
-                funcionesDia.slice(0, 2).forEach(f => { html += renderEventoCalendario(f, true); });
-                if (funcionesDia.length > 2) {
-                    html += '<div class="text-gray-600 text-xs px-1.5">y ' + (funcionesDia.length - 2) + ' más</div>';
-                }
+                funcionesDia.forEach(f => { html += renderEventoCalendario(f, true); });
                 html += '</div></div>';
             }
             html += '</div>';
