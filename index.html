@@ -299,6 +299,20 @@
             return false;
         }
 
+        // Tipo de obra sobre el que trabaja el usuario. Devuelve null para quienes
+        // abarcan toda la programación (administradores y visualizador). Los
+        // registradores VEN todo, pero sus entregables salen solo con su tipo.
+        function tipoDeTrabajo() {
+            const rol = appState.user?.rol;
+            if (rol === 'registrador_boleto') return 'boleteria';
+            if (rol === 'registrador_entrada') return 'entrada_libre';
+            return null;
+        }
+
+        function nombreTipo(tipo) {
+            return tipo === 'boleteria' ? 'Boletería' : 'Entrada Libre';
+        }
+
         // Tipo de obra que puede crear el usuario ('ambos' para los administradores)
         function tipoQuePuedeCrear() {
             const rol = appState.user?.rol;
@@ -2738,9 +2752,11 @@
         // Se abre en una ventana nueva y se manda a imprimir; el navegador ofrece
         // "Guardar como PDF" y el texto queda seleccionable, no es una imagen.
         function descargarProgramacionPDF() {
+            const alcance = tipoDeTrabajo();
             const funciones = appState.funciones.filter(f => {
                 const obra = appState.obras.find(o => o.id === f.obraId);
                 if (!obra) return false;
+                if (alcance && obra.tipo !== alcance) return false;
                 if (appState.calFiltroTipo !== 'todas' && obra.tipo !== appState.calFiltroTipo) return false;
                 if (appState.calFiltroSala !== 'todas' && obra.salaId !== appState.calFiltroSala) return false;
                 return true;
@@ -2809,8 +2825,11 @@
             });
 
             const filtroSala = appState.calFiltroSala === 'todas' ? 'Todas las salas' : (getSala(appState.calFiltroSala)?.nombre || '');
-            const filtroTipo = appState.calFiltroTipo === 'todas' ? 'Boletería y Entrada Libre'
-                : (appState.calFiltroTipo === 'boleteria' ? 'Solo Boletería' : 'Solo Entrada Libre');
+            const filtroTipo = alcance ? ('Solo ' + nombreTipo(alcance))
+                : (appState.calFiltroTipo === 'todas' ? 'Boletería y Entrada Libre'
+                    : (appState.calFiltroTipo === 'boleteria' ? 'Solo Boletería' : 'Solo Entrada Libre'));
+            const sufijoTitulo = alcance ? ' — ' + nombreTipo(alcance) : '';
+            const sufijoArchivo = alcance ? '-' + (alcance === 'boleteria' ? 'boleteria' : 'entrada-libre') : '';
 
             const estilos = [
                 '@page { size: A4 landscape; margin: 12mm; }',
@@ -2834,8 +2853,8 @@
             ].join(' ');
 
             const doc = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
-                '<title>programacion-cna-' + fechaParaArchivo() + '</title><style>' + estilos + '</style></head><body>' +
-                '<h1>Programación CNA</h1>' +
+                '<title>programacion-cna' + sufijoArchivo + '-' + fechaParaArchivo() + '</title><style>' + estilos + '</style></head><body>' +
+                '<h1>Programación CNA' + sufijoTitulo + '</h1>' +
                 '<div class="meta">Generado el ' + formatearFecha(new Date().toISOString().split('T')[0]) +
                 ' · ' + escapar(filtroSala) + ' · ' + filtroTipo + ' · ' + funciones.length + ' funciones<br>' +
                 '\uD83D\uDCB5 Boletería &nbsp; \uD83C\uDF9F\uFE0F Entrada Libre &nbsp;&nbsp; ' + leyenda + '</div>' +
@@ -3123,6 +3142,9 @@
             const check = (ok) => '<span title="' + (ok ? 'Listo' : 'Pendiente') + '" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:' + (ok ? '#16A34A' : '#DC2626') + ';"></span>';
             const thVertical = (txt) => '<th class="py-2 px-0 align-bottom" style="width:26px;"><span style="-webkit-writing-mode:vertical-rl; writing-mode:vertical-rl; -webkit-transform:rotate(180deg); transform:rotate(180deg); display:inline-block; white-space:nowrap; font-weight:600; font-size:12px;">' + txt + '</span></th>';
 
+            const alcanceReportes = tipoDeTrabajo();
+
+            if (!alcanceReportes || alcanceReportes === 'boleteria') {
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
             html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Boletería)</h3>';
             html += '<p class="text-xs text-gray-500 mb-3">Todas las obras activas, con el estado de cada herramienta.</p>';
@@ -3149,7 +3171,9 @@
                 html += '</tbody></table>';
             }
             html += '</div>';
+            }
 
+            if (!alcanceReportes || alcanceReportes === 'entrada_libre') {
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
             html += '<h3 class="font-bold mb-1">📋 Herramientas de mercadeo y comunicaciones (Entrada Libre)</h3>';
             html += '<p class="text-xs text-gray-500 mb-3">Todas las obras activas, con el estado de cada herramienta.</p>';
@@ -3174,6 +3198,7 @@
                 html += '</tbody></table>';
             }
             html += '</div>';
+            }
 
             // ACCIONES DE MERCADEO Y COMUNICACIONES
             html += '<div class="bg-white p-4 rounded shadow mb-6">';
@@ -3789,10 +3814,15 @@
                     valores: [!!o.piezasDesarrolladas, !!o.linkRegistro, !!o.fechaRedes]
                 })));
 
-            return [
-                { titulo: '\uD83D\uDCB5 Boletería', columnas: ['Pieza', 'Tiquetera', 'Redes', 'Video', 'Pauta'], filas: boleteria },
-                { titulo: '\uD83C\uDF9F\uFE0F Entrada Libre', columnas: ['Pieza', 'Link', 'Redes'], filas: entradaLibre }
-            ];
+            const alcance = tipoDeTrabajo();
+            const secciones = [];
+            if (!alcance || alcance === 'boleteria') {
+                secciones.push({ titulo: '\uD83D\uDCB5 Boletería', columnas: ['Pieza', 'Tiquetera', 'Redes', 'Video', 'Pauta'], filas: boleteria });
+            }
+            if (!alcance || alcance === 'entrada_libre') {
+                secciones.push({ titulo: '\uD83C\uDF9F\uFE0F Entrada Libre', columnas: ['Pieza', 'Link', 'Redes'], filas: entradaLibre });
+            }
+            return secciones;
         }
 
         function envolverTextoCanvas(ctx, texto, anchoMax, maxLineas) {
@@ -3943,7 +3973,8 @@
 
         // ---- Reporte de acciones de mercadeo y comunicaciones ----
         function construirReporteAcciones() {
-            const obrasVisibles = appState.obras.filter(o => puedeVerObra(o));
+            const alcance = tipoDeTrabajo();
+            const obrasVisibles = appState.obras.filter(o => puedeVerObra(o) && (!alcance || o.tipo === alcance));
             const grupos = [];
             obrasVisibles.forEach(obra => {
                 const acciones = getAccionesObra(obra.id)
