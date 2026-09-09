@@ -307,7 +307,7 @@
             { campo: 'categoria', etiqueta: 'Categoría', tipo: 'texto' },
             { campo: 'tipo', etiqueta: 'Tipo', tipo: 'texto' },
             { campo: 'salaId', etiqueta: 'Sala', tipo: 'sala' },
-            { campo: 'agrupadorId', etiqueta: 'Temporada/Festival', tipo: 'agrupador' },
+            { campo: 'agrupadorId', etiqueta: 'Temporada o franja', tipo: 'agrupador' },
             { campo: 'cortesias', etiqueta: 'Cortesías', tipo: 'texto' },
             { campo: 'aforo', etiqueta: 'Aforo de la obra', tipo: 'texto' },
             { campo: 'sillasBloqueadas', etiqueta: 'Sillas bloqueadas', tipo: 'texto' }
@@ -1824,7 +1824,7 @@
             html += '<div><label class="block text-sm font-medium mb-1">Cortesías</label><input type="number" id="obraCortesias" value="' + obra.cortesias + '" class="w-full px-3 py-2 border rounded text-sm" /></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Aforo de esta obra</label><input type="number" id="obraAforo" value="' + (obra.aforo ?? '') + '" min="1" placeholder="Aforo de la sala" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Déjalo vacío para usar el aforo de la sala. Úsalo cuando el montaje cambia la capacidad.</p></div>';
             html += '<div><label class="block text-sm font-medium mb-1">Sillas bloqueadas</label><input type="number" id="obraSillasBloqueadas" value="' + (obra.sillasBloqueadas || 0) + '" min="0" class="w-full px-3 py-2 border rounded text-sm" /><p class="text-xs text-gray-500 mt-1">Informativo: sillas que no salen a la venta.</p></div>';
-            html += '<div><label class="block text-sm font-medium mb-1">Temporada / Festival / Encuentro (opcional)</label><select id="obraAgrupador" class="w-full px-3 py-2 border rounded text-sm"><option value="">— Ninguno —</option>';
+            html += '<div><label class="block text-sm font-medium mb-1">Temporada, festival, encuentro, franja... (opcional)</label><select id="obraAgrupador" class="w-full px-3 py-2 border rounded text-sm"><option value="">— Ninguno —</option>';
             appState.agrupadores.forEach(a => html += '<option value="' + a.id + '" ' + (obra.agrupadorId === a.id ? 'selected' : '') + '>' + a.nombre + '</option>');
             html += '</select></div>';
             html += '</div>';
@@ -2452,10 +2452,10 @@
 
             // AGRUPADORES: temporadas, festivales, encuentros — obras de boletería y entrada libre pueden pertenecer a uno
             html += '<div class="bg-white rounded shadow p-4 mt-6">';
-            html += '<h3 class="text-lg font-bold mb-1">Temporadas, Festivales y Encuentros</h3>';
-            html += '<p class="text-xs text-gray-500 mb-3">Agrupa varias obras (de Boletería y/o Entrada Libre) bajo un mismo evento o temporada. Cada obra puede pertenecer a uno.</p>';
+            html += '<h3 class="text-lg font-bold mb-1">Temporadas, Festivales, Encuentros, Franjas...</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Agrupa varias obras de Boletería y Entrada Libre bajo un mismo conjunto: una temporada, un festival, un encuentro, una franja o cualquier otra agrupación. Cada obra puede pertenecer a uno.</p>';
             html += '<form onsubmit="agregarAgrupador(event)" class="flex gap-2 mb-4">';
-            html += '<input type="text" id="nuevoAgrupadorNombre" placeholder="Ej: Festival de Teatro 2026, Temporada Septiembre..." required class="flex-1 px-3 py-2 border rounded text-sm" />';
+            html += '<input type="text" id="nuevoAgrupadorNombre" placeholder="Ej: Temporada Jazz Expandido, Franja Rin Rin, FIMSAC..." required class="flex-1 px-3 py-2 border rounded text-sm" />';
             html += '<button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">+ Agregar</button>';
             html += '</form>';
             if (appState.agrupadores.length === 0) {
