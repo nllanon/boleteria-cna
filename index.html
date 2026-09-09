@@ -52,11 +52,18 @@
             reportePaginasGeneradas: null
         };
 
+        // Usuarios de PRUEBA. Provisionales: las claves quedan visibles en el código
+        // fuente, así que esto debe reemplazarse por Supabase Auth antes de repartir
+        // accesos reales.
         const USUARIOS = {
-            'admin@test.com': { password: 'admin123', nombre: 'Administrador CNA', rol: 'admin' },
+            'admin@test.com': { password: 'admin123', nombre: 'Administrador General', rol: 'admin' },
+            'mercadeo@test.com': { password: 'mercadeo123', nombre: 'Líder de Mercadeo', rol: 'admin_mercadeo' },
+            'boleteria@test.com': { password: 'boleteria123', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
+            'entradalibre@test.com': { password: 'entrada123', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
+            'consulta@test.com': { password: 'consulta123', nombre: 'Visualizador', rol: 'visualizador' },
+            // Se mantienen los correos anteriores para no romper sesiones guardadas
             'registrador.boleto@test.com': { password: '123456', nombre: 'Registrador Boletería', rol: 'registrador_boleto' },
             'registrador.entrada@test.com': { password: '123456', nombre: 'Registrador Entrada Libre', rol: 'registrador_entrada' },
-            'mercadeo@test.com': { password: '123456', nombre: 'Líder de Mercadeo', rol: 'admin_mercadeo' },
             'visualizador@test.com': { password: '123456', nombre: 'Visualizador', rol: 'visualizador' }
         };
 
@@ -269,7 +276,7 @@
             const rol = appState.user?.rol;
             const permisos = {
                 'admin': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes', 'administrar'],
-                'admin_mercadeo': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
+                'admin_mercadeo': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes', 'administrar'],
                 'registrador_boleto': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_venta', 'registrar_accion_mercadeo', 'generar_reportes'],
                 'registrador_entrada': ['ver_todo', 'crear_obra', 'editar_obra', 'eliminar_obra', 'registrar_entrada', 'registrar_accion_mercadeo', 'generar_reportes'],
                 'visualizador': ['ver_todo']
@@ -683,7 +690,7 @@
             if (rol === 'admin' || rol === 'admin_mercadeo') {
                 items.push({ id: 'historial', label: '📝 Historial' });
             }
-            if (rol === 'admin') {
+            if (tienePermiso('administrar')) {
                 items.push({ id: 'admin', label: '⚙️ Administración' });
             }
             const abierto = !!appState.sidebarOpen;
