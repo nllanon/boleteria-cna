@@ -868,7 +868,12 @@
                 html += '</span>';
                 html += '</summary>';
                 html += '<div class="px-4 pb-4"><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 items-start">';
-                grupo.obras.forEach(obra => { html += renderTarjetaDashboard(obra); });
+                const obrasOrdenadas = grupo.obras.slice().sort((a, b) => {
+                    const ea = getFuncionesObra(a.id).map(f => f.fecha).sort()[0] || '9999-12-31';
+                    const eb = getFuncionesObra(b.id).map(f => f.fecha).sort()[0] || '9999-12-31';
+                    return ea.localeCompare(eb);
+                });
+                obrasOrdenadas.forEach(obra => { html += renderTarjetaDashboard(obra); });
                 html += '</div></div>';
                 html += '</details>';
             });
@@ -969,7 +974,8 @@
             html += '<div class="flex justify-between items-center gap-2">';
             html += '<div style="min-width:0; flex:1;">';
             html += '<div class="font-bold text-sm text-gray-800" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (esBoleteria ? '💵' : '🎟️') + ' ' + obra.nombre + '</div>';
-            html += '<div class="text-xs text-gray-500" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (sala?.nombre || '') + '</div>';
+            const estreno = funciones.length > 0 ? funciones.map(f => f.fecha).sort()[0] : null;
+            html += '<div class="text-xs text-gray-500" style="overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">' + (sala?.nombre || '') + (estreno ? ' · Estreno ' + formatearFecha(estreno) : '') + '</div>';
             html += '</div>';
             html += renderBadgePctChico(pctTotal, pctTotal + '%');
             html += '</div>';
