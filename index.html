@@ -656,7 +656,16 @@
         }
 
         function renderHeader() {
-            let rolTexto = { admin: '👑 Admin', registrador_boleto: '💵 Reg.Boleto', registrador_entrada: '🎟️ Reg.Entrada', visualizador: '👁️ Visualizador' }[appState.user.rol];
+            const ROLES_TEXTO = {
+                admin: '👑 Administrador general',
+                admin_mercadeo: '📣 Líder de Mercadeo',
+                registrador_boleto: '💵 Registrador Boletería',
+                registrador_entrada: '🎟️ Registrador Entrada Libre',
+                visualizador: '👁️ Visualizador'
+            };
+            // Si algún día se agrega un rol y se olvida esta lista, mejor mostrar el
+            // identificador del rol que un "undefined" en pantalla.
+            const rolTexto = ROLES_TEXTO[appState.user.rol] || appState.user.rol || 'Sin rol';
             let html = '<header class="bg-white shadow"><div class="px-4 py-3 flex justify-between items-center">';
             html += '<div class="flex items-center gap-3">';
             html += '<button onclick="toggleSidebar()" class="md:hidden text-2xl leading-none px-1" aria-label="Abrir menú">☰</button>';
