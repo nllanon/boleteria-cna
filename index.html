@@ -2819,6 +2819,10 @@
                 cuerpo += '</tr></tbody></table></section>';
             });
 
+            let leyendaTipos = '';
+            if (!alcance || alcance === 'boleteria') leyendaTipos += '\uD83D\uDCB5 Boletería &nbsp; ';
+            if (!alcance || alcance === 'entrada_libre') leyendaTipos += '\uD83C\uDF9F\uFE0F Entrada Libre &nbsp; ';
+
             let leyenda = '';
             appState.salas.forEach(sala => {
                 leyenda += '<span class="chip"><i style="background:' + getColorSala(sala.id) + '"></i>' + escapar(sala.nombre) + '</span>';
@@ -2828,7 +2832,7 @@
             const filtroTipo = alcance ? ('Solo ' + nombreTipo(alcance))
                 : (appState.calFiltroTipo === 'todas' ? 'Boletería y Entrada Libre'
                     : (appState.calFiltroTipo === 'boleteria' ? 'Solo Boletería' : 'Solo Entrada Libre'));
-            const sufijoTitulo = alcance ? ' — ' + nombreTipo(alcance) : '';
+            const sufijoTitulo = alcance ? ' - ' + nombreTipo(alcance) : ' - Programación';
             const sufijoArchivo = alcance ? '-' + (alcance === 'boleteria' ? 'boleteria' : 'entrada-libre') : '';
 
             const estilos = [
@@ -2853,11 +2857,11 @@
             ].join(' ');
 
             const doc = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
-                '<title>programacion-cna' + sufijoArchivo + '-' + fechaParaArchivo() + '</title><style>' + estilos + '</style></head><body>' +
-                '<h1>Programación CNA' + sufijoTitulo + '</h1>' +
+                '<title>salas-llenas' + sufijoArchivo + '-' + fechaParaArchivo() + '</title><style>' + estilos + '</style></head><body>' +
+                '<h1>Salas Llenas' + sufijoTitulo + '</h1>' +
                 '<div class="meta">Generado el ' + formatearFecha(new Date().toISOString().split('T')[0]) +
                 ' · ' + escapar(filtroSala) + ' · ' + filtroTipo + ' · ' + funciones.length + ' funciones<br>' +
-                '\uD83D\uDCB5 Boletería &nbsp; \uD83C\uDF9F\uFE0F Entrada Libre &nbsp;&nbsp; ' + leyenda + '</div>' +
+                leyendaTipos + '&nbsp;&nbsp; ' + leyenda + '</div>' +
                 cuerpo + '</body></html>';
 
             const ventana = window.open('', '_blank');
@@ -3674,20 +3678,29 @@
 
         function renderResumenGeneralReporteHTML() {
             const r = calcularResumenGeneralReporte();
+            const alcanceResumen = tipoDeTrabajo();
+            const muestraB = !alcanceResumen || alcanceResumen === 'boleteria';
+            const muestraE = !alcanceResumen || alcanceResumen === 'entrada_libre';
+            // Con un solo tipo la tarjeta ocupa todo el ancho en vez de dejar un hueco
+            const anchoCelda = (muestraB && muestraE) ? '48%' : '100%';
             let html = '<div style="display:table; width:100%; table-layout:fixed; margin-bottom:14px; padding-bottom:14px; border-bottom:2px solid #e5e7eb;">';
             html += '<div style="display:table-row;">';
-            html += '<div style="display:table-cell; width:48%; padding-right:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
+            if (muestraB) {
+            html += '<div style="display:table-cell; width:' + anchoCelda + '; padding-right:' + (muestraE ? '8px' : '0') + ';"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
             html += renderDonaSVG(r.ventas, r.ventas + r.porVender, '#16A34A', 56);
             html += '<div style="min-width:0;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">💵 Boletería</span>' + renderBadgePct(r.pctB, r.pctB + '%') + '</div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#16A34A;">' + r.ventas + '</strong> vendidas · <strong>' + r.porVender + '</strong> por vender</div>';
             html += '</div></div></div>';
-            html += '<div style="display:table-cell; width:48%; padding-left:8px;"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
+            }
+            if (muestraE) {
+            html += '<div style="display:table-cell; width:' + anchoCelda + '; padding-left:' + (muestraB ? '8px' : '0') + ';"><div style="background:#f9fafb; border-radius:6px; padding:10px 12px; display:flex; align-items:center; gap:10px;">';
             html += renderDonaSVG(r.registrados, r.registrados + r.porOcupar, '#7c3aed', 56);
             html += '<div style="min-width:0;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;"><span style="font-size:14px; font-weight:bold; color:#374151;">🎟️ Entrada Libre</span>' + renderBadgePct(r.pctE, r.pctE + '%') + '</div>';
             html += '<div style="font-size:13px; color:#374151; white-space:nowrap;"><strong style="color:#7c3aed;">' + r.registrados + '</strong> registradas · <strong>' + r.porOcupar + '</strong> por ocupar</div>';
             html += '</div></div></div>';
+            }
             html += '</div></div>';
             return html;
         }
