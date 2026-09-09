@@ -35,6 +35,9 @@
             currentPage: 'dashboard',
             editingObra: null,
             usuarios: [],
+            config: {},
+            ayudaBusqueda: '',
+            ayudaSeccionAbierta: null,
             editingSala: null,
             editingFunciones: [],
             editingMultipleFunciones: false,
@@ -117,7 +120,7 @@
         }
 
         async function initData() {
-            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes, agrupadoresRes, usuariosRes] = await Promise.all([
+            const [salasRes, obrasRes, funcionesRes, historialRes, accionesRes, categoriasRes, agrupadoresRes, usuariosRes, configRes] = await Promise.all([
                 db.from('boleteria_salas').select('*').order('id'),
                 db.from('boleteria_obras').select('*'),
                 db.from('boleteria_funciones').select('*'),
@@ -125,8 +128,12 @@
                 db.from('boleteria_acciones').select('*'),
                 db.from('boleteria_categorias').select('*').order('nombre'),
                 db.from('boleteria_agrupadores').select('*').order('nombre'),
-                db.from('boleteria_usuarios').select('*').order('nombre')
+                db.from('boleteria_usuarios').select('*').order('nombre'),
+                db.from('boleteria_config').select('*')
             ]);
+
+            appState.config = {};
+            (configRes.data || []).forEach(c => { appState.config[c.clave] = c.valor; });
 
             appState.usuarios = (usuariosRes.data || []).map(r => ({
                 id: r.id, email: r.email, nombre: r.nombre, rol: r.rol,
@@ -791,6 +798,7 @@
                 items.push({ id: 'admin', label: '⚙️ Administración' });
             }
             items.push({ id: 'mi-cuenta', label: '🔑 Mi cuenta' });
+            items.push({ id: 'ayuda', label: '❓ Ayuda' });
             const abierto = !!appState.sidebarOpen;
             let html = '';
             // Overlay oscuro en móvil cuando el menú está abierto
@@ -2400,6 +2408,483 @@
             }
         }
 
+        // ============================================
+        // AYUDA — contenido del manual de usuario v1
+        // ============================================
+        // El texto sigue el Manual de Usuario v1 (septiembre 2026). Si el manual
+        // cambia, este contenido debe cambiar con él.
+        const MANUAL = [
+            {
+                n: 1, titulo: 'Para qué sirve esta herramienta',
+                bloques: [
+                    { t: 'p', x: 'Salas Llenas es el sistema con el que el CNA hace seguimiento a la ocupación de sus salas. Reúne en un solo lugar tres cosas que antes vivían separadas: cuántas boletas se han vendido o cuántas personas se han inscrito, qué acciones de mercadeo se han hecho por cada obra, y en qué estado están las herramientas de comunicación de cada montaje.' },
+                    { t: 'p', x: 'La pregunta que resuelve es simple de enunciar y difícil de responder con archivos sueltos: cómo va una obra, y por qué va así.' },
+                    { t: 'h', x: 'Qué reemplaza' },
+                    { t: 'p', x: 'Reemplaza los archivos de Excel de seguimiento de boletería y de ingresos libres, y el ejercicio manual de armar el reporte diario.' },
+                    { t: 'h', x: 'Qué no reemplaza' },
+                    { t: 'li', x: 'No vende boletas. La venta sigue ocurriendo en Tuboleta o en la tiquetera de cada evento; aquí se registra el resultado.' },
+                    { t: 'li', x: 'No recibe inscripciones. Los formularios de registro siguen siendo de Microsoft Forms; aquí se registra cuántas personas se inscribieron.' },
+                    { t: 'li', x: 'No reemplaza la programación artística ni la contratación.' },
+                    { t: 'h', x: 'Dos ideas para tener presentes' },
+                    { t: 'p', x: 'La primera: el sistema es tan bueno como la información que se le carga. Si una acción de mercadeo no se registra, para el sistema no ocurrió.' },
+                    { t: 'p', x: 'La segunda: el registro diario es lo que hace posible todo lo demás. Los gráficos, los reportes y el análisis de qué funcionó dependen de que las ventas y los inscritos se anoten día a día.' }
+                ]
+            },
+            {
+                n: 2, titulo: 'Cómo entrar',
+                bloques: [
+                    { t: 'h', x: 'Dirección' },
+                    { t: 'p', x: 'El sistema se abre desde cualquier navegador, en computador, tableta o celular: https://boleteria-cna.vercel.app/' },
+                    { t: 'p', x: 'No hay que instalar nada. Si vas a usarlo a diario, conviene guardarlo en favoritos o, en el celular, agregarlo a la pantalla de inicio.' },
+                    { t: 'h', x: 'Tu usuario' },
+                    { t: 'p', x: 'Tu usuario es tu correo electrónico. El administrador te entrega una contraseña temporal la primera vez.' },
+                    { t: 'h', x: 'Cambiar la contraseña temporal' },
+                    { t: 'p', x: 'Es lo primero que debes hacer al entrar. La contraseña temporal la conoce quien te la entregó, así que no debe quedarse como tu contraseña definitiva.' },
+                    { t: 'num', x: 'Entra al sistema con tu correo y la contraseña temporal.' },
+                    { t: 'num', x: 'En el menú de la izquierda, abre "Mi cuenta".' },
+                    { t: 'num', x: 'Escribe tu contraseña nueva, de mínimo 8 caracteres, y repítela abajo.' },
+                    { t: 'num', x: 'Pulsa "Guardar contraseña". Sale una confirmación.' },
+                    { t: 'num', x: 'Cierra sesión y vuelve a entrar con la nueva, para comprobar que quedó guardada.' },
+                    { t: 'h', x: 'Si olvidas la contraseña' },
+                    { t: 'p', x: 'Escríbele al administrador del sistema. Él puede generarte una nueva contraseña temporal. Por seguridad, nadie puede ver tu contraseña actual, ni siquiera el administrador.' },
+                    { t: 'h', x: 'Si el sistema se ve raro o desactualizado' },
+                    { t: 'p', x: 'El navegador guarda copias de las páginas para abrirlas más rápido, y a veces se queda con una versión vieja. Si algo se ve extraño o falta una función que te dijeron que ya está, recarga forzando la actualización: Ctrl+Shift+R en Windows, Cmd+Shift+R en Mac. En el celular, cierra la pestaña por completo y vuelve a abrirla.' }
+                ]
+            },
+            {
+                n: 3, titulo: 'Los perfiles y qué puede hacer cada uno',
+                bloques: [
+                    { t: 'p', x: 'Cada persona entra con un perfil que define qué puede hacer.' },
+                    { t: 'nota', x: 'Regla general: todos los perfiles ven toda la programación del CNA. Lo que cambia entre perfiles es qué se puede editar, no qué se puede ver.' },
+                    { t: 'p', x: 'Esto es intencional. Que quien registra eventos con Boletería pueda ver la programación de entrada libre y quien registra eventos de entrada libre la de boletería ayuda a entender la carga de las salas y a coordinar. Lo que ninguno de los dos puede es modificar el trabajo del otro.' },
+                    { t: 'h', x: 'Los cinco perfiles' },
+                    { t: 'li', x: 'Administrador general: todo. Crea y edita cualquier obra, registra ventas e inscritos, entra a Administración, ve el Historial y maneja las copias de seguridad.' },
+                    { t: 'li', x: 'Líder de Mercadeo: lo mismo que el administrador general. La diferencia es que cada acción queda firmada con su propio correo.' },
+                    { t: 'li', x: 'Registrador Boletería: ve toda la programación. Crea, edita y elimina obras de boletería, registra sus ventas y sus acciones de mercadeo. No entra a Administración ni al Historial.' },
+                    { t: 'li', x: 'Registrador Entrada Libre: lo mismo, pero del lado de entrada libre: crea, edita y elimina esas actividades y registra sus inscritos.' },
+                    { t: 'li', x: 'Visualizador: solo consulta. Ve el Dashboard, el Registro de Obras, el Calendario y los Reportes. No edita nada ni descarga el Reporte Diario.' },
+                    { t: 'h', x: 'Cómo se nota tu perfil en pantalla' },
+                    { t: 'p', x: 'Arriba a la izquierda, debajo del título "Salas Llenas", aparece siempre el nombre de tu perfil. Y el menú de la izquierda muestra únicamente las secciones a las que tienes acceso.' },
+                    { t: 'h', x: 'Por qué a veces no aparece el botón de editar' },
+                    { t: 'p', x: 'Si abres una obra que no corresponde a tu perfil, la vas a ver completa, con sus funciones, sus ventas y sus gráficos, pero sin los botones de editar y eliminar, y sin el formulario para agregar acciones de mercadeo. No es un error: es tu perfil funcionando como debe.' }
+                ]
+            },
+            {
+                n: 4, titulo: 'Los conceptos que hay que tener claros',
+                bloques: [
+                    { t: 'p', x: 'Esta sección es la más importante del manual. La mayoría de los errores de registro no vienen de no saber dónde queda un botón, sino de confundir dos conceptos parecidos.' },
+                    { t: 'h', x: 'Obra y función' },
+                    { t: 'p', x: 'Una obra es el montaje o el evento. Una función es cada presentación de esa obra en una fecha y hora concretas. Una obra puede tener una sola función o varias. Las ventas y los inscritos se registran siempre por función, nunca por obra, porque cada función tiene ventas o registros diferentes.' },
+                    { t: 'nota', x: 'Error frecuente: crear una obra nueva por cada función. Si es el mismo montaje en fechas distintas, es una sola obra con varias funciones. Crearlas por separado rompe los totales y el seguimiento.' },
+                    { t: 'h', x: 'Boletería y entrada libre' },
+                    { t: 'p', x: 'Son los dos tipos de obra que maneja el sistema. En boletería se registran boletas vendidas, la venta ocurre en Tuboleta o en la tiquetera, y las herramientas propias son tiquetera, video y pauta. En entrada libre se registran personas inscritas, ocurre en un formulario de registro, y la herramienta propia es el link de registro y su estado.' },
+                    { t: 'p', x: 'El tipo de una obra solo lo pueden cambiar el administrador general y el líder de mercadeo. Los registradores crean y editan siempre dentro de su propio tipo.' },
+                    { t: 'h', x: 'Aforo de la sala y aforo de la obra' },
+                    { t: 'p', x: 'Cada sala tiene un aforo base, que es su capacidad normal. Pero los montajes cambian la capacidad: una escenografía grande, una consola en platea o una configuración distinta pueden dejar la sala con menos puestos de los habituales.' },
+                    { t: 'p', x: 'Por eso cada obra puede tener su propio aforo, que manda sobre el de la sala. Si el campo "Aforo de esta obra" se deja vacío, el sistema usa el aforo de la sala. Si se llena, usa ese número.' },
+                    { t: 'h', x: 'Sillas bloqueadas' },
+                    { t: 'p', x: 'Es un campo informativo donde se anota cuántas sillas no salen a la venta. Sirve para dejar constancia de por qué el aforo de una obra es menor que el de la sala. No se resta automáticamente: el número que manda para todos los cálculos es el aforo de la obra.' },
+                    { t: 'h', x: 'Cortesías' },
+                    { t: 'p', x: 'Son las boletas que se entregan sin venta: prensa, invitados, protocolo, artistas. Se registran por función.' },
+                    { t: 'nota', x: 'Importante: las cortesías se restan del aforo para calcular cuántas boletas hay realmente para vender. Una sala de 470 puestos con 30 cortesías tiene 440 boletas vendibles, no 470.' },
+                    { t: 'h', x: 'Las fechas de las herramientas de mercadeo' },
+                    { t: 'p', x: 'Cada obra lleva el registro de cuándo ocurrió realmente cada hito de comunicación. Son fechas, no marcas de sí o no, porque lo que interesa es saber cuánto tiempo estuvo cada herramienta trabajando antes del estreno.' },
+                    { t: 'li', x: 'Piezas desarrolladas: cuándo quedaron listas las piezas gráficas.' },
+                    { t: 'li', x: 'Salida en tiquetera: cuándo quedó publicada la obra en Tuboleta o la tiquetera y empezó realmente la venta.' },
+                    { t: 'li', x: 'Salida en redes: cuándo se publicó en las redes del CNA.' },
+                    { t: 'li', x: 'Video disponible: cuándo quedó listo el video promocional.' },
+                    { t: 'li', x: 'Salida en pauta: cuándo se activó la pauta pagada.' },
+                    { t: 'li', x: 'Link de registro: solo en entrada libre, cuándo se creó el formulario.' },
+                    { t: 'nota', x: 'Regla de oro: la fecha es la de cuándo ocurrió de verdad, no la de cuándo se solicitó ni la del día en que se está registrando. Si una herramienta todavía no se ha hecho, el campo se deja vacío. Nunca se pone la fecha de hoy como relleno, porque eso hace creer al sistema que ya se hizo.' }
+                ]
+            },
+            {
+                n: 5, titulo: 'Cómo se calculan los números',
+                bloques: [
+                    { t: 'h', x: 'Porcentaje de venta en boletería' },
+                    { t: 'p', x: 'Se calcula sobre las boletas que realmente están a la venta: boletas vendidas ÷ (aforo de la obra − cortesías).' },
+                    { t: 'p', x: 'Ejemplo: una obra en una sala de 470 puestos con 30 cortesías tiene 440 boletas vendibles. Si vendió 440, el sistema marca 100% y aparece como sala llena.' },
+                    { t: 'nota', x: 'Ojo con esto: anteriormente se calculaba el porcentaje sobre el aforo total, incluyendo las cortesías. Por eso los números del sistema van a ser ligeramente más altos que los que se veían antes. El criterio nuevo es más exacto, porque lo que sale como cortesía no es boletería disponible para vender.' },
+                    { t: 'h', x: 'Porcentaje en entrada libre' },
+                    { t: 'p', x: 'Se calcula sobre el aforo de la actividad, comparando cuántas personas se han inscrito contra cuántos cupos hay.' },
+                    { t: 'h', x: 'Días totales para vender' },
+                    { t: 'p', x: 'Van desde la fecha de salida en tiquetera hasta la fecha del estreno. Mide cuánto tiempo tuvo la obra para vender. Una vez estrenada, este número queda fijo.' },
+                    { t: 'h', x: 'Días por vender' },
+                    { t: 'p', x: 'Van desde la fecha del día de la consulta hasta la última función. Es el número que se mueve solo cada día y el que indica cuánto tiempo queda para empujar la venta.' },
+                    { t: 'h', x: 'Sala llena' },
+                    { t: 'p', x: 'Cuando una función de boletería llega al 100%, el sistema la marca como sala llena en el Dashboard y en los reportes. No es posible registrar más boletas de las disponibles: el sistema lo bloquea.' }
+                ]
+            },
+            {
+                n: 6, titulo: 'Registrar una obra nueva',
+                bloques: [
+                    { t: 'p', x: 'Crear la obra es el paso que más cuidado exige, porque todo lo demás depende de que esté bien definida. Se hace desde la sección "Registro de Obras", con el botón de nueva obra.' },
+                    { t: 'h', x: 'Los datos generales' },
+                    { t: 'li', x: 'Nombre: el título completo de la obra, tal como se comunica al público.' },
+                    { t: 'li', x: 'Artista o compañía: quién la presenta.' },
+                    { t: 'li', x: 'Categoría: el tipo de espectáculo.' },
+                    { t: 'li', x: 'Sala: dónde se presenta.' },
+                    { t: 'li', x: 'Tipo: boletería o entrada libre. Si tu perfil es de registrador, este campo aparece fijo y no se puede cambiar.' },
+                    { t: 'li', x: 'Temporada, festival, encuentro o franja: si la obra hace parte de un ciclo. Sirve para ver el desempeño del ciclo completo y no obra por obra.' },
+                    { t: 'li', x: 'Cortesías: cuántas boletas se entregan sin venta.' },
+                    { t: 'li', x: 'Aforo de esta obra: solo si el montaje cambia la capacidad de la sala. Si no, se deja vacío.' },
+                    { t: 'li', x: 'Sillas bloqueadas: informativo, cuántas sillas no salen a la venta.' },
+                    { t: 'h', x: 'Las funciones' },
+                    { t: 'p', x: 'Si la obra tiene una sola presentación, se llena la fecha y la hora directamente. Si tiene varias, se activa la opción de múltiples funciones y se van agregando una por una con su fecha y hora.' },
+                    { t: 'nota', x: 'Recuerda: varias presentaciones del mismo montaje son varias funciones de una sola obra, no varias obras.' },
+                    { t: 'h', x: 'Las fechas de mercadeo y comunicaciones' },
+                    { t: 'p', x: 'En la parte de abajo del formulario están las fechas de tiquetera, redes, pauta, piezas y video. Se llenan a medida que cada cosa va ocurriendo; no hay que tenerlas todas al crear la obra.' },
+                    { t: 'h', x: 'Editar una obra existente' },
+                    { t: 'p', x: 'Desde la tabla de Registro de Obras, con el botón "Editar" de la fila correspondiente, o desde la ficha de la obra. Todos los cambios quedan registrados en el Historial, campo por campo, con el valor anterior y el nuevo.' },
+                    { t: 'h', x: 'Eliminar una obra' },
+                    { t: 'p', x: 'El botón "Eliminar" borra la obra junto con todas sus funciones, ventas y acciones. No se puede deshacer. Antes de eliminar algo importante, vale la pena descargar una copia de seguridad desde Administración.' }
+                ]
+            },
+            {
+                n: 7, titulo: 'Registrar ventas diarias',
+                bloques: [
+                    { t: 'p', x: 'Esta sección aplica al perfil de Registrador de Boletería y a los administradores. Es la rutina más frecuente del sistema y la que sostiene todo lo demás.' },
+                    { t: 'h', x: 'La rutina' },
+                    { t: 'num', x: 'Entra a "Registro de Ventas" en el menú de la izquierda.' },
+                    { t: 'num', x: 'Busca la obra en la lista. Solo aparecen las obras de boletería.' },
+                    { t: 'num', x: 'Ubica la función a la que corresponden las ventas del día.' },
+                    { t: 'num', x: 'Escribe cuántas boletas se vendieron y guarda.' },
+                    { t: 'h', x: 'Qué número se escribe' },
+                    { t: 'nota', x: 'Clave: se registran las boletas vendidas ese día, no el total acumulado. El sistema suma automáticamente. Si hoy se vendieron 12 boletas, se escribe 12, aunque la obra ya lleve 300.' },
+                    { t: 'p', x: 'Este detalle es el que permite construir la curva de ventas diarias y saber en qué días se movió la venta. Si se registra el acumulado, la curva queda inservible.' },
+                    { t: 'h', x: 'Por qué a veces no deja registrar' },
+                    { t: 'p', x: 'El sistema no permite registrar más boletas de las disponibles. Cuando eso pasa y estás seguro del número, revisa dos cosas: que el aforo de la obra esté bien y que las cortesías sean las correctas.' },
+                    { t: 'h', x: 'Constancia' },
+                    { t: 'p', x: 'Registrar todos los días, aunque el número sea cero, es lo que hace útil el sistema. Un día sin registro no se distingue de un día sin ventas, y eso distorsiona el análisis.' }
+                ]
+            },
+            {
+                n: 8, titulo: 'Registrar inscritos',
+                bloques: [
+                    { t: 'p', x: 'Esta sección aplica al perfil de Registrador de Entrada Libre y a los administradores. La lógica es la misma que en ventas, con dos diferencias.' },
+                    { t: 'h', x: 'La rutina' },
+                    { t: 'num', x: 'Entra a "Entrada Libre" en el menú de la izquierda.' },
+                    { t: 'num', x: 'Busca la actividad. Solo aparecen las de entrada libre.' },
+                    { t: 'num', x: 'Ubica la función y escribe cuántas personas se inscribieron ese día.' },
+                    { t: 'num', x: 'Guarda.' },
+                    { t: 'h', x: 'El link de registro' },
+                    { t: 'p', x: 'Cada actividad de entrada libre lleva su formulario de inscripción, con la fecha en que se creó y su estado: activo, inactivo sin publicar, o finalizado. Mantener ese estado al día importa, porque el tablero de herramientas lo usa para saber si a una actividad le falta publicar el link.' },
+                    { t: 'h', x: 'Asistencia real' },
+                    { t: 'p', x: 'Después del evento se puede registrar cuántas personas asistieron realmente. Es un dato valioso en entrada libre, porque no todo el que se inscribe llega, y con el tiempo permite saber qué proporción de inscritos se convierte en público.' }
+                ]
+            },
+            {
+                n: 9, titulo: 'Registrar acciones de mercadeo',
+                bloques: [
+                    { t: 'p', x: 'La bitácora de acciones es lo que permite responder, meses después, por qué una obra llenó y otra no. Cada obra tiene la suya, dentro de su ficha.' },
+                    { t: 'h', x: 'Cómo se registra' },
+                    { t: 'num', x: 'Abre la obra desde el Dashboard o desde Registro de Obras.' },
+                    { t: 'num', x: 'Baja hasta la sección "Acciones de Mercadeo y Comunicaciones".' },
+                    { t: 'num', x: 'Escribe la descripción de lo que se hizo.' },
+                    { t: 'num', x: 'Ajusta la fecha si la acción ocurrió otro día. Por defecto viene la de hoy.' },
+                    { t: 'num', x: 'Pulsa "Agregar acción".' },
+                    { t: 'h', x: 'Cómo se escribe una buena acción' },
+                    { t: 'p', x: 'La descripción debe permitir entender qué se hizo sin tener que preguntarle a nadie. Conviene incluir el detalle concreto: montos, aliados, medios.' },
+                    { t: 'li', x: 'Así sí: "Activamos pauta digital adicional por $800.000 en Meta". Así no: "Se hizo pauta".' },
+                    { t: 'li', x: 'Así sí: "Mailing con Universidad Nacional y Universidad Javeriana". Así no: "Correos a universidades".' },
+                    { t: 'li', x: 'Así sí: "Alianza con Colsubsidio para descuento del 20% a afiliados". Así no: "Convenio".' },
+                    { t: 'li', x: 'Así sí: "Nota en Radio Nacional dentro de la franja cultural". Así no: "Salimos en radio".' },
+                    { t: 'h', x: 'La fecha importa' },
+                    { t: 'p', x: 'La fecha que se registra es la del día en que ocurrió la acción, no la del día en que se está anotando. Se pueden registrar acciones de días anteriores sin problema. Esto es lo que permite después cruzar la curva de ventas con las acciones y ver si un pico coincide con algo que se hizo.' },
+                    { t: 'h', x: 'Hecha o pendiente' },
+                    { t: 'p', x: 'Cada acción tiene un estado que se cambia con un clic. Sirve para anotar cosas planeadas que todavía no ocurren y marcarlas cuando se cumplan.' },
+                    { t: 'h', x: 'Quién queda registrado' },
+                    { t: 'p', x: 'Cada acción guarda automáticamente el correo de quien la registró. No hay que escribirlo.' }
+                ]
+            },
+            {
+                n: 10, titulo: 'Herramientas de mercadeo y comunicaciones',
+                bloques: [
+                    { t: 'p', x: 'Es el tablero que muestra, para todas las obras activas, en qué estado está cada herramienta de comunicación. Está dentro de la sección "Reportes".' },
+                    { t: 'h', x: 'Cómo se lee' },
+                    { t: 'p', x: 'Cada obra es una fila y cada herramienta una columna. Un círculo verde significa que esa herramienta ya está lista; uno rojo, que está pendiente.' },
+                    { t: 'p', x: 'Las obras con algo pendiente aparecen primero y las completas al final, para que lo urgente salte a la vista sin esconder el resto.' },
+                    { t: 'h', x: 'Qué columnas tiene cada tipo' },
+                    { t: 'p', x: 'En boletería: pieza gráfica, tiquetera, redes, video y pauta. En entrada libre: pieza gráfica, link de registro y redes. Si tu perfil es de registrador, solo ves la tabla de tu tipo.' },
+                    { t: 'h', x: 'Para qué sirve en la práctica' },
+                    { t: 'p', x: 'Es la lista de chequeo que evita que una obra llegue al estreno sin pauta o sin link de registro. Vale la pena revisarla una vez por semana y no solo cuando el estreno está encima.' },
+                    { t: 'h', x: 'En la tarjeta de cada obra' },
+                    { t: 'p', x: 'En el Dashboard, dentro de cada obra se puede saber cuáles herramientas de mercadeo están activas (recuadro azul) y cuáles no (recuadro gris). Y en la ficha de la obra se ve cuáles acciones de mercadeo se han realizado o se están ejecutando pero no están hechas.' }
+                ]
+            },
+            {
+                n: 11, titulo: 'El Dashboard',
+                bloques: [
+                    { t: 'p', x: 'Es la pantalla de entrada y responde de un vistazo cómo va todo.' },
+                    { t: 'h', x: 'Los indicadores de arriba' },
+                    { t: 'p', x: 'Muestran el total de obras y funciones en cartelera, y el desempeño separado de boletería y entrada libre.' },
+                    { t: 'h', x: 'Los grupos' },
+                    { t: 'p', x: 'Las obras aparecen agrupadas por temporada, festival, encuentro o franja, y las que no pertenecen a ninguno quedan en un grupo de obras individuales. Cada grupo muestra su propio porcentaje, lo que permite ver cómo va un ciclo completo.' },
+                    { t: 'h', x: 'Las tarjetas de obra' },
+                    { t: 'p', x: 'Cada obra aparece colapsada con su nombre, la sala, la fecha de estreno y su porcentaje. Al hacer clic se despliega el detalle función por función, con cuántas boletas se vendieron y cuántas faltan. Dentro de cada grupo, las obras se ordenan por fecha de estreno, así que lo más próximo queda arriba.' },
+                    { t: 'h', x: 'Obras finalizadas' },
+                    { t: 'p', x: 'Las obras cuya última función ya pasó se mueven a una sección aparte al final, para que no ocupen la atención en el seguimiento del día a día.' }
+                ]
+            },
+            {
+                n: 12, titulo: 'El Calendario y el PDF de programación',
+                bloques: [
+                    { t: 'p', x: 'Muestra toda la programación distribuida en el tiempo, con un color por sala.' },
+                    { t: 'h', x: 'Las cuatro vistas' },
+                    { t: 'p', x: 'Día, semana, mes y año. La de mes es la más usada: muestra cada función con su hora y el nombre completo de la obra.' },
+                    { t: 'h', x: 'Los filtros' },
+                    { t: 'p', x: 'Se puede filtrar por sala y por tipo de obra. Los filtros aplican a todas las vistas y también al PDF que se genere.' },
+                    { t: 'h', x: 'Generar el PDF' },
+                    { t: 'num', x: 'Ajusta los filtros si quieres solo una sala o un tipo.' },
+                    { t: 'num', x: 'Pulsa el botón "PDF" arriba a la derecha.' },
+                    { t: 'num', x: 'Se abre una ventana nueva con el documento listo para imprimir.' },
+                    { t: 'num', x: 'En el destino de impresión elige "Guardar como PDF".' },
+                    { t: 'p', x: 'El documento sale en horizontal, con un mes por página y cada función mostrando hora, nombre completo y sala. Si tu perfil es de registrador, el PDF trae solo las obras de tu tipo y el título lo indica.' },
+                    { t: 'nota', x: 'Si no se abre nada: el navegador puede estar bloqueando las ventanas emergentes. Permítelas para este sitio e intenta de nuevo.' }
+                ]
+            },
+            {
+                n: 13, titulo: 'Reportes y Reporte Diario',
+                bloques: [
+                    { t: 'h', x: 'La sección Reportes' },
+                    { t: 'p', x: 'Reúne en pantalla el porcentaje de venta por obra en boletería, el de inscritos en entrada libre, el tablero de herramientas de mercadeo y la bitácora completa de acciones con fechas y responsables.' },
+                    { t: 'h', x: 'El Reporte Diario descargable' },
+                    { t: 'p', x: 'Genera imágenes listas para compartir por correo o WhatsApp, sin tener que armar nada a mano. Es el insumo del reporte diario a dirección.' },
+                    { t: 'num', x: 'Entra a "Reporte Diario" en el menú.' },
+                    { t: 'num', x: 'Pulsa el botón de generar y espera unos segundos.' },
+                    { t: 'num', x: 'Descarga cada imagen con su botón.' },
+                    { t: 'p', x: 'Se generan hasta tres tipos de imagen: el reporte de avance organizado por mes, temporada y obra; el tablero de herramientas de mercadeo; y la bitácora de acciones. Cada una lleva su etiqueta para saber cuál es cuál antes de descargarla, y el nombre del archivo incluye la fecha. Este es el reporte que se comparte por WhatsApp en el grupo Comité de Boletería.' }
+                ]
+            },
+            {
+                n: 14, titulo: 'El gráfico de ventas diarias',
+                bloques: [
+                    { t: 'p', x: 'Es la función más útil del sistema y la menos evidente. Muestra cómo se fue vendiendo una obra a lo largo del tiempo y permite cruzarlo con lo que se hizo en mercadeo.' },
+                    { t: 'h', x: 'Cómo abrirlo' },
+                    { t: 'p', x: 'Desde el Dashboard, despliega una obra y pulsa "Ver gráfico". También está dentro de la ficha de la obra.' },
+                    { t: 'h', x: 'Cómo se lee' },
+                    { t: 'p', x: 'La curva azul es la venta acumulada: cuántas boletas lleva vendidas la obra en cada fecha. Las líneas verticales punteadas marcan los hitos de mercadeo: cuándo salió en tiquetera, cuándo en redes, cuándo se activó la pauta, y cuándo es el estreno.' },
+                    { t: 'p', x: 'El eje de tiempo va desde el primer hito hasta el estreno, así que el espacio vacío a la derecha muestra cuántos días quedan para vender.' },
+                    { t: 'h', x: 'Qué buscar' },
+                    { t: 'li', x: 'Si la curva se empina justo después de una línea de hito, esa acción funcionó.' },
+                    { t: 'li', x: 'Si la curva sigue plana días después de la pauta, algo hay que revisar.' },
+                    { t: 'li', x: 'Si la curva arranca tarde respecto a la salida en tiquetera, la obra estuvo publicada sin difusión.' },
+                    { t: 'nota', x: 'Ten en cuenta: el gráfico solo puede mostrar lo que se registró. Si las ventas no se anotaron día a día, la curva queda vacía o con saltos.' }
+                ]
+            },
+            {
+                n: 15, titulo: 'Administración',
+                bloques: [
+                    { t: 'p', x: 'Esta sección solo está disponible para el administrador general y el líder de mercadeo.' },
+                    { t: 'h', x: 'Salas' },
+                    { t: 'p', x: 'Cada sala se define con su nombre, su aforo base y un color, que es el que se usa en el calendario. El aforo de aquí es el normal de la sala; las obras con montajes especiales llevan su propio aforo. Se pueden crear todas las salas que se requieran y en diferentes configuraciones (con foso, sin foso, a la italiana, etc.).' },
+                    { t: 'h', x: 'Categorías' },
+                    { t: 'p', x: 'La lista de tipos de espectáculo que aparece al crear una obra.' },
+                    { t: 'h', x: 'Temporadas, festivales, encuentros, franjas' },
+                    { t: 'p', x: 'Los agrupadores que permiten ver varias obras como un solo ciclo, tanto en el Dashboard como en los reportes.' },
+                    { t: 'h', x: 'Usuarios y perfiles' },
+                    { t: 'li', x: 'Agregar: nombre, correo y perfil. El correo es la llave de acceso, así que debe quedar exacto.' },
+                    { t: 'li', x: 'Cambiar el perfil: con el desplegable de la fila. Aplica de inmediato.' },
+                    { t: 'li', x: 'Desactivar: suspende el acceso sin borrar a la persona. Útil para ausencias temporales.' },
+                    { t: 'li', x: 'Eliminar: borra el perfil definitivamente.' },
+                    { t: 'p', x: 'El sistema no permite dejar la aplicación sin ningún administrador activo, ni que alguien elimine su propio usuario.' },
+                    { t: 'h', x: 'Copias de seguridad' },
+                    { t: 'p', x: 'Todos los días a las ocho de la noche el sistema genera automáticamente una copia de seguridad y la envía por correo al administrador. Además, desde esta sección se puede descargar una copia en cualquier momento. El archivo es un Excel con una hoja por cada tabla del sistema, más una hoja legible con el estado de las herramientas de mercadeo por obra.' },
+                    { t: 'nota', x: 'Cuidado con restaurar: restaurar un archivo borra por completo toda la información actual y la reemplaza por la del archivo. No se puede deshacer. El sistema pide confirmación dos veces, incluida la palabra BORRAR escrita a mano. Descarga siempre una copia antes de restaurar.' }
+                ]
+            },
+            {
+                n: 16, titulo: 'El Historial',
+                bloques: [
+                    { t: 'p', x: 'Registra todo lo que pasa en el sistema, con la fecha, la hora y el correo de quien lo hizo. Solo lo ven el administrador general y el líder de mercadeo.' },
+                    { t: 'h', x: 'Qué queda registrado' },
+                    { t: 'li', x: 'Creación, edición y eliminación de obras. En las ediciones se detalla qué campo cambió, de qué valor a cuál.' },
+                    { t: 'li', x: 'Registro de ventas e inscritos, con el acumulado que quedó y la función afectada.' },
+                    { t: 'li', x: 'Acciones de mercadeo registradas y sus cambios de estado.' },
+                    { t: 'li', x: 'Cambios de fecha u hora de funciones.' },
+                    { t: 'li', x: 'Creación, cambio de perfil, desactivación y eliminación de usuarios.' },
+                    { t: 'p', x: 'El Historial no es un mecanismo de vigilancia sino de reconstrucción: sirve para entender qué pasó cuando un dato no cuadra, y para recuperar información cuando alguien cambió algo por error.' }
+                ]
+            },
+            {
+                n: 17, titulo: 'Problemas frecuentes',
+                bloques: [
+                    { t: 'h', x: 'No me deja registrar más ventas' },
+                    { t: 'p', x: 'Llegaste al tope de boletas disponibles. Revisa que el aforo de la obra y las cortesías estén bien registrados. Si el aforo cambió por el montaje, hay que corregirlo en la ficha de la obra.' },
+                    { t: 'h', x: 'No veo el botón de editar en una obra' },
+                    { t: 'p', x: 'Esa obra es del otro tipo, o tu perfil es de visualizador. Puedes verla completa pero no modificarla.' },
+                    { t: 'h', x: 'El porcentaje no coincide con mi Excel' },
+                    { t: 'p', x: 'Es esperado. El sistema calcula sobre el aforo menos las cortesías y el Excel lo hacía sobre el aforo total. Está explicado en la sección 5.' },
+                    { t: 'h', x: 'No puedo cambiar el tipo de una obra' },
+                    { t: 'p', x: 'Solo el administrador general y el líder de mercadeo pueden hacerlo.' },
+                    { t: 'h', x: 'El gráfico de ventas sale vacío' },
+                    { t: 'p', x: 'Esa obra no tiene ventas registradas día a día. El total puede estar bien, pero si se cargó de una sola vez no hay curva que mostrar. A partir del primer registro diario la curva empieza a construirse.' },
+                    { t: 'h', x: 'Se me olvidó la contraseña' },
+                    { t: 'p', x: 'Escríbele al administrador del sistema para que te genere una temporal nueva.' },
+                    { t: 'h', x: 'El PDF del calendario no se abre' },
+                    { t: 'p', x: 'El navegador está bloqueando las ventanas emergentes. Permítelas para este sitio.' },
+                    { t: 'h', x: 'Veo una versión desactualizada' },
+                    { t: 'p', x: 'Recarga forzando la actualización con Ctrl+Shift+R o Cmd+Shift+R. En celular, cierra la pestaña y vuelve a abrirla.' },
+                    { t: 'h', x: 'Entré, pero me sacó diciendo que no tengo perfil' },
+                    { t: 'p', x: 'Tu cuenta existe, pero no tiene un perfil asignado, o fue desactivada. Habla con el administrador.' }
+                ]
+            },
+            {
+                n: 18, titulo: 'A quién acudir',
+                bloques: [
+                    { t: 'li', x: 'Una contraseña nueva o un usuario nuevo: el administrador del sistema.' },
+                    { t: 'li', x: 'Corregir un dato de boletería: el registrador de boletería.' },
+                    { t: 'li', x: 'Corregir un dato de entrada libre: el registrador de entrada libre.' },
+                    { t: 'li', x: 'Crear una sala, categoría o temporada: el administrador o el líder de mercadeo.' },
+                    { t: 'li', x: 'Recuperar información borrada: el administrador del sistema.' },
+                    { t: 'li', x: 'Reportar un error del sistema: el administrador del sistema.' },
+                    { t: 'p', x: 'Antes de reportar un error, ayuda mucho anotar tres cosas: con qué usuario estabas, en qué pantalla, y qué hiciste justo antes de que apareciera el problema. Si tomas un pantallazo en el computador o celular, mejor.' },
+                    { t: 'p', x: 'Puedes usar el formulario que está al final de esta pantalla: envía tu mensaje directo al administrador con esos datos ya incluidos.' }
+                ]
+            },
+            {
+                n: 19, titulo: 'Sobre el desarrollo de esta herramienta',
+                bloques: [
+                    { t: 'h', x: 'Quién la construyó' },
+                    { t: 'p', x: 'Salas Llenas es un desarrollo interno del Centro Nacional de las Artes Delia Zapata Olivella. La construyó Nicolás Llano Naranjo en su rol de Líder de Mercadeo del CNA, con el apoyo directo del equipo de Mercadeo.' },
+                    { t: 'p', x: 'No es un software comprado ni un servicio contratado. Su forma actual viene de las necesidades planteadas por el equipo y las áreas: cada campo, cada reporte y cada regla de cálculo responde a algo que alguien pidió o a un problema que apareció en la operación.' },
+                    { t: 'h', x: 'Cómo funciona, en términos generales' },
+                    { t: 'p', x: 'La herramienta funciona sobre servicios en la nube. No requiere servidores del CNA, no hay que instalar nada en ningún computador y se puede usar desde cualquier navegador. Basta con tener conexión a internet y las credenciales propias.' },
+                    { t: 'h', x: 'Qué pasa con la información' },
+                    { t: 'p', x: 'La información se respalda automáticamente todos los días a las ocho de la noche, conservando los últimos treinta días. Adicionalmente, cualquier administrador puede descargar una copia completa en cualquier momento desde Administración.' },
+                    { t: 'h', x: 'Continuidad' },
+                    { t: 'p', x: 'El administrador queda atento por si se requieren ajustes, correcciones o mejoras sobre lo existente. Así mismo, está dispuesto a entregar la administración de la herramienta cuando el CNA lo considere necesario, con la documentación y los accesos correspondientes.' },
+                    { t: 'h', x: 'Desarrollos futuros' },
+                    { t: 'p', x: 'Lo que existe hoy se construyó dentro del rol de Líder de Mercadeo y no representó un costo adicional para la entidad. Si en adelante se requieren desarrollos nuevos, pueden construirse sobre lo ya existente en lugar de empezar de cero. Para esos casos sí corresponde evaluar los costos asociados: la infraestructura en la nube, las aplicaciones o servicios que se necesiten, el desarrollo y la administración de lo nuevo.' },
+                    { t: 'h', x: 'Cómo pedir un ajuste o una función nueva' },
+                    { t: 'li', x: 'Qué necesitas lograr, no la solución que imaginas.' },
+                    { t: 'li', x: 'Para qué lo necesitas: qué decisión o qué trabajo depende de eso.' },
+                    { t: 'li', x: 'Qué tan urgente es y si hay una fecha de por medio.' },
+                    { t: 'nota', x: 'Compromiso de respuesta: las solicitudes se responden en horario hábil, de lunes a viernes.' }
+                ]
+            }
+        ];
+
+        function textoDeSeccionManual(sec) {
+            return (sec.n + '. ' + sec.titulo + ' ' + sec.bloques.map(b => b.x).join(' ')).toLowerCase();
+        }
+
+        function resaltarBusqueda(texto, termino) {
+            const limpio = escaparHtmlAyuda(texto);
+            if (!termino) return limpio;
+            const patron = new RegExp('(' + termino.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            return limpio.replace(patron, '<mark style="background:#fef08a;">$1</mark>');
+        }
+
+        function escaparHtmlAyuda(t) {
+            return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function buscarEnAyuda(valor) {
+            appState.ayudaBusqueda = valor;
+            appState.ayudaSeccionAbierta = null;
+            render();
+            const campo = document.getElementById('ayudaBuscar');
+            if (campo) { campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length); }
+        }
+
+        function toggleSeccionAyuda(n) {
+            appState.ayudaSeccionAbierta = appState.ayudaSeccionAbierta === n ? null : n;
+            render();
+        }
+
+        function renderAyuda() {
+            const termino = (appState.ayudaBusqueda || '').trim().toLowerCase();
+            let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
+            html += '<main class="max-w-3xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-1">❓ Ayuda</h2>';
+            html += '<p class="text-sm text-gray-600 mb-4">Manual de usuario de Salas Llenas. Busca por palabra o abre la sección que necesites.</p>';
+
+            html += '<div class="mb-4"><input type="text" id="ayudaBuscar" value="' + escaparHtmlAyuda(appState.ayudaBusqueda || '') + '" placeholder="Buscar: cortesías, aforo, contraseña, gráfico..." oninput="buscarEnAyuda(this.value)" class="w-full px-3 py-2 border rounded text-sm" /></div>';
+
+            const secciones = termino
+                ? MANUAL.filter(s => textoDeSeccionManual(s).indexOf(termino) !== -1)
+                : MANUAL;
+
+            if (termino) {
+                html += '<p class="text-xs text-gray-500 mb-3">' + secciones.length + ' sección(es) con "' + escaparHtmlAyuda(termino) + '".</p>';
+            }
+
+            if (secciones.length === 0) {
+                html += '<div class="bg-white rounded shadow p-4 mb-6"><p class="text-sm text-gray-600">No encontramos nada con esa palabra. Prueba con otra, o escríbenos con el formulario de abajo.</p></div>';
+            }
+
+            secciones.forEach(sec => {
+                // Al buscar se abren todas las coincidencias; sin búsqueda, solo la elegida
+                const abierta = termino ? true : appState.ayudaSeccionAbierta === sec.n;
+                html += '<div class="bg-white rounded shadow mb-2">';
+                html += '<button onclick="toggleSeccionAyuda(' + sec.n + ')" class="w-full text-left px-4 py-3 flex justify-between items-center hover:bg-gray-50">';
+                html += '<span class="font-bold text-sm">' + sec.n + '. ' + resaltarBusqueda(sec.titulo, termino) + '</span>';
+                html += '<span class="text-gray-400 text-xs">' + (abierta ? '▲' : '▼') + '</span>';
+                html += '</button>';
+
+                if (abierta) {
+                    html += '<div class="px-4 pb-4 border-t pt-3">';
+                    sec.bloques.forEach(b => {
+                        const texto = resaltarBusqueda(b.x, termino);
+                        if (b.t === 'h') html += '<p class="font-bold text-sm text-gray-800 mt-3 mb-1">' + texto + '</p>';
+                        else if (b.t === 'li') html += '<p class="text-sm text-gray-700 mb-1 pl-4" style="text-indent:-1rem;">• ' + texto + '</p>';
+                        else if (b.t === 'num') html += '<p class="text-sm text-gray-700 mb-1 pl-4">' + texto + '</p>';
+                        else if (b.t === 'nota') html += '<div class="bg-yellow-50 border border-yellow-200 rounded p-2 my-2"><p class="text-sm text-yellow-900">' + texto + '</p></div>';
+                        else html += '<p class="text-sm text-gray-700 mb-2">' + texto + '</p>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+            });
+
+            // Formulario de contacto
+            html += '<div class="bg-white rounded shadow p-4 mt-6">';
+            html += '<h3 class="font-bold mb-1">✉️ ¿No encontraste lo que buscabas?</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">Escríbenos y le llega directo al administrador. Tu nombre, tu perfil y la fecha se envían automáticamente, no hay que escribirlos.</p>';
+            html += '<form onsubmit="enviarConsultaSoporte(event)">';
+            html += '<select id="soporteTipo" class="w-full px-3 py-2 border rounded text-sm mb-2">';
+            html += '<option value="Duda">Tengo una duda de uso</option>';
+            html += '<option value="Error">Encontré un error</option>';
+            html += '<option value="Sugerencia">Tengo una sugerencia</option>';
+            html += '<option value="Acceso">Necesito un acceso o una contraseña</option>';
+            html += '</select>';
+            html += '<textarea id="soporteMensaje" required rows="4" placeholder="Cuéntanos qué necesitas. Si es un error, dinos en qué pantalla estabas y qué hiciste justo antes." class="w-full px-3 py-2 border rounded text-sm mb-2"></textarea>';
+            html += '<button type="submit" id="btnSoporte" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">Enviar mensaje</button>';
+            html += '</form></div>';
+
+            html += '</main></div>';
+            return html;
+        }
+
+        async function enviarConsultaSoporte(event) {
+            event.preventDefault();
+            const mensaje = document.getElementById('soporteMensaje').value.trim();
+            const tipo = document.getElementById('soporteTipo').value;
+            if (!mensaje) return;
+
+            const boton = document.getElementById('btnSoporte');
+            if (boton) { boton.disabled = true; boton.textContent = 'Enviando...'; }
+
+            const { error } = await db.from('boleteria_soporte').insert({
+                id: 'sop-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                usuario_email: appState.user.email,
+                usuario_nombre: appState.user.nombre,
+                usuario_rol: nombreRol(appState.user.rol),
+                pantalla: 'Ayuda',
+                tipo: tipo,
+                mensaje: mensaje
+            });
+
+            if (boton) { boton.disabled = false; boton.textContent = 'Enviar mensaje'; }
+
+            if (error) {
+                alert('⚠️ No se pudo enviar el mensaje: ' + error.message);
+                return;
+            }
+            document.getElementById('soporteMensaje').value = '';
+            alert('✅ Mensaje enviado. Le llega al administrador y te responderá en horario hábil.');
+        }
+
         function renderMiCuenta() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">🔑 Mi cuenta</h2>';
@@ -2513,6 +2998,15 @@
             html += '<p class="text-xs text-yellow-900"><strong>Pendiente:</strong> agregar a alguien aquí define su perfil, pero todavía no le crea la contraseña. El acceso con contraseña propia queda listo cuando se conecte la autenticación de Supabase.</p>';
             html += '</div>';
             html += '</div>';
+
+            // CORREO DE SOPORTE
+            html += '<div class="bg-white rounded shadow p-4 mt-6">';
+            html += '<h3 class="text-lg font-bold mb-1">✉️ Correo de soporte</h3>';
+            html += '<p class="text-xs text-gray-500 mb-3">A esta dirección llegan los mensajes que la gente envía desde la sección Ayuda. Cámbiala cuando cambie quien atiende las solicitudes.</p>';
+            html += '<form onsubmit="guardarCorreoSoporte(event)" class="flex flex-wrap gap-2">';
+            html += '<input type="email" id="correoSoporte" required value="' + (appState.config.correo_soporte || '') + '" class="flex-1 min-w-64 px-3 py-2 border rounded text-sm" />';
+            html += '<button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">Guardar</button>';
+            html += '</form></div>';
 
             // COPIA DE SEGURIDAD
             html += '<div class="bg-white rounded shadow p-4 mt-6">';
@@ -2724,6 +3218,30 @@
                 return false;
             }
             return true;
+        }
+
+        async function guardarCorreoSoporte(event) {
+            event.preventDefault();
+            if (!puedeAdministrarUsuarios()) return;
+            const correo = document.getElementById('correoSoporte').value.trim().toLowerCase();
+            if (!correo) return;
+
+            const anterior = appState.config.correo_soporte || '';
+            const { error } = await db.from('boleteria_config')
+                .upsert({ clave: 'correo_soporte', valor: correo }, { onConflict: 'clave' });
+            if (error) {
+                alert('⚠️ No se pudo guardar: ' + error.message);
+                return;
+            }
+
+            appState.config.correo_soporte = correo;
+            registrarHistorial({
+                accion: 'Correo de soporte actualizado',
+                detalles: (anterior || 'vacío') + ' → ' + correo
+            });
+            await saveData();
+            alert('✅ Los mensajes de Ayuda ahora llegan a ' + correo + '.');
+            render();
         }
 
         async function agregarUsuario(event) {
@@ -4565,6 +5083,7 @@
                     case 'salas': app.innerHTML = renderSalas(); break;
                     case 'admin': app.innerHTML = renderAdmin(); break;
                     case 'mi-cuenta': app.innerHTML = renderMiCuenta(); break;
+                    case 'ayuda': app.innerHTML = renderAyuda(); break;
                     case 'crear-sala': app.innerHTML = renderCrearSala(); break;
                     case 'ventas': app.innerHTML = renderVentas(); break;
                     case 'entrada': app.innerHTML = renderEntrada(); break;

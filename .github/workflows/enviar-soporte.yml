@@ -1,0 +1,27 @@
+name: Enviar consultas de soporte
+
+on:
+  schedule:
+    # Cada 15 minutos. GitHub puede demorarse algunos minutos más cuando hay carga.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Enviar consultas pendientes
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          BACKUP_EMAIL_TO: ${{ secrets.BACKUP_EMAIL_TO }}
+          SOPORTE_TOKEN: ${{ secrets.SOPORTE_TOKEN }}
+        run: python scripts/enviar_soporte.py
