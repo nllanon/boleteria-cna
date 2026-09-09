@@ -2778,10 +2778,12 @@
                     cuerpo += '<td><div class="numero">' + dia + '</div>';
                     delDia.forEach(f => {
                         const obra = appState.obras.find(o => o.id === f.obraId);
-                        cuerpo += '<div class="evento" style="border-left:4px solid ' + getColorSala(obra.salaId) + ';">';
+                        const fondo = getColorSala(obra.salaId);
+                        const texto = colorTextoContraste(fondo);
+                        const emoji = obra.tipo === 'boleteria' ? '\uD83D\uDCB5' : '\uD83C\uDF9F\uFE0F';
+                        cuerpo += '<div class="evento" style="background:' + fondo + '; color:' + texto + ';">';
                         cuerpo += '<span class="hora">' + formatearHora(f.hora) + '</span> ';
-                        cuerpo += '<span class="tipo">' + (obra.tipo === 'boleteria' ? 'B' : 'EL') + '</span> ';
-                        cuerpo += escapar(obra.nombre);
+                        cuerpo += emoji + ' ' + escapar(obra.nombre);
                         cuerpo += '<div class="sala">' + escapar(getSala(obra.salaId)?.nombre || '') + '</div>';
                         cuerpo += '</div>';
                     });
@@ -2804,6 +2806,7 @@
             const estilos = [
                 '@page { size: A4 landscape; margin: 12mm; }',
                 'body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; }',
+                '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
                 'h1 { font-size:20px; margin:0 0 4px; }',
                 'h2 { font-size:15px; margin:0 0 8px; }',
                 '.meta { font-size:11px; color:#555; margin-bottom:10px; }',
@@ -2814,10 +2817,9 @@
                 'td { border:1px solid #ddd; vertical-align:top; padding:3px; height:92px; width:14.28%; }',
                 'td.vacio { background:#fafafa; }',
                 '.numero { font-size:12px; font-weight:bold; color:#333; margin-bottom:2px; }',
-                '.evento { font-size:9px; line-height:1.25; padding:2px 3px; margin-bottom:3px; background:#f6f6f6; word-break:break-word; }',
+                '.evento { font-size:9px; line-height:1.25; padding:3px 4px; margin-bottom:3px; border-radius:3px; word-break:break-word; }',
                 '.hora { font-weight:bold; }',
-                '.tipo { font-size:8px; border:1px solid #999; padding:0 2px; border-radius:2px; }',
-                '.sala { color:#666; font-size:8px; }',
+                '.sala { font-size:8px; opacity:0.85; }',
                 'section { page-break-inside:avoid; }',
                 'section.salto { page-break-before:always; }'
             ].join(' ');
@@ -2827,7 +2829,7 @@
                 '<h1>Programación CNA</h1>' +
                 '<div class="meta">Generado el ' + formatearFecha(new Date().toISOString().split('T')[0]) +
                 ' · ' + escapar(filtroSala) + ' · ' + filtroTipo + ' · ' + funciones.length + ' funciones<br>' +
-                'B = Boletería · EL = Entrada Libre &nbsp; ' + leyenda + '</div>' +
+                '\uD83D\uDCB5 Boletería &nbsp; \uD83C\uDF9F\uFE0F Entrada Libre &nbsp;&nbsp; ' + leyenda + '</div>' +
                 cuerpo + '</body></html>';
 
             const ventana = window.open('', '_blank');
