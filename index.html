@@ -378,6 +378,15 @@
             return new Date(fechaStr + 'T00:00:00');
         }
 
+        // Fecha en formato AAAA-MM-DD para los nombres de archivo descargables.
+        // Se usa la fecha local, no la UTC, para que un archivo generado de noche
+        // en Colombia no quede fechado al día siguiente.
+        function fechaParaArchivo() {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+
         function formatearFecha(fecha) {
             if (!fecha) return '-';
             const d = new Date(fecha + 'T00:00:00');
@@ -2395,7 +2404,7 @@
                 }
 
                 const fecha = new Date().toISOString().split('T')[0];
-                XLSX.writeFile(libro, 'backup-salas-llenas-' + fecha + '.xlsx');
+                XLSX.writeFile(libro, 'backup-salas-llenas-' + fechaParaArchivo() + '.xlsx');
             } catch (err) {
                 console.error('Error generando backup:', err);
                 alert('⚠️ Error al generar el archivo de backup.');
@@ -2814,7 +2823,7 @@
             ].join(' ');
 
             const doc = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
-                '<title>Programación CNA</title><style>' + estilos + '</style></head><body>' +
+                '<title>programacion-cna-' + fechaParaArchivo() + '</title><style>' + estilos + '</style></head><body>' +
                 '<h1>Programación CNA</h1>' +
                 '<div class="meta">Generado el ' + formatearFecha(new Date().toISOString().split('T')[0]) +
                 ' · ' + escapar(filtroSala) + ' · ' + filtroTipo + ' · ' + funciones.length + ' funciones<br>' +
@@ -3917,7 +3926,7 @@
             return {
                 dataUrl: canvas.toDataURL('image/png'),
                 etiqueta: 'Herramientas de mercadeo y comunicaciones',
-                nombreArchivo: 'herramientas-mercadeo-cna-' + new Date().toISOString().split('T')[0] + '.png'
+                nombreArchivo: 'herramientas-mercadeo-cna-' + fechaParaArchivo() + '.png'
             };
         }
 
@@ -4048,7 +4057,7 @@
             return {
                 dataUrl: canvas.toDataURL('image/png'),
                 etiqueta: 'Acciones de mercadeo y comunicaciones',
-                nombreArchivo: 'acciones-mercadeo-cna-' + new Date().toISOString().split('T')[0] + '.png'
+                nombreArchivo: 'acciones-mercadeo-cna-' + fechaParaArchivo() + '.png'
             };
         }
 
@@ -4090,7 +4099,7 @@
                     generadas.push({
                         dataUrl: canvas.toDataURL('image/png'),
                         etiqueta: paginas.length > 1 ? 'Reporte de avance — parte ' + (i + 1) : 'Reporte de avance',
-                        nombreArchivo: 'reporte-avance-cna-' + fecha + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png'
+                        nombreArchivo: 'reporte-avance-cna-' + fechaParaArchivo() + (paginas.length > 1 ? '-parte' + (i + 1) : '') + '.png'
                     });
                 } catch (err) {
                     console.error(err);
