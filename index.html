@@ -1944,26 +1944,15 @@
             const primeraFuncion = new Date(Math.min(...fechas));
             const ultimaFuncion = new Date(Math.max(...fechas));
 
-            // Las funciones en fechas pasadas SÍ se permiten: hay que poder registrar
-            // resultados finales y cargar programación anterior. Solo se avisa al
-            // crear una obra nueva, por si la fecha se escribió mal.
-            const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-            const funcionesPasadas = functionesAGuardar.filter(f => parsearFechaLocal(f.fecha) < hoy);
-            if (funcionesPasadas.length > 0 && !appState.editingObra) {
-                const detalle = funcionesPasadas.map(f => formatearFecha(f.fecha)).join(', ');
-                if (!confirm('Esta obra tiene ' + funcionesPasadas.length + ' función(es) en fechas ya pasadas: ' + detalle +
-                    '.\n\nEstá bien si estás registrando una obra que ya ocurrió. ¿Continuar?')) {
-                    return;
-                }
-            }
+            // Las funciones en fechas pasadas SÍ se permiten sin aviso alguno:
+            // registrar resultados finales o cargar programación anterior es normal.
 
             // Aviso NO bloqueante: si tiquetera/redes/pauta quedan después de la
             // primera función, o en un orden inusual, solo se advierte — el usuario
             // decide si es correcto (por ejemplo, obras que ya llevan tiempo en cartelera).
-            const tiquetera = fechaTiquetera ? new Date(fechaTiquetera) : null;
-            const redes = fechaRedes ? new Date(fechaRedes) : null;
-            const pauta = fechaPauta ? new Date(fechaPauta) : null;
+            const tiquetera = fechaTiquetera ? parsearFechaLocal(fechaTiquetera) : null;
+            const redes = fechaRedes ? parsearFechaLocal(fechaRedes) : null;
+            const pauta = fechaPauta ? parsearFechaLocal(fechaPauta) : null;
             const avisos = [];
             if (tiquetera && tiquetera >= primeraFuncion) avisos.push('la fecha en tiquetera es igual o posterior a la primera función');
             if (redes && redes >= primeraFuncion) avisos.push('la fecha de redes es igual o posterior a la primera función');
@@ -2888,6 +2877,10 @@
             alert('✅ Mensaje enviado. Le llega al administrador y te responderá en horario hábil.');
         }
 
+        // Cambia con cada despliegue: sirve para confirmar si el navegador tiene
+        // la versión nueva o una guardada en caché.
+        const VERSION_APP = '2026-09-15b';
+
         function renderMiCuenta() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
             html += '<main class="max-w-2xl mx-auto px-4 py-6"><h2 class="text-xl font-bold mb-6">🔑 Mi cuenta</h2>';
@@ -2896,6 +2889,7 @@
             html += '<p class="text-sm text-gray-700 mb-1"><strong>' + appState.user.nombre + '</strong></p>';
             html += '<p class="text-xs text-gray-500">' + appState.user.email + '</p>';
             html += '<p class="text-xs text-gray-500 mt-1">Perfil: ' + nombreRol(appState.user.rol) + '</p>';
+            html += '<p class="text-xs text-gray-400 mt-2">Versión del sistema: ' + VERSION_APP + '</p>';
             html += '</div>';
 
             html += '<div class="bg-white rounded shadow p-4">';
