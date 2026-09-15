@@ -1362,7 +1362,8 @@
             // ========== BASELINE DE VENTAS (Ayer) — SOLO BOLETERÍA ==========
             if (obra.tipo === 'boleteria') {
             html += '<div class="bg-yellow-50 border-2 border-yellow-300 p-6 rounded shadow mb-6">';
-            html += '<h3 class="text-lg font-bold mb-4 text-yellow-900">📊 Establecer Baseline de Ventas (Acumuladas a Ayer)</h3>';
+            html += '<h3 class="text-lg font-bold mb-1 text-yellow-900">📊 Ajustar acumulados y cierre</h3>';
+            html += '<p class="text-xs text-gray-600 mb-4">Corrige el acumulado de venta y registra las cortesías que se entregaron de verdad. Úsalo al cargar una obra que ya venía vendiendo, o al cerrar una obra que ya se presentó.</p>';
             html += '<form onsubmit="guardarBaselineVentas(event, \'' + obra.id + '\')" class="space-y-3">';
             if (funciones.length === 0) {
                 html += '<p class="text-gray-600 text-sm">Crea funciones primero</p>';
@@ -1374,12 +1375,17 @@
                     html += '<strong>' + formatearFecha(f.fecha) + ' ' + formatearHora(f.hora) + '</strong>';
                     html += '<span class="text-xs text-gray-600">Aforo: ' + getAforo(obra) + '</span>';
                     html += '</div>';
-                    html += '<label class="block text-sm font-medium mb-1">Boletas vendidas hasta ayer</label>';
-                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-baseline-' + f.id + ' value="' + (f.ventasAcumuladas || 0) + '" min="0" max="' + (getAforo(obra) || 1000) + '" />';
+                    html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">';
+                    html += '<div><label class="block text-sm font-medium mb-1">Boletas vendidas hasta ayer</label>';
+                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-baseline-' + f.id + ' value="' + (f.ventasAcumuladas || 0) + '" min="0" max="' + (getAforo(obra) || 1000) + '" /></div>';
+                    html += '<div><label class="block text-sm font-medium mb-1">Cortesías realmente entregadas</label>';
+                    html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-entregadas-' + f.id + ' value="' + (f.cortesiasEntregadas || 0) + '" min="0" />';
+                    html += '<p class="text-xs text-gray-500 mt-1">De las ' + (f.cortesias || 0) + ' planeadas. Se llena después de la función.</p></div>';
+                    html += '</div>';
                     html += '</div>';
                 });
             }
-            html += '<button type="submit" class="w-full bg-yellow-600 text-white px-4 py-3 rounded text-base font-bold hover:bg-yellow-700">💾 Guardar Baseline</button>';
+            html += '<button type="submit" class="w-full bg-yellow-600 text-white px-4 py-3 rounded text-base font-bold hover:bg-yellow-700">💾 Guardar</button>';
             html += '</form>';
             html += '</div>';
             }
@@ -1576,23 +1582,43 @@
             ayer.setDate(ayer.getDate() - 1);
             const fechaAyer = ayer.toISOString().split('T')[0];
 
+            const cambios = [];
             funciones.forEach(f => {
                 const input = document.querySelector('input[data-baseline-' + f.id + ']');
                 if (input) {
                     const boletas = parseInt(input.value) || 0;
+                    if (boletas !== (f.ventasAcumuladas || 0)) {
+                        cambios.push(formatearFecha(f.fecha) + ' · ventas: ' + (f.ventasAcumuladas || 0) + ' → ' + boletas);
+                    }
                     f.ventasAcumuladas = boletas;
-                    
+
                     // Registrar en ventasPorDia para que el gráfico lo muestre
                     if (!f.ventasPorDia) f.ventasPorDia = [];
                     f.ventasPorDia = [{ fecha: fechaAyer, boletas: boletas }];
-                    
+
                     actualizadas++;
+                }
+
+                const entregadas = document.querySelector('input[data-entregadas-' + f.id + ']');
+                if (entregadas) {
+                    const valor = parseInt(entregadas.value) || 0;
+                    if (valor !== (f.cortesiasEntregadas || 0)) {
+                        cambios.push(formatearFecha(f.fecha) + ' · cortesías entregadas: ' + (f.cortesiasEntregadas || 0) + ' → ' + valor);
+                    }
+                    f.cortesiasEntregadas = valor;
                 }
             });
 
             if (actualizadas > 0) {
+                if (cambios.length > 0) {
+                    registrarHistorial({
+                        obraId: obraId,
+                        accion: 'Ajuste de acumulados y cierre',
+                        detalles: cambios.join(' | ')
+                    });
+                }
                 saveData();
-                alert('✅ Baseline de ' + actualizadas + ' función(es) guardado');
+                alert('✅ Guardado para ' + actualizadas + ' función(es).');
                 render();
             }
         }
@@ -2879,7 +2905,7 @@
 
         // Cambia con cada despliegue: sirve para confirmar si el navegador tiene
         // la versión nueva o una guardada en caché.
-        const VERSION_APP = '2026-09-15b';
+        const VERSION_APP = '2026-09-15c';
 
         function renderMiCuenta() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
