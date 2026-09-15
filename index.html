@@ -1944,13 +1944,16 @@
             const primeraFuncion = new Date(Math.min(...fechas));
             const ultimaFuncion = new Date(Math.max(...fechas));
 
-            // Validar que las funciones no sean en el pasado (bloqueante)
+            // Las funciones en fechas pasadas SÍ se permiten: hay que poder registrar
+            // resultados finales y cargar programación anterior. Solo se avisa al
+            // crear una obra nueva, por si la fecha se escribió mal.
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
-            for (let f of functionesAGuardar) {
-                const fechaFuncion = parsearFechaLocal(f.fecha);
-                if (fechaFuncion < hoy) {
-                    alert('⚠️ Error: Las funciones no pueden ser en fechas pasadas.\n\nFecha de función: ' + formatearFecha(f.fecha) + '\nFecha de hoy: ' + formatearFecha(hoy.toISOString().split('T')[0]));
+            const funcionesPasadas = functionesAGuardar.filter(f => parsearFechaLocal(f.fecha) < hoy);
+            if (funcionesPasadas.length > 0 && !appState.editingObra) {
+                const detalle = funcionesPasadas.map(f => formatearFecha(f.fecha)).join(', ');
+                if (!confirm('Esta obra tiene ' + funcionesPasadas.length + ' función(es) en fechas ya pasadas: ' + detalle +
+                    '.\n\nEstá bien si estás registrando una obra que ya ocurrió. ¿Continuar?')) {
                     return;
                 }
             }
