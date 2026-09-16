@@ -94,6 +94,7 @@
                 cortesias: r.cortesias, cortesiasEntregadas: r.cortesias_entregadas,
                 ventasAcumuladas: r.ventas_acumuladas, registrados: r.registrados,
                 asistenciaTotal: r.asistencia_total, ventasPorDia: r.ventas_por_dia || [],
+                rinRin: r.rin_rin || 0, rinRinPorDia: r.rin_rin_por_dia || [],
                 registrosPorDia: r.registros_por_dia || []
             };
         }
@@ -103,6 +104,7 @@
                 cortesias: f.cortesias || 0, cortesias_entregadas: f.cortesiasEntregadas || 0,
                 ventas_acumuladas: f.ventasAcumuladas || 0, registrados: f.registrados || 0,
                 asistencia_total: f.asistenciaTotal || 0, ventas_por_dia: f.ventasPorDia || [],
+                rin_rin: f.rinRin || 0, rin_rin_por_dia: f.rinRinPorDia || [],
                 registros_por_dia: f.registrosPorDia || []
             };
         }
@@ -406,6 +408,33 @@
 
         function getSala(salaId) {
             return appState.salas.find(s => s.id === salaId);
+        }
+
+        // ---- Franja Rin Rin (solo Programación Infantil) ----
+        // Boletas sin costo para niños de 4 a 12 años, que redime el adulto que
+        // compra. Ocupan silla, así que cuentan en la ocupación de la sala y
+        // descuentan del total disponible para vender. Nunca se suman a las ventas.
+        const CATEGORIA_INFANTIL = 'Programación Infantil';
+
+        function esInfantil(obra) {
+            return !!obra && obra.categoria === CATEGORIA_INFANTIL;
+        }
+
+        function getRinRin(obra, funcion) {
+            if (!esInfantil(obra)) return 0;
+            return funcion ? (funcion.rinRin || 0) : 0;
+        }
+
+        // Boletas realmente disponibles para vender en una función
+        function boletasAVender(obra, funcion) {
+            const base = getAforo(obra) - (funcion ? (funcion.cortesias || 0) : 0) - getRinRin(obra, funcion);
+            return Math.max(0, base);
+        }
+
+        // Personas que van a ocupar la sala: vendidas + Rin Rin + cortesías
+        function ocupacionFuncion(obra, funcion) {
+            if (!funcion) return 0;
+            return (funcion.ventasAcumuladas || 0) + getRinRin(obra, funcion) + (funcion.cortesias || 0);
         }
 
         // Aforo efectivo de una obra: el propio si se definió (los montajes cambian
@@ -874,7 +903,7 @@
                 const obra = appState.obras.find(o => o.id === f.obraId);
                 if (!obra || obra.tipo !== 'boleteria') return sum;
                 const sala = getSala(obra.salaId);
-                return sum + Math.max(0, getAforo(obra) - (f.cortesias || 0));
+                return sum + boletasAVender(obra, f);
             }, 0);
             const porVenderBoleteria = Math.max(0, totalDisponibleBoleteria - totalVentas);
             const pctBoleteria = totalDisponibleBoleteria > 0 ? Math.round((totalVentas / totalDisponibleBoleteria) * 100) : 0;
@@ -965,7 +994,7 @@
                     getFuncionesObra(obra.id).forEach(f => {
                         if (obra.tipo === 'boleteria') {
                             numB += f.ventasAcumuladas || 0;
-                            denB += Math.max(0, getAforo(obra) - (f.cortesias || 0));
+                            denB += boletasAVender(obra, f);
                         } else {
                             numE += f.registrados || 0;
                             denE += getAforo(obra);
@@ -1062,7 +1091,7 @@
                 let numerador, denominador, etiquetaIzq, etiquetaDer;
                 if (esBoleteria) {
                     numerador = f.ventasAcumuladas || 0;
-                    denominador = Math.max(1, getAforo(obra) - (f.cortesias || 0));
+                    denominador = Math.max(1, boletasAVender(obra, f));
                     etiquetaIzq = numerador + ' vendidas';
                     etiquetaDer = Math.max(0, denominador - numerador) + ' por vender';
                 } else {
@@ -1335,7 +1364,7 @@
                         html += '<div><strong>' + formatearFecha(f.fecha) + '</strong> a las <strong>' + formatearHora(f.hora) + '</strong></div>';
                         if (obra.tipo === 'boleteria') {
                             const ventasFunc = f.ventasAcumuladas || 0;
-                            const disponibleFunc = Math.max(0, getAforo(obra) - (f.cortesias || 0));
+                            const disponibleFunc = boletasAVender(obra, f);
                             const pctFunc = disponibleFunc > 0 ? Math.round((ventasFunc / disponibleFunc) * 100) : 0;
                             html += '<div class="text-xs text-gray-600 mt-0.5">💵 Vendidas: <strong>' + ventasFunc + ' / ' + disponibleFunc + '</strong> ' + renderBadgePct(pctFunc, pctFunc + '%') + '</div>';
                         } else {
@@ -1381,6 +1410,11 @@
                     html += '<div><label class="block text-sm font-medium mb-1">Cortesías realmente entregadas</label>';
                     html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-entregadas-' + f.id + ' value="' + (f.cortesiasEntregadas || 0) + '" min="0" />';
                     html += '<p class="text-xs text-gray-500 mt-1">De las ' + (f.cortesias || 0) + ' planeadas. Se llena después de la función.</p></div>';
+                    if (esInfantil(obra)) {
+                        html += '<div><label class="block text-sm font-medium mb-1">Boletas Franja Rin Rin</label>';
+                        html += '<input type="number" class="w-full px-3 py-2 border rounded text-sm" data-rinrinacum-' + f.id + ' value="' + (f.rinRin || 0) + '" min="0" />';
+                        html += '<p class="text-xs text-gray-500 mt-1">Acumulado de entradas de niños redimidas. Ocupan silla y descuentan del total a vender.</p></div>';
+                    }
                     html += '</div>';
                     html += '</div>';
                 });
@@ -1417,15 +1451,44 @@
             const totalCortesias = funciones.reduce((sum, f) => sum + (f.cortesias || 0), 0);
             const totalCortesiasEntregadas = funciones.reduce((sum, f) => sum + (f.cortesiasEntregadas || 0), 0);
             const aforo = getAforo(obra);
-            const disponible = funciones.reduce((sum, f) => sum + Math.max(0, aforo - (f.cortesias || 0)), 0);
+            const disponible = funciones.reduce((sum, f) => sum + boletasAVender(obra, f), 0);
             html += '<div class="bg-purple-50 border-2 border-purple-300 p-6 rounded shadow mb-6">';
             html += '<h3 class="text-lg font-bold mb-4 text-purple-900">💰 VENTAS Y CORTESÍAS</h3>';
             html += '<div class="grid grid-cols-4 gap-4 mb-4">';
             html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Vendidas / Disponibles</strong><div class="text-2xl font-bold text-blue-600">' + totalVentasObra + ' / ' + disponible + '</div></div>';
             html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Total Funciones</strong><div class="text-2xl font-bold text-orange-600">' + funciones.length + '</div></div>';
             html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Planeadas</strong><div class="text-2xl font-bold text-yellow-600">' + totalCortesias + '</div></div>';
+            if (esInfantil(obra)) {
+                const totalRinRin = funciones.reduce((sum, f) => sum + getRinRin(obra, f), 0);
+                html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Franja Rin Rin</strong><div class="text-2xl font-bold text-orange-600">' + totalRinRin + '</div></div>';
+            }
             html += '<div class="p-3 bg-white rounded border"><strong class="text-sm">Cortesías Entregadas</strong><div class="text-2xl font-bold text-green-600">' + totalCortesiasEntregadas + '</div></div>';
             html += '</div>';
+
+            // Ocupación real de la sala: ventas + Rin Rin + cortesías.
+            // Solo en obras infantiles, donde las Rin Rin hacen que la ocupación
+            // sea bastante mayor que la venta.
+            if (esInfantil(obra)) {
+                const totalRinRinObra = funciones.reduce((sum, f) => sum + getRinRin(obra, f), 0);
+                const aforoTotal = funciones.length * getAforo(obra);
+                const ocupacion = funciones.reduce((sum, f) => sum + ocupacionFuncion(obra, f), 0);
+                const pctOcupacion = aforoTotal > 0 ? (ocupacion * 100 / aforoTotal) : 0;
+                const pctVenta = disponible > 0 ? (totalVentasObra * 100 / disponible) : 0;
+
+                html += '<div class="bg-white border-2 border-orange-300 rounded p-4">';
+                html += '<h4 class="font-bold text-orange-900 mb-1">🧒 Ocupación de la sala</h4>';
+                html += '<p class="text-xs text-gray-600 mb-3">Las boletas Rin Rin no son venta, pero ocupan silla. Por eso la ocupación es mayor que el porcentaje de venta.</p>';
+                html += '<div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">';
+                html += '<div><div class="text-xs text-gray-600">Boletas vendidas</div><div class="text-xl font-bold text-blue-600">' + totalVentasObra + '</div></div>';
+                html += '<div><div class="text-xs text-gray-600">Franja Rin Rin</div><div class="text-xl font-bold text-orange-600">' + totalRinRinObra + '</div></div>';
+                html += '<div><div class="text-xs text-gray-600">Cortesías</div><div class="text-xl font-bold text-yellow-600">' + totalCortesias + '</div></div>';
+                html += '<div><div class="text-xs text-gray-600">Total ocupación</div><div class="text-xl font-bold text-gray-800">' + ocupacion + ' / ' + aforoTotal + '</div></div>';
+                html += '<div><div class="text-xs text-gray-600">Ocupación</div><div class="text-xl font-bold text-gray-800">' + pctOcupacion.toFixed(2).replace('.', ',') + '%</div></div>';
+                html += '</div>';
+                html += '<p class="text-xs text-gray-600 mt-3">Venta: <strong>' + totalVentasObra + ' de ' + disponible + '</strong> boletas a la venta (' + pctVenta.toFixed(2).replace('.', ',') + '%). El total a la venta ya descuenta cortesías y Rin Rin.</p>';
+                html += '</div>';
+            }
+
             html += '</div>';
             } else {
             const totalRegistrados = funciones.reduce((sum, f) => sum + (f.registrados || 0), 0);
@@ -1606,6 +1669,15 @@
                         cambios.push(formatearFecha(f.fecha) + ' · cortesías entregadas: ' + (f.cortesiasEntregadas || 0) + ' → ' + valor);
                     }
                     f.cortesiasEntregadas = valor;
+                }
+
+                const campoRinRin = document.querySelector('input[data-rinrinacum-' + f.id + ']');
+                if (campoRinRin) {
+                    const valor = parseInt(campoRinRin.value) || 0;
+                    if (valor !== (f.rinRin || 0)) {
+                        cambios.push(formatearFecha(f.fecha) + ' · Rin Rin: ' + (f.rinRin || 0) + ' → ' + valor);
+                    }
+                    f.rinRin = valor;
                 }
             });
 
@@ -2118,23 +2190,40 @@
                 html += '<p class="text-sm text-gray-600">' + obra.artista + ' | ' + sala?.nombre + ' (Aforo: ' + getAforo(obra) + ')</p>';
                 html += '<p class="text-sm font-medium text-blue-700 mt-2">Total vendido: <strong>' + totalVentas + ' boletas</strong></p>';
                 html += '</div>';
-                
+
+                const infantil = esInfantil(obra);
+
                 html += '<div class="overflow-x-auto">';
                 html += '<table class="w-full text-sm">';
                 html += '<thead class="bg-gray-100 border-b"><tr>';
                 html += '<th class="px-4 py-2 text-left">Fecha</th>';
                 html += '<th class="px-4 py-2 text-left">Hora</th>';
                 html += '<th class="px-4 py-2 text-left">Boletas Acumuladas</th>';
+                if (infantil) {
+                    html += '<th class="px-4 py-2 text-left">Rin Rin</th>';
+                    html += '<th class="px-4 py-2 text-left">Cortesías</th>';
+                    html += '<th class="px-4 py-2 text-left">Total ocupación</th>';
+                }
                 html += '<th class="px-4 py-2 text-left">Registro de Hoy</th>';
+                if (infantil) html += '<th class="px-4 py-2 text-left">Rin Rin de Hoy</th>';
                 html += '</tr></thead>';
                 html += '<tbody>';
-                
+
                 funciones.forEach(f => {
                     html += '<tr class="border-b hover:bg-gray-50">';
                     html += '<td class="px-4 py-2">' + formatearFecha(f.fecha) + '</td>';
                     html += '<td class="px-4 py-2">' + formatearHora(f.hora) + '</td>';
                     html += '<td class="px-4 py-2 font-bold">' + (f.ventasAcumuladas || 0) + '</td>';
+                    if (infantil) {
+                        const ocupada = ocupacionFuncion(obra, f);
+                        html += '<td class="px-4 py-2 font-bold text-orange-600">' + getRinRin(obra, f) + '</td>';
+                        html += '<td class="px-4 py-2">' + (f.cortesias || 0) + '</td>';
+                        html += '<td class="px-4 py-2 font-bold">' + ocupada + ' / ' + getAforo(obra) + '</td>';
+                    }
                     html += '<td class="px-4 py-2"><input type="number" class="w-24 px-2 py-1 border rounded text-sm" data-funcion-id="' + f.id + '" value="0" min="0" /></td>';
+                    if (infantil) {
+                        html += '<td class="px-4 py-2"><input type="number" class="w-24 px-2 py-1 border rounded text-sm" data-rinrin-id="' + f.id + '" value="0" min="0" /></td>';
+                    }
                     html += '</tr>';
                 });
                 
@@ -2159,22 +2248,37 @@
             event.preventDefault();
             const inputs = document.querySelectorAll('input[data-funcion-id]');
 
-            // Validar ANTES de guardar nada: no se puede vender más boletas de
-            // las que hay disponibles (aforo - cortesías) en ninguna función.
+            const inputsRinRin = document.querySelectorAll('input[data-rinrin-id]');
+            const rinRinPorFuncion = {};
+            inputsRinRin.forEach(i => {
+                rinRinPorFuncion[i.getAttribute('data-rinrin-id')] = parseInt(i.value) || 0;
+            });
+
+            // Validar ANTES de guardar nada. El disponible descuenta cortesías y,
+            // en obras infantiles, las Rin Rin ya redimidas más las de este corte.
             const errores = [];
             inputs.forEach(input => {
                 const boletas = parseInt(input.value) || 0;
-                if (boletas <= 0) return;
                 const funcionId = input.getAttribute('data-funcion-id');
+                const nuevasRinRin = rinRinPorFuncion[funcionId] || 0;
+                if (boletas <= 0 && nuevasRinRin <= 0) return;
                 const funcion = appState.funciones.find(f => f.id === funcionId);
                 if (!funcion) return;
                 const obra = appState.obras.find(o => o.id === funcion.obraId);
-                const sala = obra ? getSala(obra.salaId) : null;
-                const disponible = Math.max(0, getAforo(obra) - (funcion.cortesias || 0));
+
+                const rinRinTotal = getRinRin(obra, funcion) + (esInfantil(obra) ? nuevasRinRin : 0);
+                const disponible = Math.max(0, getAforo(obra) - (funcion.cortesias || 0) - rinRinTotal);
                 const nuevoTotal = (funcion.ventasAcumuladas || 0) + boletas;
+
                 if (nuevoTotal > disponible) {
                     const maxPermitido = Math.max(0, disponible - (funcion.ventasAcumuladas || 0));
-                    errores.push('"' + (obra?.nombre || 'Obra') + '" (' + formatearFecha(funcion.fecha) + ' ' + funcion.hora + '): intentas registrar ' + boletas + ', pero solo quedan ' + maxPermitido + ' boletas disponibles.');
+                    errores.push('"' + (obra?.nombre || 'Obra') + '" (' + formatearFecha(funcion.fecha) + ' ' + formatearHora(funcion.hora) + '): intentas registrar ' + boletas + ', pero solo quedan ' + maxPermitido + ' boletas disponibles.');
+                }
+
+                // Cada Rin Rin la redime un adulto que compró, así que nunca pueden
+                // ser más que las boletas vendidas.
+                if (esInfantil(obra) && rinRinTotal > nuevoTotal) {
+                    errores.push('"' + (obra?.nombre || 'Obra') + '" (' + formatearFecha(funcion.fecha) + '): quedarían ' + rinRinTotal + ' boletas Rin Rin para ' + nuevoTotal + ' vendidas. Cada Rin Rin la redime un adulto que compró.');
                 }
             });
 
@@ -2196,7 +2300,7 @@
                         
                         // Registrar venta diaria
                         if (!funcion.ventasPorDia) funcion.ventasPorDia = [];
-                        const hoy = new Date().toISOString().split('T')[0];
+                        const hoy = fechaParaArchivo();
                         funcion.ventasPorDia.push({ fecha: hoy, boletas: boletas });
                         
                         registrarHistorial({
@@ -2211,7 +2315,32 @@
                     }
                 }
             });
-            
+
+            // Rin Rin del día (solo obras infantiles)
+            inputsRinRin.forEach(input => {
+                const funcionId = input.getAttribute('data-rinrin-id');
+                const cantidad = parseInt(input.value) || 0;
+                if (cantidad <= 0) return;
+                const funcion = appState.funciones.find(f => f.id === funcionId);
+                if (!funcion) return;
+                const obra = appState.obras.find(o => o.id === funcion.obraId);
+                if (!esInfantil(obra)) return;
+
+                funcion.rinRin = (funcion.rinRin || 0) + cantidad;
+                if (!funcion.rinRinPorDia) funcion.rinRinPorDia = [];
+                funcion.rinRinPorDia.push({ fecha: fechaParaArchivo(), boletas: cantidad });
+
+                registrarHistorial({
+                    obraId: funcion.obraId,
+                    funcionId: funcionId,
+                    accion: 'Registro de Franja Rin Rin',
+                    detalles: 'Rin Rin: +' + cantidad + ' (acumulado: ' + funcion.rinRin + ') — función ' + formatearFecha(funcion.fecha) + ' ' + formatearHora(funcion.hora)
+                });
+
+                guardadas++;
+                input.value = '0';
+            });
+
             if (guardadas > 0) {
                 saveData();
                 alert('✅ ' + guardadas + ' función(es) actualizada(s)');
@@ -2905,7 +3034,7 @@
 
         // Cambia con cada despliegue: sirve para confirmar si el navegador tiene
         // la versión nueva o una guardada en caché.
-        const VERSION_APP = '2026-09-15c';
+        const VERSION_APP = '2026-09-16a';
 
         function renderMiCuenta() {
             let html = '<div class="min-h-screen bg-gray-50 md:pl-64">' + renderHeader() + renderNav();
@@ -3065,7 +3194,7 @@
             { hoja: 'historial', tabla: 'boleteria_historial' },
             { hoja: 'usuarios', tabla: 'boleteria_usuarios' }
         ];
-        const COLUMNAS_JSON_BACKUP = ['ventas_por_dia', 'registros_por_dia'];
+        const COLUMNAS_JSON_BACKUP = ['ventas_por_dia', 'registros_por_dia', 'rin_rin_por_dia'];
 
         function filasBackup() {
             return {
@@ -4128,7 +4257,7 @@
                     const sala = getSala(obra.salaId);
                     const funciones = getFuncionesObra(obra.id);
                     const totalVentas = funciones.reduce((sum, f) => sum + (f.ventasAcumuladas || 0), 0);
-                    const totalDisponible = funciones.reduce((sum, f) => sum + Math.max(0, getAforo(obra) - (f.cortesias || 0)), 0);
+                    const totalDisponible = funciones.reduce((sum, f) => sum + boletasAVender(obra, f), 0);
                     const pct = totalDisponible > 0 ? Math.round((totalVentas / totalDisponible) * 100) : 0;
                     return { nombre: obra.nombre, pct };
                 }).sort((a, b) => b.pct - a.pct);
@@ -4360,7 +4489,7 @@
                     let numerador, denominador;
                     if (obra.tipo === 'boleteria') {
                         numerador = f.ventasAcumuladas || 0;
-                        denominador = Math.max(1, getAforo(obra) - (f.cortesias || 0));
+                        denominador = Math.max(1, boletasAVender(obra, f));
                     } else {
                         numerador = f.registrados || 0;
                         denominador = getAforo(obra);
@@ -4529,7 +4658,7 @@
                 getFuncionesObra(obra.id).forEach(f => {
                     if (obra.tipo === 'boleteria') {
                         ventas += f.ventasAcumuladas || 0;
-                        disponibleB += Math.max(0, getAforo(obra) - (f.cortesias || 0));
+                        disponibleB += boletasAVender(obra, f);
                     } else {
                         registrados += f.registrados || 0;
                         aforoE += getAforo(obra);

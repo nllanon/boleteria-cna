@@ -36,7 +36,7 @@ TABLAS = [
 ]
 
 # Columnas que guardan arreglos JSON: se serializan como texto, igual que en la app
-COLUMNAS_JSON = ["ventas_por_dia", "registros_por_dia"]
+COLUMNAS_JSON = ["ventas_por_dia", "registros_por_dia", "rin_rin_por_dia"]
 
 DIAS_A_CONSERVAR = 30
 CARPETA_BACKUPS = Path("backups")
